@@ -1,4 +1,4 @@
-package com.example.bigproject;
+package com.aivle0102.bigproject;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
