@@ -1,0 +1,42 @@
+spring:
+  application:
+    name: bp
+  
+  # PostgreSQL 데이터베이스 연결 설정 (Docker 컨테이너)
+  datasource:
+    url: jdbc:postgresql://localhost:5432/bigproject_db
+    username: bigproject_user
+    password: Bp@Secure2026!Xk9
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: 10
+      minimum-idle: 5
+      connection-timeout: 30000
+  
+  # JPA/Hibernate 설정
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+    open-in-view: false
+
+# 서버 설정
+server:
+  port: 8080
+
+# 로깅 설정 (디버깅용)
+logging:
+  level:
+    root: INFO
+    org.hibernate.SQL: DEBUG
+    org.hibernate.type.descriptor.sql: TRACE
+    org.springframework.security: DEBUG
+    com.example.demo: DEBUG
+
+jwt:
+  secret: VlwEyVlpkZpEQKyJZRowCnmZ4szjqZJ0mFCny2vzn0yDgKLfDqL0whrS4aAgD8p5 # 32byte 이상 임의 문자열
+  expiration: 86400000 # 24시간 (1000 * 60 * 60 * 24)

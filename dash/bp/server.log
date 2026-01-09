@@ -1,0 +1,129 @@
+> Task :compileJava UP-TO-DATE
+> Task :processResources
+> Task :classes
+> Task :resolveMainClassName
+
+> Task :bootRun
+
+  .   ____          _            __ _ _
+ /\\ / ___'_ __ _ _(_)_ __  __ _ \ \ \ \
+( ( )\___ | '_ | '_| | '_ \/ _` | \ \ \ \
+ \\/  ___)| |_)| | | | | || (_| |  ) ) ) )
+  '  |____| .__|_| |_|_| |_\__, | / / / /
+ =========|_|==============|___/=/_/_/_/
+ :: Spring Boot ::                (v3.2.5)
+
+2026-01-08T17:40:07.199+09:00  INFO 42788 --- [bp] [  restartedMain] com.example.demo.BpApplication           : Starting BpApplication using Java 17.0.12 with PID 42788 (C:\Users\sksg2\Desktop\bigproject\bp\build\classes\java\main started by sksg2 in C:\Users\sksg2\Desktop\bigproject\bp)
+2026-01-08T17:40:07.201+09:00 DEBUG 42788 --- [bp] [  restartedMain] com.example.demo.BpApplication           : Running with Spring Boot v3.2.5, Spring v6.1.6
+2026-01-08T17:40:07.202+09:00  INFO 42788 --- [bp] [  restartedMain] com.example.demo.BpApplication           : No active profile set, falling back to 1 default profile: "default"
+2026-01-08T17:40:07.260+09:00  INFO 42788 --- [bp] [  restartedMain] .e.DevToolsPropertyDefaultsPostProcessor : Devtools property defaults active! Set 'spring.devtools.add-properties' to 'false' to disable
+2026-01-08T17:40:07.261+09:00  INFO 42788 --- [bp] [  restartedMain] .e.DevToolsPropertyDefaultsPostProcessor : For additional web related logging consider setting the 'logging.level.web' property to 'DEBUG'
+2026-01-08T17:40:08.251+09:00  INFO 42788 --- [bp] [  restartedMain] .s.d.r.c.RepositoryConfigurationDelegate : Bootstrapping Spring Data JPA repositories in DEFAULT mode.
+2026-01-08T17:40:08.363+09:00  INFO 42788 --- [bp] [  restartedMain] .s.d.r.c.RepositoryConfigurationDelegate : Finished Spring Data repository scanning in 95 ms. Found 1 JPA repository interface.
+2026-01-08T17:40:09.405+09:00  INFO 42788 --- [bp] [  restartedMain] o.s.b.w.embedded.tomcat.TomcatWebServer  : Tomcat initialized with port 8080 (http)
+2026-01-08T17:40:09.424+09:00  INFO 42788 --- [bp] [  restartedMain] o.apache.catalina.core.StandardService   : Starting service [Tomcat]
+2026-01-08T17:40:09.424+09:00  INFO 42788 --- [bp] [  restartedMain] o.apache.catalina.core.StandardEngine    : Starting Servlet engine: [Apache Tomcat/10.1.20]
+2026-01-08T17:40:09.518+09:00  INFO 42788 --- [bp] [  restartedMain] o.a.c.c.C.[Tomcat].[localhost].[/]       : Initializing Spring embedded WebApplicationContext
+2026-01-08T17:40:09.518+09:00  INFO 42788 --- [bp] [  restartedMain] w.s.c.ServletWebServerApplicationContext : Root WebApplicationContext: initialization completed in 2257 ms
+2026-01-08T17:40:09.776+09:00  INFO 42788 --- [bp] [  restartedMain] o.hibernate.jpa.internal.util.LogHelper  : HHH000204: Processing PersistenceUnitInfo [name: default]
+2026-01-08T17:40:09.886+09:00  INFO 42788 --- [bp] [  restartedMain] org.hibernate.Version                    : HHH000412: Hibernate ORM core version 6.4.4.Final
+2026-01-08T17:40:09.941+09:00  INFO 42788 --- [bp] [  restartedMain] o.h.c.internal.RegionFactoryInitiator    : HHH000026: Second-level cache disabled
+2026-01-08T17:40:10.272+09:00  INFO 42788 --- [bp] [  restartedMain] o.s.o.j.p.SpringPersistenceUnitInfo      : No LoadTimeWeaver setup: ignoring JPA class transformer
+2026-01-08T17:40:10.314+09:00  INFO 42788 --- [bp] [  restartedMain] com.zaxxer.hikari.HikariDataSource       : HikariPool-1 - Starting...
+2026-01-08T17:40:10.497+09:00  INFO 42788 --- [bp] [  restartedMain] com.zaxxer.hikari.pool.HikariPool        : HikariPool-1 - Added connection org.postgresql.jdbc.PgConnection@1262d6a2
+2026-01-08T17:40:10.500+09:00  INFO 42788 --- [bp] [  restartedMain] com.zaxxer.hikari.HikariDataSource       : HikariPool-1 - Start completed.
+2026-01-08T17:40:10.545+09:00  WARN 42788 --- [bp] [  restartedMain] org.hibernate.orm.deprecation            : HHH90000025: PostgreSQLDialect does not need to be specified explicitly using 'hibernate.dialect' (remove the property setting and it will be selected by default)
+2026-01-08T17:40:10.579+09:00 DEBUG 42788 --- [bp] [  restartedMain] o.h.t.d.sql.spi.DdlTypeRegistry          : addDescriptor(2003, org.hibernate.type.descriptor.sql.internal.ArrayDdlTypeImpl@2f4cbf8b) replaced previous registration(org.hibernate.type.descriptor.sql.internal.ArrayDdlTypeImpl@777f7591)
+2026-01-08T17:40:10.581+09:00 DEBUG 42788 --- [bp] [  restartedMain] o.h.t.d.sql.spi.DdlTypeRegistry          : addDescriptor(6, org.hibernate.type.descriptor.sql.internal.CapacityDependentDdlType@a37da4b) replaced previous registration(org.hibernate.type.descriptor.sql.internal.DdlTypeImpl@341ecec9)
+2026-01-08T17:40:11.807+09:00  INFO 42788 --- [bp] [  restartedMain] o.h.e.t.j.p.i.JtaPlatformInitiator       : HHH000489: No JTA platform available (set 'hibernate.transaction.jta.platform' to enable JTA platform integration)
+2026-01-08T17:40:11.880+09:00  INFO 42788 --- [bp] [  restartedMain] j.LocalContainerEntityManagerFactoryBean : Initialized JPA EntityManagerFactory for persistence unit 'default'
+2026-01-08T17:40:12.367+09:00  WARN 42788 --- [bp] [  restartedMain] .s.s.UserDetailsServiceAutoConfiguration : 
+
+Using generated security password: f071342f-8009-4cae-967b-7b06f388039f
+
+This generated password is for development use only. Your security configuration must be updated before running your application in production.
+
+2026-01-08T17:40:12.675+09:00  INFO 42788 --- [bp] [  restartedMain] o.s.s.web.DefaultSecurityFilterChain     : Will secure any request with [org.springframework.security.web.session.DisableEncodeUrlFilter@1f778173, org.springframework.security.web.context.request.async.WebAsyncManagerIntegrationFilter@375525d1, org.springframework.security.web.context.SecurityContextHolderFilter@31ad3860, org.springframework.security.web.header.HeaderWriterFilter@10bf4c2f, org.springframework.web.filter.CorsFilter@621b8b34, org.springframework.security.web.authentication.logout.LogoutFilter@6c543db1, org.springframework.security.web.savedrequest.RequestCacheAwareFilter@7693bddb, org.springframework.security.web.servletapi.SecurityContextHolderAwareRequestFilter@18464c3d, org.springframework.security.web.authentication.AnonymousAuthenticationFilter@633b2c67, org.springframework.security.web.access.ExceptionTranslationFilter@1158dbb9, org.springframework.security.web.access.intercept.AuthorizationFilter@2521b571]
+2026-01-08T17:40:12.943+09:00  INFO 42788 --- [bp] [  restartedMain] o.s.b.d.a.OptionalLiveReloadServer       : LiveReload server is running on port 35729
+2026-01-08T17:40:12.995+09:00  INFO 42788 --- [bp] [  restartedMain] o.s.b.w.embedded.tomcat.TomcatWebServer  : Tomcat started on port 8080 (http) with context path ''
+2026-01-08T17:40:13.004+09:00  INFO 42788 --- [bp] [  restartedMain] com.example.demo.BpApplication           : Started BpApplication in 6.34 seconds (process running for 7.082)
+2026-01-08T17:41:04.225+09:00  INFO 42788 --- [bp] [nio-8080-exec-1] o.a.c.c.C.[Tomcat].[localhost].[/]       : Initializing Spring DispatcherServlet 'dispatcherServlet'
+2026-01-08T17:41:04.226+09:00  INFO 42788 --- [bp] [nio-8080-exec-1] o.s.web.servlet.DispatcherServlet        : Initializing Servlet 'dispatcherServlet'
+2026-01-08T17:41:04.227+09:00  INFO 42788 --- [bp] [nio-8080-exec-1] o.s.web.servlet.DispatcherServlet        : Completed initialization in 1 ms
+2026-01-08T17:41:04.253+09:00 DEBUG 42788 --- [bp] [nio-8080-exec-1] o.s.security.web.FilterChainProxy        : Securing POST /api/auth/join
+2026-01-08T17:41:04.265+09:00 DEBUG 42788 --- [bp] [nio-8080-exec-1] o.s.security.web.FilterChainProxy        : Secured POST /api/auth/join
+2026-01-08T17:41:04.446+09:00  WARN 42788 --- [bp] [nio-8080-exec-1] .m.m.a.ExceptionHandlerExceptionResolver : Resolved [org.springframework.http.converter.HttpMessageNotReadableException: JSON parse error: Invalid UTF-8 middle byte 0xd7]
+2026-01-08T17:41:04.449+09:00 DEBUG 42788 --- [bp] [nio-8080-exec-1] o.s.s.w.a.AnonymousAuthenticationFilter  : Set SecurityContextHolder to anonymous SecurityContext
+2026-01-08T17:41:45.620+09:00 DEBUG 42788 --- [bp] [nio-8080-exec-2] o.s.security.web.FilterChainProxy        : Securing POST /api/auth/join
+2026-01-08T17:41:45.621+09:00 DEBUG 42788 --- [bp] [nio-8080-exec-2] o.s.security.web.FilterChainProxy        : Secured POST /api/auth/join
+2026-01-08T17:41:45.838+09:00 DEBUG 42788 --- [bp] [nio-8080-exec-2] org.hibernate.SQL                        : 
+    select
+        ui1_0.userseq 
+    from
+        userinfo ui1_0 
+    where
+        ui1_0.userid=? 
+    fetch
+        first ? rows only
+Hibernate: 
+    select
+        ui1_0.userseq 
+    from
+        userinfo ui1_0 
+    where
+        ui1_0.userid=? 
+    fetch
+        first ? rows only
+2026-01-08T17:41:45.956+09:00 DEBUG 42788 --- [bp] [nio-8080-exec-2] org.hibernate.SQL                        : 
+    insert 
+    into
+        userinfo
+        (joindate, salt, userid, username, userpwhash, userstate) 
+    values
+        (?, ?, ?, ?, ?, ?)
+Hibernate: 
+    insert 
+    into
+        userinfo
+        (joindate, salt, userid, username, userpwhash, userstate) 
+    values
+        (?, ?, ?, ?, ?, ?)
+2026-01-08T17:41:45.996+09:00 DEBUG 42788 --- [bp] [nio-8080-exec-2] o.s.s.w.a.AnonymousAuthenticationFilter  : Set SecurityContextHolder to anonymous SecurityContext
+2026-01-08T17:42:03.573+09:00 DEBUG 42788 --- [bp] [nio-8080-exec-3] o.s.security.web.FilterChainProxy        : Securing POST /api/auth/login
+2026-01-08T17:42:03.573+09:00 DEBUG 42788 --- [bp] [nio-8080-exec-3] o.s.security.web.FilterChainProxy        : Secured POST /api/auth/login
+2026-01-08T17:42:03.699+09:00 DEBUG 42788 --- [bp] [nio-8080-exec-3] org.hibernate.SQL                        : 
+    select
+        ui1_0.userseq,
+        ui1_0.joindate,
+        ui1_0.salt,
+        ui1_0.userid,
+        ui1_0.username,
+        ui1_0.userpwhash,
+        ui1_0.userstate 
+    from
+        userinfo ui1_0 
+    where
+        ui1_0.userid=? 
+        and ui1_0.userstate=?
+Hibernate: 
+    select
+        ui1_0.userseq,
+        ui1_0.joindate,
+        ui1_0.salt,
+        ui1_0.userid,
+        ui1_0.username,
+        ui1_0.userpwhash,
+        ui1_0.userstate 
+    from
+        userinfo ui1_0 
+    where
+        ui1_0.userid=? 
+        and ui1_0.userstate=?
+2026-01-08T17:42:03.796+09:00 DEBUG 42788 --- [bp] [nio-8080-exec-3] o.s.s.w.a.AnonymousAuthenticationFilter  : Set SecurityContextHolder to anonymous SecurityContext
+2026-01-08T17:42:38.517+09:00 DEBUG 42788 --- [bp] [nio-8080-exec-5] o.s.security.web.FilterChainProxy        : Securing GET /api/user/me
+2026-01-08T17:42:38.518+09:00 DEBUG 42788 --- [bp] [nio-8080-exec-5] o.s.s.w.a.AnonymousAuthenticationFilter  : Set SecurityContextHolder to anonymous SecurityContext
+2026-01-08T17:42:38.523+09:00 DEBUG 42788 --- [bp] [nio-8080-exec-5] o.s.s.w.s.HttpSessionRequestCache        : Saved request http://localhost:8080/api/user/me?continue to session
+2026-01-08T17:42:38.523+09:00 DEBUG 42788 --- [bp] [nio-8080-exec-5] o.s.s.w.a.Http403ForbiddenEntryPoint     : Pre-authenticated entry point called. Rejecting access
+2026-01-08T17:42:38.533+09:00 DEBUG 42788 --- [bp] [nio-8080-exec-5] o.s.security.web.FilterChainProxy        : Securing GET /error
+2026-01-08T17:42:38.534+09:00 DEBUG 42788 --- [bp] [nio-8080-exec-5] o.s.security.web.FilterChainProxy        : Secured GET /error
+2026-01-08T17:42:38.551+09:00 DEBUG 42788 --- [bp] [nio-8080-exec-5] o.s.s.w.a.AnonymousAuthenticationFilter  : Set SecurityContextHolder to anonymous SecurityContext

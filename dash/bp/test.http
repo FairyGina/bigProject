@@ -1,0 +1,46 @@
+### BigProject Auth API 테스트
+
+### 헬스 체크
+GET http://localhost:8080/api/health
+Content-Type: application/json
+
+###
+
+### 회원가입
+POST http://localhost:8080/api/auth/join
+Content-Type: application/json
+
+{
+  "userId": "testuser",
+  "password": "Test1234!",
+  "userName": "테스트유저"
+}
+
+###
+
+### 로그인
+POST http://localhost:8080/api/auth/login
+Content-Type: application/json
+
+{
+  "userId": "testuser",
+  "password": "Test1234!"
+}
+
+###
+
+### 현재 사용자 정보 조회 (로그인 후 쿠키 필요)
+GET http://localhost:8080/api/user/me
+Content-Type: application/json
+
+###
+
+### 로그아웃
+POST http://localhost:8080/api/auth/logout
+Content-Type: application/json
+
+###
+
+### 회원 탈퇴 (Soft Delete) - 로그인 후 쿠키 필요
+DELETE http://localhost:8080/api/auth/withdraw
+Content-Type: application/json

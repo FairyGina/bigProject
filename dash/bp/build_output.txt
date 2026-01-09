@@ -1,0 +1,7 @@
+> Task :clean
+> Task :compileJava
+> Task :processResources
+> Task :classes
+> Task :resolveMainClassName
+> Task :bootJar FAILED
+5 actionable tasks: 5 executed
