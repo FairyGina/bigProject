@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
-import { ArrowRight } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 
 // 메인 랜딩 페이지
-const LandingPage = ({ setView }) => {
+const LandingPage = () => {
+    const navigate = useNavigate();
     const bookRef = useRef(null);
     const [rotation, setRotation] = useState({ x: 0, y: 0 });
 
@@ -63,8 +64,8 @@ const LandingPage = ({ setView }) => {
             <nav className="fixed top-0 w-full flex justify-between items-center px-12 py-8 z-50">
                 <div className="text-2xl font-bold tracking-tighter">Hello World!</div>
                 <div className="flex gap-8 items-center text-sm font-medium text-gray-400">
-                    <button onClick={() => setView('login')} className="hover:text-white transition">Login</button>
-                    <button onClick={() => setView('signup')} className="bg-white text-black px-6 py-2.5 rounded-full font-bold hover:scale-105 transition">Get Started</button>
+                    <button onClick={() => navigate('/login')} className="hover:text-white transition">Login</button>
+                    <button onClick={() => navigate('/signup')} className="bg-white text-black px-6 py-2.5 rounded-full font-bold hover:scale-105 transition">Get Started</button>
                 </div>
             </nav>
 

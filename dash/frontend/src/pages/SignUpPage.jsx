@@ -1,18 +1,20 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { X } from 'lucide-react';
-import GlassCard from '../components/GlassCard';
+import { useNavigate } from 'react-router-dom';
+import GlassCard from '../components/common/GlassCard';
 
 // 회원가입 페이지
-const SignUpPage = ({ setView }) => {
-    const [formData, setFormData] = React.useState({
+const SignUpPage = () => {
+    const navigate = useNavigate();
+    const [formData, setFormData] = useState({
         userName: '',
         birthDate: '',
         userId: '',
         password: '',
         confirmPassword: ''
     });
-    const [error, setError] = React.useState('');
+    const [error, setError] = useState('');
 
     const handleChange = (e) => {
         setFormData({
@@ -50,7 +52,7 @@ const SignUpPage = ({ setView }) => {
 
             if (response.ok) {
                 alert('회원가입이 완료되었습니다! 로그인해주세요.');
-                setView('main'); // 로그인 화면(Main)으로 이동
+                navigate('/login'); // 회원가입 후 로그인 페이지로 이동
             } else {
                 const errorData = await response.json();
                 setError(errorData.message || '회원가입에 실패했습니다.');
@@ -69,7 +71,7 @@ const SignUpPage = ({ setView }) => {
             <GlassCard className="w-full max-w-lg p-12 relative">
                 {/* X 닫기 버튼 */}
                 <button
-                    onClick={() => setView('main')}
+                    onClick={() => navigate('/')}
                     className="absolute top-6 right-6 w-10 h-10 flex items-center justify-center rounded-full bg-white/10 hover:bg-white/20 transition text-gray-400 hover:text-white"
                 >
                     <X size={20} />

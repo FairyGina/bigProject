@@ -1,14 +1,18 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Mail, Lock, X } from 'lucide-react';
-import GlassCard from '../components/GlassCard';
+import { useNavigate } from 'react-router-dom';
+import GlassCard from '../components/common/GlassCard';
+import { useAuth } from '../context/AuthContext';
 import axiosInstance from '../axiosConfig';
 
 // 로그인 페이지
-const LoginPage = ({ setView }) => {
-    const [userId, setUserId] = React.useState('');
-    const [password, setPassword] = React.useState('');
-    const [error, setError] = React.useState('');
+const LoginPage = () => {
+    const navigate = useNavigate();
+    const { login } = useAuth();
+    const [userId, setUserId] = useState('');
+    const [password, setPassword] = useState('');
+    const [error, setError] = useState('');
 
     const handleLogin = async () => {
         setError('');
@@ -20,15 +24,13 @@ const LoginPage = ({ setView }) => {
             const data = response.data;
             console.log('Login success:', data);
 
-            // 토큰 및 사용자 이름 저장
+            // 토큰 및 사용자 이름 저장 (AuthContext 사용)
             if (data.accessToken) {
-                localStorage.setItem('accessToken', data.accessToken);
-            }
-            if (data.userName) {
-                localStorage.setItem('userName', data.userName);
+                // AuthContext의 login 함수 호출하여 상태 업데이트
+                login(data.accessToken, { userName: data.userName });
             }
 
-            setView('dashboard');
+            navigate('/dashboard');
         } catch (err) {
             console.error('Login error:', err);
             // 에러 메시지 처리
@@ -48,7 +50,7 @@ const LoginPage = ({ setView }) => {
             <GlassCard className="w-full max-w-md p-12 relative">
                 {/* X 닫기 버튼 */}
                 <button
-                    onClick={() => setView('main')}
+                    onClick={() => navigate('/')}
                     className="absolute top-6 right-6 w-10 h-10 flex items-center justify-center rounded-full bg-white/10 hover:bg-white/20 transition text-gray-400 hover:text-white"
                 >
                     <X size={20} />
@@ -92,7 +94,7 @@ const LoginPage = ({ setView }) => {
                     </button>
                 </div>
                 <p className="mt-8 text-center text-gray-500">
-                    계정이 없으신가요? <button onClick={() => setView('signup')} className="text-white font-semibold underline underline-offset-4 ml-1">회원가입</button>
+                    계정이 없으신가요? <button onClick={() => navigate('/signup')} className="text-white font-semibold underline underline-offset-4 ml-1">회원가입</button>
                 </p>
             </GlassCard>
         </motion.div>
