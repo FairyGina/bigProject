@@ -12,4 +12,6 @@ public interface UserInfoRepository extends JpaRepository<UserInfo, Integer> {
 
     // 회원가입 시 중복 체크
     boolean existsByUserId(String userId);
+
+    Optional<UserInfo> findByUserIdAndUserState(String userId, String userState);
 }
