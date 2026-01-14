@@ -41,4 +41,8 @@ public class UserInfo {
 
     @Column(name = "joindate", nullable = false, updatable = false)
     private LocalDateTime joinDate;
+
+    public void setUserState(String userState) {
+        this.userState = userState;
+    }
 }
