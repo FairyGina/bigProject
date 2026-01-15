@@ -1,6 +1,7 @@
 package com.aivle0102.bigproject.service;
 
 import com.aivle0102.bigproject.dto.LoginRequest;
+import com.aivle0102.bigproject.dto.ResetPasswordRequest;
 import com.aivle0102.bigproject.dto.SignUpRequest;
 import com.aivle0102.bigproject.dto.UserResponse;
 import com.aivle0102.bigproject.domain.UserInfo;
@@ -81,6 +82,42 @@ public class AuthService {
 
     public void logout() {
         // No server-side state to clear.
+    }
+
+    @Transactional
+    public void resetPassword(ResetPasswordRequest request) {
+        log.debug("Attempting to reset password for userId: {}", request.getUserId());
+
+        if (!request.getNewPassword().equals(request.getConfirmPassword())) {
+            throw new CustomException("Passwords do not match", HttpStatus.BAD_REQUEST, "PASSWORD_MISMATCH");
+        }
+
+        String passwordPattern = "^(?=.*[A-Za-z])(?=.*\\d)(?=.*[@$!%*#?&])[A-Za-z\\d@$!%*#?&]{8,}$";
+        if (!request.getNewPassword().matches(passwordPattern)) {
+            throw new CustomException("Password policy not satisfied", HttpStatus.BAD_REQUEST, "INVALID_PASSWORD_POLICY");
+        }
+
+        boolean nameExists = userInfoRepository.findByUserNameAndUserState(request.getUserName(), "1").isPresent();
+        if (!nameExists) {
+            throw new CustomException("가입된 이름이 없습니다.", HttpStatus.BAD_REQUEST, "USER_NAME_NOT_FOUND");
+        }
+
+        UserInfo userInfo = userInfoRepository.findByUserIdAndUserNameAndUserState(
+                request.getUserId(),
+                request.getUserName(),
+                "1"
+        ).orElseThrow(() -> new CustomException("이메일을 정확하게 입력해 주세요.", HttpStatus.BAD_REQUEST, "USER_EMAIL_MISMATCH"));
+
+        if (passwordEncoder.matches(request.getNewPassword(), userInfo.getUserPwHash())) {
+            throw new CustomException("이전 비밀번호와 같으니 다른 비밀번호를 입력해 주세요.", HttpStatus.BAD_REQUEST, "PASSWORD_SAME_AS_BEFORE");
+        }
+
+        String hashedPassword = passwordEncoder.encode(request.getNewPassword());
+        String salt = hashedPassword.substring(0, 29);
+        userInfo.setUserPw(hashedPassword);
+        userInfo.setUserPwHash(hashedPassword);
+        userInfo.setSalt(salt);
+        userInfoRepository.save(userInfo);
     }
 
     @Transactional

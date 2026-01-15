@@ -1,6 +1,7 @@
 package com.aivle0102.bigproject.controller;
 
 import com.aivle0102.bigproject.dto.LoginRequest;
+import com.aivle0102.bigproject.dto.ResetPasswordRequest;
 import com.aivle0102.bigproject.dto.SignUpRequest;
 import com.aivle0102.bigproject.dto.UserResponse;
 import com.aivle0102.bigproject.service.AuthService;
@@ -36,6 +37,12 @@ public class AuthController {
     public ResponseEntity<Map<String, String>> logout() {
         authService.logout();
         return ResponseEntity.ok(Map.of("message", "Logged out"));
+    }
+
+    @PostMapping("/auth/reset-password")
+    public ResponseEntity<Map<String, String>> resetPassword(@Valid @RequestBody ResetPasswordRequest request) {
+        authService.resetPassword(request);
+        return ResponseEntity.ok(Map.of("message", "Password updated"));
     }
 
     @DeleteMapping("/auth/withdraw")

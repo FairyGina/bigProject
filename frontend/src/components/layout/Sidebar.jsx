@@ -1,119 +1,159 @@
-import React, { useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { LayoutDashboard, Users, Activity, FileText, Settings, ChevronDown, ChevronRight, LogOut } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
-import GlassCard from '../common/GlassCard';
+import React from 'react';
+import { ChevronDown, ChevronRight, LogOut } from 'lucide-react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 
 const menuItems = [
-    {
-        title: 'Sample 1',
-        icon: LayoutDashboard,
-        subItems: ['Sample 1-1', 'Sample 1-2'],
-    },
-    {
-        title: 'Sample 2',
-        icon: Users,
-        subItems: ['Sample 2-1', 'Sample 2-2'],
-    },
-    {
-        title: 'Sample 3',
-        icon: Activity,
-        subItems: ['Sample 3-1', 'Sample 3-2'],
-    },
-    {
-        title: 'Sample 4',
-        icon: FileText,
-        subItems: ['Sample 4-1', 'Sample 4-2'],
-    },
-    {
-        title: 'Setting',
-        icon: Settings,
-        subItems: ['내 정보 수정'],
-    },
+    { title: '공지사항', path: '/mainboard/notice' },
+    { title: '레시피 허브', path: '/mainboard' },
 ];
 
 const Sidebar = () => {
     const navigate = useNavigate();
+    const location = useLocation();
     const { logout } = useAuth();
-    const [openMenu, setOpenMenu] = useState('Sample 1');
+    const userHubActive = location.pathname.startsWith('/mainboard/user-hub');
+    const createActive = location.pathname.startsWith('/mainboard/create');
+    const [userHubOpen, setUserHubOpen] = React.useState(userHubActive);
+    const [createOpen, setCreateOpen] = React.useState(createActive);
 
-    const toggleMenu = (title) => {
-        setOpenMenu(openMenu === title ? null : title);
+    React.useEffect(() => {
+        if (userHubActive) {
+            setUserHubOpen(true);
+        }
+        if (createActive) {
+            setCreateOpen(true);
+        }
+    }, [userHubActive, createActive]);
+
+    const isActive = (path) => {
+        if (!path) {
+            return false;
+        }
+        if (path === '/mainboard') {
+            return location.pathname === '/mainboard' || location.pathname === '/mainboard/';
+        }
+        return location.pathname.startsWith(path);
     };
 
     const handleLogout = () => {
-        if (window.confirm("로그아웃 하시겠습니까?")) {
+        if (window.confirm('로그아웃 하시겠습니까?')) {
             logout();
             navigate('/');
         }
     };
 
     return (
-        <aside className="w-72 hidden lg:flex flex-col h-screen fixed left-0 top-0 p-6 z-50">
-            <GlassCard className="flex-1 p-6 flex flex-col rounded-[2rem] overflow-hidden">
-                <div className="flex items-center gap-3 mb-8 px-2">
-                    <div className="w-10 h-10 bg-gradient-to-tr from-blue-500 to-purple-500 rounded-xl shadow-lg shadow-blue-500/20" />
-                    <span className="font-bold text-xl tracking-tighter text-white">OS UI</span>
+        <aside className="w-full md:w-64 md:h-screen md:sticky md:top-0 bg-[color:var(--sidebar-bg)] border-r border-[color:var(--sidebar-border)]">
+            <div className="h-full p-6 flex flex-col gap-8">
+                <div className="space-y-2">
+                    <p className="text-xs uppercase tracking-[0.3em] text-[color:var(--text-soft)]">프로그램명</p>
+                    <div className="h-px bg-[color:var(--border-strong)]" />
                 </div>
 
-                <nav className="flex-1 overflow-y-auto space-y-2 pr-2 custom-scrollbar">
-                    {menuItems.map((item) => (
-                        <div key={item.title} className="flex flex-col">
+                <nav className="space-y-2">
+                    {menuItems.map((item) => {
+                        const active = isActive(item.path);
+                        return (
                             <button
-                                onClick={() => toggleMenu(item.title)}
-                                className={`flex items-center justify-between w-full p-3 rounded-xl transition-all duration-200 ${openMenu === item.title
-                                    ? 'bg-blue-600/20 text-white'
-                                    : 'text-gray-400 hover:text-white hover:bg-white/5'
+                                key={item.title}
+                                type="button"
+                                onClick={() => navigate(item.path)}
+                                className={`w-full text-left px-4 py-3 rounded-xl transition ${active
+                                    ? 'bg-[color:var(--surface)] shadow-[0_10px_30px_var(--shadow)] text-[color:var(--text)]'
+                                    : 'text-[color:var(--text-muted)] hover:bg-[color:var(--surface-muted)] hover:text-[color:var(--text)]'
                                     }`}
                             >
-                                <div className="flex items-center gap-3">
-                                    <item.icon size={20} />
-                                    <span className="font-medium text-sm">{item.title}</span>
-                                </div>
-                                {openMenu === item.title ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+                                <span className="text-sm font-semibold">{item.title}</span>
                             </button>
-
-                            <AnimatePresence>
-                                {openMenu === item.title && (
-                                    <motion.div
-                                        initial={{ height: 0, opacity: 0 }}
-                                        animate={{ height: 'auto', opacity: 1 }}
-                                        exit={{ height: 0, opacity: 0 }}
-                                        className="overflow-hidden"
-                                    >
-                                        <div className="pl-10 py-1 space-y-1">
-                                            {item.subItems.map((sub) => (
-                                                <div
-                                                    key={sub}
-                                                    onClick={() => {
-                                                        if (sub === '내 정보 수정') {
-                                                            navigate('/dashboard/settings/password-check');
-                                                        }
-                                                    }}
-                                                    className="p-2 text-sm text-gray-500 hover:text-white cursor-pointer rounded-lg hover:bg-white/5 transition"
-                                                >
-                                                    {sub}
-                                                </div>
-                                            ))}
-                                        </div>
-                                    </motion.div>
-                                )}
-                            </AnimatePresence>
+                        );
+                    })}
+                    <button
+                        type="button"
+                        onClick={() => setUserHubOpen((prev) => !prev)}
+                        className={`w-full text-left px-4 py-3 rounded-xl transition ${userHubActive
+                            ? 'bg-[color:var(--surface)] shadow-[0_10px_30px_var(--shadow)] text-[color:var(--text)]'
+                            : 'text-[color:var(--text-muted)] hover:bg-[color:var(--surface-muted)] hover:text-[color:var(--text)]'
+                            }`}
+                    >
+                        <div className="flex items-center justify-between">
+                            <span className="text-sm font-semibold">유저 허브</span>
+                            {userHubOpen ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
                         </div>
-                    ))}
+                    </button>
+                    {userHubOpen && (
+                        <div className="ml-4 space-y-1">
+                            <button
+                                type="button"
+                                onClick={() => navigate('/mainboard/user-hub/recipes')}
+                                className={`w-full text-left px-3 py-2 rounded-lg text-sm transition ${isActive('/mainboard/user-hub/recipes')
+                                    ? 'bg-[color:var(--surface-muted)] text-[color:var(--text)]'
+                                    : 'text-[color:var(--text-muted)] hover:bg-[color:var(--surface-muted)] hover:text-[color:var(--text)]'
+                                    }`}
+                            >
+                                유저 레시피
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => navigate('/mainboard/user-hub/password-check')}
+                                className={`w-full text-left px-3 py-2 rounded-lg text-sm transition ${isActive('/mainboard/user-hub/profile')
+                                    ? 'bg-[color:var(--surface-muted)] text-[color:var(--text)]'
+                                    : 'text-[color:var(--text-muted)] hover:bg-[color:var(--surface-muted)] hover:text-[color:var(--text)]'
+                                    }`}
+                            >
+                                내 정보 수정
+                            </button>
+                        </div>
+                    )}
+                    <button
+                        type="button"
+                        onClick={() => setCreateOpen((prev) => !prev)}
+                        className={`w-full text-left px-4 py-3 rounded-xl transition ${createActive
+                            ? 'bg-[color:var(--surface)] shadow-[0_10px_30px_var(--shadow)] text-[color:var(--text)]'
+                            : 'text-[color:var(--text-muted)] hover:bg-[color:var(--surface-muted)] hover:text-[color:var(--text)]'
+                            }`}
+                    >
+                        <div className="flex items-center justify-between">
+                            <span className="text-sm font-semibold">레시피 생성하기</span>
+                            {createOpen ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+                        </div>
+                    </button>
+                    {createOpen && (
+                        <div className="ml-4 space-y-1">
+                            <button
+                                type="button"
+                                onClick={() => navigate('/mainboard/create/ai')}
+                                className={`w-full text-left px-3 py-2 rounded-lg text-sm transition ${isActive('/mainboard/create/ai')
+                                    ? 'bg-[color:var(--surface-muted)] text-[color:var(--text)]'
+                                    : 'text-[color:var(--text-muted)] hover:bg-[color:var(--surface-muted)] hover:text-[color:var(--text)]'
+                                    }`}
+                            >
+                                AI 생성하기
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => navigate('/mainboard/create/manual')}
+                                className={`w-full text-left px-3 py-2 rounded-lg text-sm transition ${isActive('/mainboard/create/manual')
+                                    ? 'bg-[color:var(--surface-muted)] text-[color:var(--text)]'
+                                    : 'text-[color:var(--text-muted)] hover:bg-[color:var(--surface-muted)] hover:text-[color:var(--text)]'
+                                    }`}
+                            >
+                                직접 등록하기
+                            </button>
+                        </div>
+                    )}
                 </nav>
 
-                <div className="mt-4 pt-4 border-t border-white/10">
+                <div className="mt-auto">
                     <button
                         onClick={handleLogout}
-                        className="flex items-center gap-3 w-full p-3 text-gray-400 hover:text-red-400 hover:bg-red-500/10 rounded-xl transition"
+                        className="flex items-center gap-3 w-full px-4 py-3 text-[color:var(--danger)] hover:bg-[color:var(--danger-bg)] rounded-xl transition"
                     >
-                        <LogOut size={20} />
-                        <span className="font-medium text-sm">로그아웃</span>
+                        <LogOut size={18} />
+                        <span className="text-sm font-semibold">로그아웃</span>
                     </button>
                 </div>
-            </GlassCard>
+            </div>
         </aside>
     );
 };
