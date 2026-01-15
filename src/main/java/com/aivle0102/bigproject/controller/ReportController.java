@@ -11,19 +11,13 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequiredArgsConstructor
-@RequestMapping({"/api/report", "/api/reports"})
+@RequestMapping("/api/report")
 public class ReportController {
 
     private final AiReportService aiReportService;
 
     @PostMapping
     public ResponseEntity<String> generate(@RequestBody ReportRequest request) {
-        String report = aiReportService.generateReport(request);
-        return ResponseEntity.ok(report);
-    }
-
-    @PostMapping("/generate")
-    public ResponseEntity<String> generateAlias(@RequestBody ReportRequest request) {
         String report = aiReportService.generateReport(request);
         return ResponseEntity.ok(report);
     }
