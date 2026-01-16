@@ -128,7 +128,7 @@ const Sidebar = () => {
                                     : 'text-[color:var(--text-muted)] hover:bg-[color:var(--surface-muted)] hover:text-[color:var(--text)]'
                                     }`}
                             >
-                                AI 생성하기
+                                AI로 생성하기
                             </button>
                             <button
                                 type="button"

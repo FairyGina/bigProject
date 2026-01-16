@@ -1,0 +1,532 @@
+{
+  "US": {
+    "country_name": "United States",
+    "allergens": [
+      {
+        "name": "Milk",
+        "group": "dairy",
+        "legal_basis": "FDA FALCPA"
+      },
+      {
+        "name": "Egg",
+        "group": "egg",
+        "legal_basis": "FDA FALCPA"
+      },
+      {
+        "name": "Fish",
+        "group": "fish",
+        "legal_basis": "FDA FALCPA"
+      },
+      {
+        "name": "Crustacean shellfish",
+        "group": "shellfish",
+        "legal_basis": "FDA FALCPA"
+      },
+      {
+        "name": "Tree nuts",
+        "group": "nuts",
+        "legal_basis": "FDA FALCPA"
+      },
+      {
+        "name": "Peanut",
+        "group": "nuts",
+        "legal_basis": "FDA FALCPA"
+      },
+      {
+        "name": "Wheat",
+        "group": "gluten",
+        "legal_basis": "FDA FALCPA"
+      },
+      {
+        "name": "Soybean",
+        "group": "soy",
+        "legal_basis": "FDA FALCPA"
+      },
+      {
+        "name": "Sesame",
+        "group": "seed",
+        "legal_basis": "FASTER Act (2023)"
+      }
+    ]
+  },
+  "JP": {
+    "country_name": "Japan",
+    "allergens": [
+      {
+        "name": "Shrimp",
+        "group": "shellfish",
+        "legal_basis": "Food Labeling Act (CAA)"
+      },
+      {
+        "name": "Crab",
+        "group": "shellfish",
+        "legal_basis": "Food Labeling Act (CAA)"
+      },
+      {
+        "name": "Walnut",
+        "group": "nuts",
+        "legal_basis": "Food Labeling Act (CAA)"
+      },
+      {
+        "name": "Wheat",
+        "group": "gluten",
+        "legal_basis": "Food Labeling Act (CAA)"
+      },
+      {
+        "name": "Buckwheat",
+        "group": "gluten",
+        "legal_basis": "Food Labeling Act (CAA)"
+      },
+      {
+        "name": "Egg",
+        "group": "egg",
+        "legal_basis": "Food Labeling Act (CAA)"
+      },
+      {
+        "name": "Milk",
+        "group": "dairy",
+        "legal_basis": "Food Labeling Act (CAA)"
+      },
+      {
+        "name": "Peanut",
+        "group": "nuts",
+        "legal_basis": "Food Labeling Act (CAA)"
+      }
+    ]
+  },
+  "CN": {
+    "country_name": "China",
+    "allergens": [
+      {
+        "name": "Cereals containing gluten",
+        "group": "gluten",
+        "legal_basis": "GB 7718-2011"
+      },
+      {
+        "name": "Crustaceans",
+        "group": "shellfish",
+        "legal_basis": "GB 7718-2011"
+      },
+      {
+        "name": "Fish",
+        "group": "fish",
+        "legal_basis": "GB 7718-2011"
+      },
+      {
+        "name": "Egg",
+        "group": "egg",
+        "legal_basis": "GB 7718-2011"
+      },
+      {
+        "name": "Peanut",
+        "group": "nuts",
+        "legal_basis": "GB 7718-2011"
+      },
+      {
+        "name": "Soybean",
+        "group": "soy",
+        "legal_basis": "GB 7718-2011"
+      },
+      {
+        "name": "Milk",
+        "group": "dairy",
+        "legal_basis": "GB 7718-2011"
+      },
+      {
+        "name": "Tree nuts",
+        "group": "nuts",
+        "legal_basis": "GB 7718-2011"
+      }
+    ]
+  },
+  "PL": {
+    "country_name": "Poland",
+    "allergens": [
+      {
+        "name": "Cereals containing gluten",
+        "group": "gluten",
+        "legal_basis": "EU Regulation 1169/2011 Annex II"
+      },
+      {
+        "name": "Crustaceans",
+        "group": "shellfish",
+        "legal_basis": "EU Regulation 1169/2011 Annex II"
+      },
+      {
+        "name": "Egg",
+        "group": "egg",
+        "legal_basis": "EU Regulation 1169/2011 Annex II"
+      },
+      {
+        "name": "Fish",
+        "group": "fish",
+        "legal_basis": "EU Regulation 1169/2011 Annex II"
+      },
+      {
+        "name": "Peanut",
+        "group": "nuts",
+        "legal_basis": "EU Regulation 1169/2011 Annex II"
+      },
+      {
+        "name": "Soybean",
+        "group": "soy",
+        "legal_basis": "EU Regulation 1169/2011 Annex II"
+      },
+      {
+        "name": "Milk (including lactose)",
+        "group": "dairy",
+        "legal_basis": "EU Regulation 1169/2011 Annex II"
+      },
+      {
+        "name": "Tree nuts",
+        "group": "nuts",
+        "legal_basis": "EU Regulation 1169/2011 Annex II"
+      },
+      {
+        "name": "Celery",
+        "group": "vegetable",
+        "legal_basis": "EU Regulation 1169/2011 Annex II"
+      },
+      {
+        "name": "Mustard",
+        "group": "seed",
+        "legal_basis": "EU Regulation 1169/2011 Annex II"
+      },
+      {
+        "name": "Sesame seeds",
+        "group": "seed",
+        "legal_basis": "EU Regulation 1169/2011 Annex II"
+      },
+      {
+        "name": "Sulphur dioxide and sulphites",
+        "group": "additive",
+        "legal_basis": "EU Regulation 1169/2011 Annex II"
+      },
+      {
+        "name": "Lupin",
+        "group": "legume",
+        "legal_basis": "EU Regulation 1169/2011 Annex II"
+      },
+      {
+        "name": "Molluscs",
+        "group": "shellfish",
+        "legal_basis": "EU Regulation 1169/2011 Annex II"
+      }
+    ]
+  },
+  "FR": {
+    "country_name": "France",
+    "allergens": [
+      {
+        "name": "Cereals containing gluten",
+        "group": "gluten",
+        "legal_basis": "EU Regulation 1169/2011 Annex II"
+      },
+      {
+        "name": "Crustaceans",
+        "group": "shellfish",
+        "legal_basis": "EU Regulation 1169/2011 Annex II"
+      },
+      {
+        "name": "Egg",
+        "group": "egg",
+        "legal_basis": "EU Regulation 1169/2011 Annex II"
+      },
+      {
+        "name": "Fish",
+        "group": "fish",
+        "legal_basis": "EU Regulation 1169/2011 Annex II"
+      },
+      {
+        "name": "Peanut",
+        "group": "nuts",
+        "legal_basis": "EU Regulation 1169/2011 Annex II"
+      },
+      {
+        "name": "Soybean",
+        "group": "soy",
+        "legal_basis": "EU Regulation 1169/2011 Annex II"
+      },
+      {
+        "name": "Milk (including lactose)",
+        "group": "dairy",
+        "legal_basis": "EU Regulation 1169/2011 Annex II"
+      },
+      {
+        "name": "Tree nuts",
+        "group": "nuts",
+        "legal_basis": "EU Regulation 1169/2011 Annex II"
+      },
+      {
+        "name": "Celery",
+        "group": "vegetable",
+        "legal_basis": "EU Regulation 1169/2011 Annex II"
+      },
+      {
+        "name": "Mustard",
+        "group": "seed",
+        "legal_basis": "EU Regulation 1169/2011 Annex II"
+      },
+      {
+        "name": "Sesame seeds",
+        "group": "seed",
+        "legal_basis": "EU Regulation 1169/2011 Annex II"
+      },
+      {
+        "name": "Sulphur dioxide and sulphites",
+        "group": "additive",
+        "legal_basis": "EU Regulation 1169/2011 Annex II"
+      },
+      {
+        "name": "Lupin",
+        "group": "legume",
+        "legal_basis": "EU Regulation 1169/2011 Annex II"
+      },
+      {
+        "name": "Molluscs",
+        "group": "shellfish",
+        "legal_basis": "EU Regulation 1169/2011 Annex II"
+      }
+    ]
+  },
+  "DE": {
+    "country_name": "Germany",
+    "allergens": [
+      {
+        "name": "Cereals containing gluten",
+        "group": "gluten",
+        "legal_basis": "EU Regulation 1169/2011 Annex II"
+      },
+      {
+        "name": "Crustaceans",
+        "group": "shellfish",
+        "legal_basis": "EU Regulation 1169/2011 Annex II"
+      },
+      {
+        "name": "Egg",
+        "group": "egg",
+        "legal_basis": "EU Regulation 1169/2011 Annex II"
+      },
+      {
+        "name": "Fish",
+        "group": "fish",
+        "legal_basis": "EU Regulation 1169/2011 Annex II"
+      },
+      {
+        "name": "Peanut",
+        "group": "nuts",
+        "legal_basis": "EU Regulation 1169/2011 Annex II"
+      },
+      {
+        "name": "Soybean",
+        "group": "soy",
+        "legal_basis": "EU Regulation 1169/2011 Annex II"
+      },
+      {
+        "name": "Milk (including lactose)",
+        "group": "dairy",
+        "legal_basis": "EU Regulation 1169/2011 Annex II"
+      },
+      {
+        "name": "Tree nuts",
+        "group": "nuts",
+        "legal_basis": "EU Regulation 1169/2011 Annex II"
+      },
+      {
+        "name": "Celery",
+        "group": "vegetable",
+        "legal_basis": "EU Regulation 1169/2011 Annex II"
+      },
+      {
+        "name": "Mustard",
+        "group": "seed",
+        "legal_basis": "EU Regulation 1169/2011 Annex II"
+      },
+      {
+        "name": "Sesame seeds",
+        "group": "seed",
+        "legal_basis": "EU Regulation 1169/2011 Annex II"
+      },
+      {
+        "name": "Sulphur dioxide and sulphites",
+        "group": "additive",
+        "legal_basis": "EU Regulation 1169/2011 Annex II"
+      },
+      {
+        "name": "Lupin",
+        "group": "legume",
+        "legal_basis": "EU Regulation 1169/2011 Annex II"
+      },
+      {
+        "name": "Molluscs",
+        "group": "shellfish",
+        "legal_basis": "EU Regulation 1169/2011 Annex II"
+      }
+    ]
+  },
+  "IN": {
+    "country_name": "India",
+    "allergens": [
+      {
+        "name": "Cereals containing gluten",
+        "group": "gluten",
+        "legal_basis": "FSSAI Labelling & Display Regulations",
+        "notes": "Declare specific cereal"
+      },
+      {
+        "name": "Crustaceans",
+        "group": "shellfish",
+        "legal_basis": "FSSAI Labelling & Display Regulations",
+        "notes": "Allergen declaration"
+      },
+      {
+        "name": "Milk",
+        "group": "dairy",
+        "legal_basis": "FSSAI Labelling & Display Regulations",
+        "notes": "Allergen declaration"
+      },
+      {
+        "name": "Egg",
+        "group": "egg",
+        "legal_basis": "FSSAI Labelling & Display Regulations",
+        "notes": "Allergen declaration"
+      },
+      {
+        "name": "Fish",
+        "group": "fish",
+        "legal_basis": "FSSAI Labelling & Display Regulations",
+        "notes": "Allergen declaration"
+      },
+      {
+        "name": "Peanut",
+        "group": "nuts",
+        "legal_basis": "FSSAI Labelling & Display Regulations",
+        "notes": "Allergen declaration"
+      },
+      {
+        "name": "Tree nuts",
+        "group": "nuts",
+        "legal_basis": "FSSAI Labelling & Display Regulations",
+        "notes": "Allergen declaration"
+      },
+      {
+        "name": "Soybean",
+        "group": "soy",
+        "legal_basis": "FSSAI Labelling & Display Regulations",
+        "notes": "Allergen declaration"
+      },
+      {
+        "name": "Sulphites",
+        "group": "additive",
+        "legal_basis": "FSSAI Labelling & Display Regulations",
+        "notes": "≥10mg/kg"
+      }
+    ]
+  },
+  "VN": {
+    "country_name": "Vietnam",
+    "allergens": [
+      {
+        "name": "Cereals containing gluten",
+        "group": "gluten",
+        "legal_basis": "USDA GAIN Vietnam Guide",
+        "notes": "Allergen labeling required"
+      },
+      {
+        "name": "Crustaceans",
+        "group": "shellfish",
+        "legal_basis": "USDA GAIN Vietnam Guide",
+        "notes": "Allergen labeling required"
+      },
+      {
+        "name": "Egg",
+        "group": "egg",
+        "legal_basis": "USDA GAIN Vietnam Guide",
+        "notes": "Allergen labeling required"
+      },
+      {
+        "name": "Fish",
+        "group": "fish",
+        "legal_basis": "USDA GAIN Vietnam Guide",
+        "notes": "Allergen labeling required"
+      },
+      {
+        "name": "Peanut",
+        "group": "nuts",
+        "legal_basis": "USDA GAIN Vietnam Guide",
+        "notes": "Allergen labeling required"
+      },
+      {
+        "name": "Soybean",
+        "group": "soy",
+        "legal_basis": "USDA GAIN Vietnam Guide",
+        "notes": "Allergen labeling required"
+      },
+      {
+        "name": "Milk",
+        "group": "dairy",
+        "legal_basis": "USDA GAIN Vietnam Guide",
+        "notes": "Allergen labeling required"
+      },
+      {
+        "name": "Tree nuts",
+        "group": "nuts",
+        "legal_basis": "USDA GAIN Vietnam Guide",
+        "notes": "Allergen labeling required"
+      }
+    ]
+  },
+  "TH": {
+    "country_name": "Thailand",
+    "allergens": [
+      {
+        "name": "Cereals containing gluten",
+        "group": "gluten",
+        "legal_basis": "USDA GAIN Thailand Guide",
+        "notes": "Allergen labeling required"
+      },
+      {
+        "name": "Crustaceans",
+        "group": "shellfish",
+        "legal_basis": "USDA GAIN Thailand Guide",
+        "notes": "Allergen labeling required"
+      },
+      {
+        "name": "Egg",
+        "group": "egg",
+        "legal_basis": "USDA GAIN Thailand Guide",
+        "notes": "Allergen labeling required"
+      },
+      {
+        "name": "Fish",
+        "group": "fish",
+        "legal_basis": "USDA GAIN Thailand Guide",
+        "notes": "Allergen labeling required"
+      },
+      {
+        "name": "Peanut",
+        "group": "nuts",
+        "legal_basis": "USDA GAIN Thailand Guide",
+        "notes": "Allergen labeling required"
+      },
+      {
+        "name": "Soybean",
+        "group": "soy",
+        "legal_basis": "USDA GAIN Thailand Guide",
+        "notes": "Allergen labeling required"
+      },
+      {
+        "name": "Milk",
+        "group": "dairy",
+        "legal_basis": "USDA GAIN Thailand Guide",
+        "notes": "Allergen labeling required"
+      },
+      {
+        "name": "Tree nuts",
+        "group": "nuts",
+        "legal_basis": "USDA GAIN Thailand Guide",
+        "notes": "Allergen labeling required"
+      }
+    ]
+  }
+}
