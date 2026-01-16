@@ -4,7 +4,12 @@ import { useAuth } from '../context/AuthContext';
 import LandingPage from '../pages/LandingPage';
 import LoginPage from '../pages/LoginPage';
 import SignUpPage from '../pages/SignUpPage';
-import Dashboard from '../pages/Dashboard';
+import FindPasswordPage from '../pages/FindPasswordPage';
+import MainBoard from '../pages/MainBoard';
+import UserBoard from '../pages/UserBoard';
+import AICreateRecipe from '../pages/AICreateRecipe';
+import UserCreateRecipe from '../pages/UserCreateRecipe';
+import NoticeBoard from '../pages/NoticeBoard';
 import NotFound from '../pages/NotFound';
 import MainLayout from '../components/layout/MainLayout';
 import PasswordCheckPage from '../pages/PasswordCheckPage';
@@ -34,7 +39,7 @@ const PublicOnlyRoute = ({ children }) => {
     }
 
     if (user) {
-        return <Navigate to="/dashboard" replace />;
+        return <Navigate to="/mainboard" replace />;
     }
 
     return children;
@@ -48,15 +53,23 @@ const AppRoutes = () => {
 
             <Route path="/login" element={<PublicOnlyRoute><LoginPage /></PublicOnlyRoute>} />
             <Route path="/signup" element={<PublicOnlyRoute><SignUpPage /></PublicOnlyRoute>} />
+            <Route path="/find-password" element={<PublicOnlyRoute><FindPasswordPage /></PublicOnlyRoute>} />
 
             {/* 보호된 라우트 */}
             <Route
-                path="/dashboard/*"
+                path="/mainboard/*"
                 element={
                     <ProtectedRoute>
                         <MainLayout>
                             <Routes>
-                                <Route path="/" element={<Dashboard />} />
+                                <Route path="/" element={<MainBoard />} />
+                                <Route path="notice" element={<NoticeBoard />} />
+                                <Route path="user-hub" element={<Navigate to="user-hub/recipes" replace />} />
+                                <Route path="user-hub/recipes" element={<UserBoard />} />
+                                <Route path="user-hub/password-check" element={<PasswordCheckPage />} />
+                                <Route path="user-hub/profile" element={<UserProfilePage />} />
+                                <Route path="create/ai" element={<AICreateRecipe />} />
+                                <Route path="create/manual" element={<UserCreateRecipe />} />
                                 <Route path="settings/password-check" element={<PasswordCheckPage />} />
                                 <Route path="settings/profile" element={<UserProfilePage />} />
                             </Routes>

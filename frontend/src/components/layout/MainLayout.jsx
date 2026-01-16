@@ -1,14 +1,21 @@
 import React from 'react';
 import Sidebar from './Sidebar';
+import ThemeToggle from '../common/ThemeToggle';
 
 const MainLayout = ({ children }) => {
     return (
-        <div className="min-h-screen bg-[#121212] text-white flex">
-            {/* 고정된 사이드바 */}
+        <div
+            className="min-h-screen text-[color:var(--text)] flex flex-col md:flex-row"
+            style={{ background: 'linear-gradient(135deg, var(--bg-1), var(--bg-2), var(--bg-3))' }}
+        >
+            {/* 고정 사이드바 */}
             <Sidebar />
 
-            {/* 메인 컨텐츠 영역 - 사이드바 너비(w-72 = 18rem = 288px) 만큼 마진 적용 */}
-            <div className="flex-1 ml-0 lg:ml-72 p-6 transition-all duration-300">
+            {/* 메인 콘텐츠 영역 */}
+            <div className="flex-1 p-6 md:p-10">
+                <div className="flex justify-end mb-6">
+                    <ThemeToggle />
+                </div>
                 {children}
             </div>
         </div>

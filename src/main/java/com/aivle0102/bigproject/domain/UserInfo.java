@@ -45,4 +45,16 @@ public class UserInfo {
     public void setUserState(String userState) {
         this.userState = userState;
     }
+
+    public void setUserPw(String userPw) {
+        this.userPw = userPw;
+    }
+
+    public void setUserPwHash(String userPwHash) {
+        this.userPwHash = userPwHash;
+    }
+
+    public void setSalt(String salt) {
+        this.salt = salt;
+    }
 }
