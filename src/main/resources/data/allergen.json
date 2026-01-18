@@ -1,4 +1,21 @@
 {
+  "gluten_cereals": [
+    {
+      "name": "Wheat"
+    },
+    {
+      "name": "Barley"
+    },
+    {
+      "name": "Rye"
+    },
+    {
+      "name": "Oats"
+    },
+    {
+      "name": "Kamut"
+    }
+  ],
   "US": {
     "country_name": "United States",
     "allergens": [
