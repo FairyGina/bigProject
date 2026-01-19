@@ -1,0 +1,52 @@
+HELP.md
+.gradle
+build/
+!gradle/wrapper/gradle-wrapper.jar
+!frontend/src/main/**/build/
+!frontend/src/test/**/build/
+
+### STS ###
+.apt_generated
+.classpath
+.factorypath
+.project
+.settings
+.springBeans
+.sts4-cache
+bin/
+!frontend/src/main/**/bin/
+!frontend/src/test/**/bin/
+
+### IntelliJ IDEA ###
+.idea
+*.iws
+*.iml
+*.ipr
+out/
+!frontend/src/main/**/out/
+!frontend/src/test/**/out/
+
+### NetBeans ###
+/nbproject/private/
+/nbbuild/
+/dist/
+/nbdist/
+/.nb-gradle/
+
+### VS Code ###
+.vscode/
+
+### Environment Variables ###
+.env
+.env.local
+.env.*.local
+
+### Docker ###
+postgres_data/
+
+### Frontend ###
+frontend/node_modules/
+frontend/dist/
+frontend/.vite/
+frontend/coverage/
+

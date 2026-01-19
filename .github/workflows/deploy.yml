@@ -1,0 +1,55 @@
+name: Deploy to Production
+
+on:
+  workflow_run:
+    workflows: ["Frontend CI", "Backend CI"]
+    types:
+      - completed
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Deploy to server via SSH
+        uses: appleboy/ssh-action@v1.0.0
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          port: ${{ secrets.DEPLOY_PORT || 22 }}
+          script: |
+            cd ${{ secrets.DEPLOY_PATH }}
+            
+            # Pull latest code
+            git pull origin main
+            
+            # Pull latest Docker images
+            docker-compose pull
+            
+            # Restart services with zero-downtime
+            docker-compose up -d --no-deps --build
+            
+            # Clean up old images
+            docker image prune -f
+            
+            # Health check
+            sleep 10
+            curl -f http://localhost:8080/actuator/health || exit 1
+            curl -f http://localhost:80 || exit 1
+
+      - name: Notify deployment status
+        if: always()
+        uses: 8398a7/action-slack@v3
+        with:
+          status: ${{ job.status }}
+          text: 'Deployment to production: ${{ job.status }}'
+          webhook_url: ${{ secrets.SLACK_WEBHOOK }}
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK }}
