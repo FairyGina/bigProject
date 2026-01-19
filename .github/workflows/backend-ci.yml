@@ -55,14 +55,15 @@ jobs:
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew
 
-      - name: Build with Gradle
-        run: ./gradlew build --no-daemon
+      - name: Build with Gradle (skip tests)
+        run: ./gradlew build -x test --no-daemon
 
       - name: Run tests
         env:
           SPRING_DATASOURCE_URL: jdbc:postgresql://localhost:5432/testdb
           SPRING_DATASOURCE_USERNAME: test
           SPRING_DATASOURCE_PASSWORD: test
+          SPRING_JPA_HIBERNATE_DDL_AUTO: create-drop
         run: ./gradlew test --no-daemon
 
       - name: Generate test report
