@@ -16,6 +16,12 @@ on:
       - 'build.gradle'
       - 'settings.gradle'
 
+# Required permissions for test-reporter
+permissions:
+  contents: read
+  actions: read
+  checks: write
+
 jobs:
   build-and-test:
     runs-on: ubuntu-latest
@@ -60,12 +66,20 @@ jobs:
         run: ./gradlew test --no-daemon
 
       - name: Generate test report
-        if: always()
+        if: always() && github.event_name != 'pull_request'
         uses: dorny/test-reporter@v1
         with:
           name: Backend Test Results
           path: build/test-results/test/*.xml
           reporter: java-junit
+
+      - name: Upload test results (for PR)
+        if: always() && github.event_name == 'pull_request'
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          path: build/test-results/test/*.xml
+          retention-days: 7
 
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4
@@ -77,22 +91,39 @@ jobs:
   docker-build:
     needs: build-and-test
     runs-on: ubuntu-latest
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    if: |
+      github.event_name == 'push' && 
+      github.ref == 'refs/heads/main' &&
+      vars.DOCKER_USERNAME != ''
 
     steps:
+      - name: Check Docker Hub secrets
+        id: check-secrets
+        run: |
+          if [ -z "${{ secrets.DOCKER_USERNAME }}" ] || [ -z "${{ secrets.DOCKER_PASSWORD }}" ]; then
+            echo "skip=true" >> $GITHUB_OUTPUT
+            echo "⚠️ Docker Hub secrets not configured. Skipping docker build."
+          else
+            echo "skip=false" >> $GITHUB_OUTPUT
+          fi
+
       - name: Checkout code
+        if: steps.check-secrets.outputs.skip != 'true'
         uses: actions/checkout@v4
 
       - name: Set up Docker Buildx
+        if: steps.check-secrets.outputs.skip != 'true'
         uses: docker/setup-buildx-action@v3
 
       - name: Log in to Docker Hub
+        if: steps.check-secrets.outputs.skip != 'true'
         uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
 
       - name: Extract metadata
+        if: steps.check-secrets.outputs.skip != 'true'
         id: meta
         uses: docker/metadata-action@v5
         with:
@@ -103,6 +134,7 @@ jobs:
             type=raw,value=latest,enable={{is_default_branch}}
 
       - name: Build and push Docker image
+        if: steps.check-secrets.outputs.skip != 'true'
         uses: docker/build-push-action@v5
         with:
           context: .
