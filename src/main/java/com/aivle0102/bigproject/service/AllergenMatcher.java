@@ -28,34 +28,6 @@ public class AllergenMatcher {
             Map.entry("견과", List.of("견과류"))
     );
 
-    // 수산물 분류용(카테고리화). prdkind 검색에는 사용하지 않음.
-    private static final Map<String, String> SEAFOOD_VARIANTS = Map.ofEntries(
-            Map.entry("대구", "수산물"),
-            Map.entry("명태", "수산물"),
-            Map.entry("도미", "수산물"),
-            Map.entry("광어", "수산물"),
-            Map.entry("연어", "수산물"),
-            Map.entry("참치", "수산물"),
-            Map.entry("고등어", "수산물"),
-            Map.entry("삼치", "수산물"),
-            Map.entry("새우", "수산물"),
-            Map.entry("꽃게", "수산물"),
-            Map.entry("랍스터", "수산물"),
-            Map.entry("킹크랩", "수산물"),
-            Map.entry("바지락", "수산물"),
-            Map.entry("가리비", "수산물"),
-            Map.entry("전복", "수산물"),
-            Map.entry("굴", "수산물"),
-            Map.entry("오징어", "수산물"),
-            Map.entry("낙지", "수산물"),
-            Map.entry("문어", "수산물"),
-            Map.entry("주꾸미", "수산물"),
-            Map.entry("김", "수산물"),
-            Map.entry("미역", "수산물"),
-            Map.entry("다시마", "수산물"),
-            Map.entry("파래", "수산물")
-    );
-
     // 재료명 -> 알레르기 canonical 직접 매핑(1차 확정)
     private static final Map<String, String> INGREDIENT_TO_CANONICAL = Map.ofEntries(
             Map.entry("우유", "Milk"),
@@ -120,7 +92,9 @@ public class AllergenMatcher {
     // 복수 알레르기 성분이 명확한 원재료 예외 매핑.
     private static final Map<String, Set<String>> MULTI_INGREDIENT_TO_CANONICAL = Map.ofEntries(
             Map.entry("간장", Set.of("Soybean", "Wheat")),
-            Map.entry("된장", Set.of("Soybean"))
+            Map.entry("된장", Set.of("Soybean")),
+            Map.entry("새우", Set.of("Crustaceans", "Shrimp")),
+            Map.entry("게", Set.of("Crustaceans", "Crab"))
     );
 
     // HACCP allergy/rawmtrl 토큰 → 알레르기 canonical 매핑.
@@ -200,8 +174,6 @@ public class AllergenMatcher {
             List<String> synonyms = QUERY_SYNONYMS.get(token);
             if (synonyms != null) queries.addAll(synonyms);
 
-            Optional<String> seafoodBase = normalizeSeafoodBase(token);
-            seafoodBase.ifPresent(queries::add);
         }
 
         List<String> ordered = new ArrayList<>(queries);
@@ -227,14 +199,6 @@ public class AllergenMatcher {
         Set<String> mapped = MULTI_INGREDIENT_TO_CANONICAL.get(key);
         if (mapped == null || mapped.isEmpty()) return Set.of();
         return new LinkedHashSet<>(mapped);
-    }
-
-    public Optional<String> normalizeSeafoodBase(String ingredientName) {
-        if (ingredientName == null || ingredientName.isBlank()) return Optional.empty();
-        String key = ingredientName.trim();
-        String normalized = SEAFOOD_VARIANTS.get(key);
-        if (normalized != null) return Optional.of(normalized);
-        return Optional.empty();
     }
 
     public Set<String> extractCanonicalFromHaccpAllergyText(String allergyRaw) {

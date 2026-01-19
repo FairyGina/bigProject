@@ -79,6 +79,24 @@ public class AllergenAnalysisService {
                 continue;
             }
 
+            // 0-1) 수산물 원재료 카탈로그 분류(생선/갑각류/연체/해조 등)
+            RawProduceCatalogLoader.SeafoodCategory seafoodCategory =
+                    rawProduceCatalogLoader.matchSeafoodCategory(ing).orElse(null);
+            if (seafoodCategory != null) {
+                LOGGER.info(() -> "RAW_PRODUCE_SEAFOOD 판단: ingredient=" + ing + " category=" + seafoodCategory);
+                if (addSeafoodDirectMatches(seafoodCategory, ing, obligation, directMatched)) {
+                    continue;
+                }
+                skippedEvidences.add(IngredientEvidence.builder()
+                        .ingredient(ing)
+                        .searchStrategy("RAW_PRODUCE_SEAFOOD_NON_ALLERGEN:" + seafoodCategory)
+                        .evidences(List.of())
+                        .matchedAllergensForTargetCountry(List.of())
+                        .status("SKIPPED_RAW_PRODUCE_NON_ALLERGEN")
+                        .build());
+                continue;
+            }
+
             // 1) 원재료성 식품 여부를 먼저 판단
             boolean isRawProduce = rawProduceCatalogLoader.isRawProduce(ing);
             if (isRawProduce) {
@@ -395,9 +413,10 @@ public class AllergenAnalysisService {
         String prompt = "재료: " + ingredient + "\n"
                 + "기존 prdkind 힌트: " + safeList(prdkindHints) + "\n"
                 + "기존 prdlstNm 힌트: " + safeList(prdlstNmHints) + "\n"
-                + "HACCP prdlstNm 검색에 사용할 실제 제품명/식품명을 3~8개 생성해줘.\n"
+                + "HACCP prdlstNm 검색에 사용할 실제 제품명/식품명을 3~5개 생성해줘.\n"
                 + "규칙:\n"
                 + "- 짧은 명사형 제품명만 반환\n"
+                + "- 기존 재료명에 덧붙이는 식이 아닌 다른 유의어, 동의어로 생성할 것 (예: 달걀, 계란, 반숙란과 같이 변형되었으나 동일한 의미를 가지는 형태)"
                 + "- HACCP, 인증, 기준, 관리, 적용, 제품, 식품, 안전 같은 단어 포함 금지\n"
                 + "- 결과는 JSON 배열만 반환";
 
@@ -412,7 +431,8 @@ public class AllergenAnalysisService {
         String prompt = "재료: " + ingredient + "\n"
                 + "원재료: " + rawmtrlRaw + "\n"
                 + "재료와 직접 관련된 원재료/알레르기 키워드만 추출해줘.\n"
-                + "- 재료와 무관한 부재료/양념은 제외\n"
+                + "- 재료와 무관한 부재료는 제외\n"
+                + "- 재료와 관련된 알레르기 키워드의 경우 재료(구성성분) 또는, 재료[구성성분] 과 같은 형태로 존재함."
                 + "- 복합 제품이면 재료(예: 고추장) 구성 성분만 선택\n"
                 + "결과는 JSON 배열만 반환";
 
@@ -521,5 +541,34 @@ public class AllergenAnalysisService {
             return true;
         }
         return false;
+    }
+
+    private boolean addSeafoodDirectMatches(
+            RawProduceCatalogLoader.SeafoodCategory category,
+            String ingredient,
+            List<String> obligation,
+            Map<String, String> directMatched
+    ) {
+        return switch (category) {
+            case FISH -> addDirectIfObligated("Fish", ingredient, obligation, directMatched);
+            case CRUSTACEAN -> addDirectIfObligated("Crustaceans", ingredient, obligation, directMatched);
+            case SHRIMP -> {
+                boolean matched = addDirectIfObligated("Crustaceans", ingredient, obligation, directMatched);
+                if (obligation.contains("Shrimp")) {
+                    directMatched.put("Shrimp", ingredient);
+                    matched = true;
+                }
+                yield matched;
+            }
+            case CRAB -> {
+                boolean matched = addDirectIfObligated("Crustaceans", ingredient, obligation, directMatched);
+                if (obligation.contains("Crab")) {
+                    directMatched.put("Crab", ingredient);
+                    matched = true;
+                }
+                yield matched;
+            }
+            case MOLLUSC, SEAWEED -> false;
+        };
     }
 }
