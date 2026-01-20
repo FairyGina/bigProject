@@ -17,5 +17,7 @@ public interface UserInfoRepository extends JpaRepository<UserInfo, Integer> {
 
     Optional<UserInfo> findByUserIdAndUserNameAndUserState(String userId, String userName, String userState);
 
-    Optional<UserInfo> findByUserNameAndUserState(String userName, String userState);
+    boolean existsByUserNameAndUserState(String userName, String userState);
+
+    Optional<UserInfo> findByProviderAndProviderId(String provider, String providerId);
 }

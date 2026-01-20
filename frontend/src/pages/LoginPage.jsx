@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+﻿import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Mail, Lock, X } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
@@ -13,12 +13,33 @@ const LoginPage = () => {
     const [userId, setUserId] = useState('');
     const [password, setPassword] = useState('');
     const [error, setError] = useState('');
+    const [showResetModal, setShowResetModal] = useState(false);
+    const [showWarningModal, setShowWarningModal] = useState(false);
+    const [warningCount, setWarningCount] = useState(null);
+
+    const handleSocialLogin = (provider) => {
+        sessionStorage.setItem('oauthFlow', 'login');
+        localStorage.setItem('oauthFlow', 'login');
+        window.location.href = `http://localhost:8080/oauth2/authorization/${provider}`;
+    };
 
     const handleLogin = async () => {
         setError('');
+        const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!userId) {
+            setError('아이디(이메일)를 입력해주세요.');
+            return;
+        }
+        if (!password) {
+            setError('비밀번호를 입력해주세요.');
+            return;
+        }
+        if (!emailPattern.test(userId)) {
+            setError('아이디를 이메일 형식으로 입력해주세요.');
+            return;
+        }
         try {
-            const normalizedUserId = userId.trim();
-            const response = await axiosInstance.post('/api/auth/login', { userId: normalizedUserId, password });
+            const response = await axiosInstance.post('/api/auth/login', { userId, password });
             const data = response.data;
 
             if (data.accessToken) {
@@ -31,10 +52,34 @@ const LoginPage = () => {
             navigate('/mainboard');
         } catch (err) {
             console.error('Login error:', err);
+            const errorCode = err.response?.data?.errorCode;
+            const backendMessage = err.response?.data?.message;
+            if (errorCode === 'PASSWORD_RESET_REQUIRED' || err.response?.status === 403) {
+                setShowResetModal(true);
+                return;
+            }
+            if (errorCode === 'PASSWORD_RESET_WARNING_3' || errorCode === 'PASSWORD_RESET_WARNING_4') {
+                const count = errorCode === 'PASSWORD_RESET_WARNING_4' ? 4 : 3;
+                setWarningCount(count);
+                setShowWarningModal(true);
+                return;
+            }
             if (err.response && err.response.data) {
-                setError(err.response.data.message || '로그인에 실패했습니다.');
+                if (errorCode === 'INVALID_PASSWORD') {
+                    setError('비밀번호를 다시 확인해주세요.');
+                    return;
+                }
+                if (errorCode === 'INVALID_USER_ID') {
+                    setError('일치하는 계정 정보가 없습니다. 아이디(이메일)를 확인 또는 회원가입을 해주세요.');
+                    return;
+                }
+                if (err.response?.status === 401 || backendMessage === 'Invalid credentials' || backendMessage === 'Bad credentials') {
+                    setError('일치하는 계정 정보가 없습니다. 아이디(이메일)를 확인 또는 회원가입을 해주세요.');
+                    return;
+                }
+                setError(backendMessage || '로그인에 실패했습니다.');
             } else {
-                setError('서버 연결에 실패했습니다.');
+                setError('네트워크 오류가 발생했습니다.');
             }
         }
     };
@@ -46,6 +91,68 @@ const LoginPage = () => {
             className="min-h-screen flex items-center justify-center p-6 text-[color:var(--text)]"
             style={{ background: 'linear-gradient(135deg, var(--bg-1), var(--bg-2), var(--bg-3))' }}
         >
+            {showResetModal && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-6">
+                    <motion.div
+                        initial={{ opacity: 0, scale: 0.96 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        className="w-full max-w-sm"
+                    >
+                        <GlassCard className="p-8 text-center">
+                            <h3 className="text-xl font-bold mb-3">로그인 제한</h3>
+                            <p className="text-[color:var(--text-muted)] mb-6">
+                                로그인 실패가 5회 이상입니다. 비밀번호를 재설정해 주세요.
+                            </p>
+                            <div className="flex gap-3">
+                                <button
+                                    onClick={() => setShowResetModal(false)}
+                                    className="flex-1 py-3 rounded-2xl border border-[color:var(--border)] text-[color:var(--text)] hover:bg-[color:var(--surface-muted)] transition"
+                                >
+                                    닫기
+                                </button>
+                                <button
+                                    onClick={() => navigate('/reset-password')}
+                                    className="flex-1 py-3 rounded-2xl bg-[color:var(--accent)] text-[color:var(--accent-contrast)] font-semibold hover:bg-[color:var(--accent-strong)] transition"
+                                >
+                                    비밀번호 재설정
+                                </button>
+                            </div>
+                        </GlassCard>
+                    </motion.div>
+                </div>
+            )}
+            {showWarningModal && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-6">
+                    <motion.div
+                        initial={{ opacity: 0, scale: 0.96 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        className="w-full max-w-sm"
+                    >
+                        <GlassCard className="p-8 text-center">
+                            <h3 className="text-xl font-bold mb-3">로그인 경고</h3>
+                            <p className="text-[color:var(--text-muted)] mb-6">
+                                로그인 오류 횟수 {warningCount ?? 0}회 / 5회
+                                <br />
+                                {warningCount === 4 ? 1 : 2}회 로그인 실패 시 비밀번호를 재설정 해야합니다.
+                            </p>
+                            <div className="flex gap-3">
+                                <button
+                                    onClick={() => setShowWarningModal(false)}
+                                    className="flex-1 py-3 rounded-2xl border border-[color:var(--border)] text-[color:var(--text)] hover:bg-[color:var(--surface-muted)] transition"
+                                >
+                                    취소
+                                </button>
+                                <button
+                                    onClick={() => setShowWarningModal(false)}
+                                    className="flex-1 py-3 rounded-2xl bg-[color:var(--accent)] text-[color:var(--accent-contrast)] font-semibold hover:bg-[color:var(--accent-strong)] transition"
+                                >
+                                    확인
+                                </button>
+                            </div>
+                        </GlassCard>
+                    </motion.div>
+                </div>
+            )}
             <ThemeToggle className="fixed top-6 right-6 z-50" />
             <GlassCard className="w-full max-w-md p-12 relative">
                 <button
@@ -56,7 +163,7 @@ const LoginPage = () => {
                 </button>
 
                 <h2 className="text-3xl font-bold mb-2">반가워요!</h2>
-                <p className="text-[color:var(--text-muted)] mb-10">계정에 로그인하여 시작하세요.</p>
+                <p className="text-[color:var(--text-muted)] mb-10">계정으로 로그인하고 시작하세요.</p>
 
                 {error && (
                     <div className="mb-4 p-3 bg-[color:var(--danger-bg)] border border-[color:var(--danger)]/30 rounded-lg text-[color:var(--danger)] text-sm text-center">
@@ -64,12 +171,18 @@ const LoginPage = () => {
                     </div>
                 )}
 
-                <div className="space-y-4">
+                <form
+                    className="space-y-4"
+                    onSubmit={(e) => {
+                        e.preventDefault();
+                        handleLogin();
+                    }}
+                >
                     <div className="relative">
                         <Mail className="absolute left-4 top-4 text-[color:var(--text-soft)]" size={20} />
                         <input
                             type="text"
-                            placeholder="아이디"
+                            placeholder="아이디(이메일)"
                             value={userId}
                             onChange={(e) => setUserId(e.target.value)}
                             className="w-full pl-12 p-4 rounded-2xl bg-[color:var(--surface-muted)] border border-[color:var(--border)] text-[color:var(--text)] placeholder:text-[color:var(--text-soft)] focus:outline-none focus:ring-2 focus:ring-[color:var(--accent)] transition"
@@ -96,11 +209,33 @@ const LoginPage = () => {
                     </div>
                     <button
                         onClick={handleLogin}
+                        type="submit"
                         className="w-full py-4 bg-[color:var(--accent)] text-[color:var(--accent-contrast)] rounded-2xl font-bold hover:bg-[color:var(--accent-strong)] transition mt-4 shadow-[0_10px_30px_var(--shadow)]"
                     >
                         로그인
                     </button>
-                </div>
+                    <div className="flex items-center gap-3 text-[color:var(--text-muted)] text-xs uppercase tracking-[0.2em] justify-center mt-6">
+                        <span className="h-px flex-1 bg-[color:var(--border)]/60"></span>
+                        소셜 로그인
+                        <span className="h-px flex-1 bg-[color:var(--border)]/60"></span>
+                    </div>
+                    <div className="grid grid-cols-1 gap-3">
+                        <button
+                            type="button"
+                            onClick={() => handleSocialLogin('naver')}
+                            className="w-full py-3 rounded-2xl border border-[color:var(--border)] text-[color:var(--text)] hover:bg-[color:var(--surface-muted)] transition"
+                        >
+                            네이버로 로그인
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => handleSocialLogin('kakao')}
+                            className="w-full py-3 rounded-2xl border border-[color:var(--border)] text-[color:var(--text)] hover:bg-[color:var(--surface-muted)] transition"
+                        >
+                            카카오로 로그인
+                        </button>
+                    </div>
+                </form>
                 <p className="mt-8 text-center text-[color:var(--text-muted)]">
                     계정이 없으신가요?{' '}
                     <button

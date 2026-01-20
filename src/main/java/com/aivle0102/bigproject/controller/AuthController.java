@@ -1,6 +1,8 @@
 package com.aivle0102.bigproject.controller;
 
 import com.aivle0102.bigproject.dto.LoginRequest;
+import com.aivle0102.bigproject.dto.PasswordResetRequest;
+import com.aivle0102.bigproject.dto.PasswordResetVerifyRequest;
 import com.aivle0102.bigproject.dto.ResetPasswordRequest;
 import com.aivle0102.bigproject.dto.SignUpRequest;
 import com.aivle0102.bigproject.dto.UserResponse;
@@ -43,6 +45,18 @@ public class AuthController {
     public ResponseEntity<Map<String, String>> resetPassword(@Valid @RequestBody ResetPasswordRequest request) {
         authService.resetPassword(request);
         return ResponseEntity.ok(Map.of("message", "Password updated"));
+    }
+
+    @PostMapping("/auth/password-reset/request")
+    public ResponseEntity<Map<String, String>> requestPasswordReset(@Valid @RequestBody PasswordResetRequest request) {
+        authService.requestPasswordReset(request);
+        return ResponseEntity.ok(Map.of("message", "Verification code sent"));
+    }
+
+    @PostMapping("/auth/password-reset/verify")
+    public ResponseEntity<Map<String, String>> verifyPasswordResetCode(@Valid @RequestBody PasswordResetVerifyRequest request) {
+        authService.verifyPasswordResetCode(request);
+        return ResponseEntity.ok(Map.of("message", "Verification code verified"));
     }
 
     @DeleteMapping("/auth/withdraw")
