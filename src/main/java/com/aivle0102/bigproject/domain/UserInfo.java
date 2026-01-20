@@ -42,6 +42,15 @@ public class UserInfo {
     @Column(name = "joindate", nullable = false, updatable = false)
     private LocalDateTime joinDate;
 
+    @Column(name = "loginfailcount", nullable = false)
+    private int loginFailCount;
+
+    @Column(name = "provider", length = 20)
+    private String provider;
+
+    @Column(name = "providerid", length = 100)
+    private String providerId;
+
     public void setUserState(String userState) {
         this.userState = userState;
     }
@@ -56,5 +65,17 @@ public class UserInfo {
 
     public void setSalt(String salt) {
         this.salt = salt;
+    }
+
+    public void setLoginFailCount(int loginFailCount) {
+        this.loginFailCount = loginFailCount;
+    }
+
+    public void setProvider(String provider) {
+        this.provider = provider;
+    }
+
+    public void setProviderId(String providerId) {
+        this.providerId = providerId;
     }
 }

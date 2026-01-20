@@ -50,7 +50,7 @@ const SignUpPage = () => {
             });
 
             if (response.ok) {
-                alert('회원가입이 완료되었습니다! 로그인해주세요.');
+                alert('회원가입이 완료되었습니다. 로그인해주세요.');
                 navigate('/login');
             } else {
                 const errorData = await response.json();
@@ -60,6 +60,12 @@ const SignUpPage = () => {
             console.error(err);
             setError('서버 연결에 실패했습니다.');
         }
+    };
+
+    const handleSocialSignup = (provider) => {
+        sessionStorage.setItem('oauthFlow', 'signup');
+        localStorage.setItem('oauthFlow', 'signup');
+        window.location.href = `http://localhost:8080/oauth2/authorization/${provider}`;
     };
 
     return (
@@ -81,7 +87,7 @@ const SignUpPage = () => {
                 <div className="flex justify-between items-start mb-10 pr-8">
                     <div>
                         <h2 className="text-3xl font-bold mb-2">계정 생성</h2>
-                        <p className="text-[color:var(--text-muted)]">필수 정보를 입력하여 가입하세요.</p>
+                        <p className="text-[color:var(--text-muted)]">필수 정보를 입력하여 가입해주세요.</p>
                     </div>
                 </div>
 
@@ -91,11 +97,17 @@ const SignUpPage = () => {
                     </div>
                 )}
 
-                <div className="space-y-4">
+                <form
+                    className="space-y-4"
+                    onSubmit={(e) => {
+                        e.preventDefault();
+                        handleSignup();
+                    }}
+                >
                     <input
                         type="text"
                         name="userName"
-                        placeholder="이름 (전체)"
+                        placeholder="이름 (실명)"
                         value={formData.userName}
                         onChange={handleChange}
                         className="w-full p-4 rounded-2xl bg-[color:var(--surface-muted)] border border-[color:var(--border)] text-[color:var(--text)] placeholder:text-[color:var(--text-soft)] focus:outline-none focus:ring-2 focus:ring-[color:var(--accent)]"
@@ -136,14 +148,36 @@ const SignUpPage = () => {
                         onChange={handleChange}
                         className={`w-full p-4 rounded-2xl bg-[color:var(--surface-muted)] border ${formData.password && formData.confirmPassword && formData.password !== formData.confirmPassword ? 'border-red-500' : 'border-[color:var(--border)]'} text-[color:var(--text)] placeholder:text-[color:var(--text-soft)] focus:outline-none focus:ring-2 focus:ring-[color:var(--accent)] transition`}
                     />
-                </div>
 
-                <button
-                    onClick={handleSignup}
-                    className="w-full py-4 mt-8 bg-[color:var(--accent)] text-[color:var(--accent-contrast)] rounded-2xl font-bold hover:bg-[color:var(--accent-strong)] transition shadow-[0_10px_30px_var(--shadow)]"
-                >
-                    회원가입 완료
-                </button>
+                    <button
+                        type="submit"
+                        className="w-full py-4 mt-8 bg-[color:var(--accent)] text-[color:var(--accent-contrast)] rounded-2xl font-bold hover:bg-[color:var(--accent-strong)] transition shadow-[0_10px_30px_var(--shadow)]"
+                    >
+                        회원가입 완료
+                    </button>
+                </form>
+
+                <div className="flex items-center gap-3 text-[color:var(--text-muted)] text-xs uppercase tracking-[0.2em] justify-center mt-6">
+                    <span className="h-px flex-1 bg-[color:var(--border)]/60"></span>
+                    소셜 회원가입
+                    <span className="h-px flex-1 bg-[color:var(--border)]/60"></span>
+                </div>
+                <div className="grid grid-cols-1 gap-3 mt-4">
+                    <button
+                        type="button"
+                        onClick={() => handleSocialSignup('naver')}
+                        className="w-full py-3 rounded-2xl border border-[color:var(--border)] text-[color:var(--text)] hover:bg-[color:var(--surface-muted)] transition"
+                    >
+                        네이버로 회원가입
+                    </button>
+                    <button
+                        type="button"
+                        onClick={() => handleSocialSignup('kakao')}
+                        className="w-full py-3 rounded-2xl border border-[color:var(--border)] text-[color:var(--text)] hover:bg-[color:var(--surface-muted)] transition"
+                    >
+                        카카오로 회원가입
+                    </button>
+                </div>
             </GlassCard>
         </motion.div>
     );

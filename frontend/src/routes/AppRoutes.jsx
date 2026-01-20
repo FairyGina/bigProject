@@ -5,6 +5,8 @@ import LandingPage from '../pages/LandingPage';
 import LoginPage from '../pages/LoginPage';
 import SignUpPage from '../pages/SignUpPage';
 import FindPasswordPage from '../pages/FindPasswordPage';
+import ResetPasswordPage from '../pages/ResetPasswordPage';
+import OAuthCallbackPage from '../pages/OAuthCallbackPage';
 import MainBoard from '../pages/MainBoard';
 import UserBoard from '../pages/UserBoard';
 import AICreateRecipe from '../pages/AICreateRecipe';
@@ -25,7 +27,7 @@ const ProtectedRoute = ({ children }) => {
     }
 
     if (!user) {
-        return <Navigate to="/" replace />;
+        return <Navigate to="/login" replace />;
     }
 
     return children;
@@ -55,6 +57,8 @@ const AppRoutes = () => {
             <Route path="/login" element={<PublicOnlyRoute><LoginPage /></PublicOnlyRoute>} />
             <Route path="/signup" element={<PublicOnlyRoute><SignUpPage /></PublicOnlyRoute>} />
             <Route path="/find-password" element={<PublicOnlyRoute><FindPasswordPage /></PublicOnlyRoute>} />
+            <Route path="/reset-password" element={<PublicOnlyRoute><ResetPasswordPage /></PublicOnlyRoute>} />
+            <Route path="/oauth/callback" element={<OAuthCallbackPage />} />
 
             {/* 보호된 라우트 */}
             <Route
