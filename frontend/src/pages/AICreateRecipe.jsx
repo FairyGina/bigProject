@@ -14,13 +14,12 @@ const AICreateRecipe = () => {
             <div className="rounded-[2.5rem] bg-[color:var(--surface)]/90 border border-[color:var(--border)] shadow-[0_30px_80px_var(--shadow)] p-8 md:p-10 backdrop-blur">
                 <div className="flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
                     <div>
-                        <p className="text-xs uppercase tracking-[0.4em] text-[color:var(--text-soft)] mb-2">레시피 AI 생성하기</p>
-                        <h2 className="text-2xl md:text-3xl font-semibold text-[color:var(--text)]">AI 레시피 생성 화면</h2>
+                        <p className="text-xs uppercase tracking-[0.4em] text-[color:var(--text-soft)] mb-2">레시피 AI로 생성하기</p>
+                        <h2 className="text-2xl md:text-3xl font-semibold text-[color:var(--text)]">AI 레시피 생성</h2>
                     </div>
                     <div className="flex items-center gap-3">
                         <div className="text-right">
                             <p className="text-sm font-semibold text-[color:var(--text)]">{maskedName}</p>
-                            <p className="text-xs text-[color:var(--text-soft)]">레시피 생성</p>
                         </div>
                         <div
                             className="h-10 w-10 rounded-full shadow-[0_10px_20px_var(--shadow)]"

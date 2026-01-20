@@ -47,7 +47,7 @@ const Sidebar = () => {
         <aside className="w-full md:w-64 md:h-screen md:sticky md:top-0 bg-[color:var(--sidebar-bg)] border-r border-[color:var(--sidebar-border)]">
             <div className="h-full p-6 flex flex-col gap-8">
                 <div className="space-y-2">
-                    <p className="text-xs uppercase tracking-[0.3em] text-[color:var(--text-soft)]">프로그램명</p>
+                    <p className="text-xs uppercase tracking-[0.3em] text-[color:var(--text-soft)]">빈레시피</p>
                     <div className="h-px bg-[color:var(--border-strong)]" />
                 </div>
 

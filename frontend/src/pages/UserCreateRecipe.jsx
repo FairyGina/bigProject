@@ -22,12 +22,11 @@ const UserCreateRecipe = () => {
                 <div className="flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
                     <div>
                         <p className="text-xs uppercase tracking-[0.4em] text-[color:var(--text-soft)] mb-2">레시피 직접 등록하기</p>
-                        <h2 className="text-2xl md:text-3xl font-semibold text-[color:var(--text)]">유저 레시피 등록 화면</h2>
+                        <h2 className="text-2xl md:text-3xl font-semibold text-[color:var(--text)]">유저 레시피 등록</h2>
                     </div>
                     <div className="flex items-center gap-3">
                         <div className="text-right">
                             <p className="text-sm font-semibold text-[color:var(--text)]">{maskedName}</p>
-                            <p className="text-xs text-[color:var(--text-soft)]">직접 레시피 등록</p>
                         </div>
                         <div
                             className="h-10 w-10 rounded-full shadow-[0_10px_20px_var(--shadow)]"
@@ -36,7 +35,7 @@ const UserCreateRecipe = () => {
                     </div>
                 </div>
 
-                <div className="mt-8 grid grid-cols-1 lg:grid-cols-[1.2fr_0.8fr] gap-6">
+                <div className="mt-8 grid grid-cols-1 lg:grid-cols-2 gap-6">
                     <div className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[0_12px_30px_var(--shadow)] p-6 space-y-5">
                         <div>
                             <h3 className="text-lg font-semibold text-[color:var(--text)] mb-4">레시피</h3>

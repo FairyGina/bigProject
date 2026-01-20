@@ -10,6 +10,7 @@ import UserBoard from '../pages/UserBoard';
 import AICreateRecipe from '../pages/AICreateRecipe';
 import UserCreateRecipe from '../pages/UserCreateRecipe';
 import NoticeBoard from '../pages/NoticeBoard';
+import RecipeReport from '../pages/RecipeReport';
 import NotFound from '../pages/NotFound';
 import MainLayout from '../components/layout/MainLayout';
 import PasswordCheckPage from '../pages/PasswordCheckPage';
@@ -24,7 +25,7 @@ const ProtectedRoute = ({ children }) => {
     }
 
     if (!user) {
-        return <Navigate to="/login" replace />;
+        return <Navigate to="/" replace />;
     }
 
     return children;
@@ -68,6 +69,7 @@ const AppRoutes = () => {
                                 <Route path="user-hub/recipes" element={<UserBoard />} />
                                 <Route path="user-hub/password-check" element={<PasswordCheckPage />} />
                                 <Route path="user-hub/profile" element={<UserProfilePage />} />
+                                <Route path="recipe-report" element={<RecipeReport />} />
                                 <Route path="create/ai" element={<AICreateRecipe />} />
                                 <Route path="create/manual" element={<UserCreateRecipe />} />
                                 <Route path="settings/password-check" element={<PasswordCheckPage />} />
