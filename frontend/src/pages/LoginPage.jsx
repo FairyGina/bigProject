@@ -17,7 +17,8 @@ const LoginPage = () => {
     const handleLogin = async () => {
         setError('');
         try {
-            const response = await axiosInstance.post('/api/auth/login', { userId, password });
+            const normalizedUserId = userId.trim();
+            const response = await axiosInstance.post('/api/auth/login', { userId: normalizedUserId, password });
             const data = response.data;
 
             if (data.accessToken) {
