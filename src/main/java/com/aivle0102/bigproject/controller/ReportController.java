@@ -9,6 +9,8 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.Map;
+
 @RestController
 @RequiredArgsConstructor
 @RequestMapping("/api/report")
@@ -17,14 +19,19 @@ public class ReportController {
     private final AiReportService aiReportService;
 
     @PostMapping
-    public ResponseEntity<String> generate(@RequestBody ReportRequest request) {
-        String report = aiReportService.generateReport(request);
+    public ResponseEntity<Map<String, Object>> generate(@RequestBody ReportRequest request) {
+        Map<String, Object> report = aiReportService.generateReport(request);
         return ResponseEntity.ok(report);
     }
 
     @PostMapping("/summary")
-    public ResponseEntity<String> summary(@RequestBody String fullReport) {
-        String report = aiReportService.generateSummary(fullReport);
-        return ResponseEntity.ok(report);
+    public ResponseEntity<String> summary(@RequestBody Object fullReport) {
+        try {
+            String serialized = new com.fasterxml.jackson.databind.ObjectMapper().writeValueAsString(fullReport);
+            String report = aiReportService.generateSummary(serialized);
+            return ResponseEntity.ok(report);
+        } catch (Exception e) {
+            throw new IllegalStateException("Failed to serialize report for summary", e);
+        }
     }
 }
