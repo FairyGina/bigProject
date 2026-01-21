@@ -57,17 +57,25 @@ public class InfluencerDiscoveryService {
 
     private String buildSerpQuery(InfluencerRecommendRequest req) {
         String platform = Optional.ofNullable(req.getPlatform()).orElse("TikTok, Instagram");
+        String recipe = Optional.ofNullable(req.getRecipe()).orElse("").trim();
+        if (recipe.isBlank()) {
+            recipe = "Korean food";
+        }
         return String.format(
-                "kimchi fried rice Korean food influencer %s %s recipe",
-                req.getTargetCountry(), platform
+                "%s influencer %s %s recipe",
+                recipe, req.getTargetCountry(), platform
         );
     }
 
     private String buildFallbackQuery(InfluencerRecommendRequest req) {
         String platform = Optional.ofNullable(req.getPlatform()).orElse("TikTok, Instagram");
+        String recipe = Optional.ofNullable(req.getRecipe()).orElse("").trim();
+        if (recipe.isBlank()) {
+            recipe = "Korean food";
+        }
         return String.format(
-                "\"kimchi fried rice\" influencer %s %s",
-                req.getTargetCountry(), platform
+                "\"%s\" influencer %s %s",
+                recipe, req.getTargetCountry(), platform
         );
     }
 
