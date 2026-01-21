@@ -1,3 +1,5 @@
+// 알레르기 키워드/토큰을 표준 canonical 값으로 매핑하는 유틸 서비스.
+// HACCP 텍스트, 재료명, AI 토큰에서 알레르기 후보를 추출한다.
 package com.aivle0102.bigproject.service;
 
 import org.springframework.stereotype.Component;
@@ -49,6 +51,10 @@ public class AllergenMatcher {
             Map.entry("빵가루", "Wheat"),
             Map.entry("면", "Wheat"),
             Map.entry("파스타", "Wheat"),
+            Map.entry("보리", "Barley"),
+            Map.entry("호밀", "Rye"),
+            Map.entry("귀리", "Oats"),
+            Map.entry("카무트", "Kamut"),
 
             Map.entry("대두", "Soybean"),
             Map.entry("콩", "Soybean"),
@@ -89,6 +95,19 @@ public class AllergenMatcher {
             Map.entry("흑임자", "Sesame")
     );
 
+    // 글루텐 함유 곡물 매핑(원재료 단계 대응)
+    private static final Map<String, String> GLUTEN_CEREAL_KO_TO_CANONICAL = Map.ofEntries(
+            Map.entry("밀", "Wheat"),
+            Map.entry("밀가루", "Wheat"),
+            Map.entry("보리", "Barley"),
+            Map.entry("보리쌀", "Barley"),
+            Map.entry("호밀", "Rye"),
+            Map.entry("호밀가루", "Rye"),
+            Map.entry("귀리", "Oats"),
+            Map.entry("귀리가루", "Oats"),
+            Map.entry("카무트", "Kamut")
+    );
+
     // 복수 알레르기 성분이 명확한 원재료 예외 매핑.
     private static final Map<String, Set<String>> MULTI_INGREDIENT_TO_CANONICAL = Map.ofEntries(
             Map.entry("간장", Set.of("Soybean", "Wheat")),
@@ -119,6 +138,10 @@ public class AllergenMatcher {
             Map.entry("면", "Wheat"),
             Map.entry("파스타", "Wheat"),
             Map.entry("밀글루텐", "Wheat"),
+            Map.entry("보리", "Barley"),
+            Map.entry("호밀", "Rye"),
+            Map.entry("귀리", "Oats"),
+            Map.entry("카무트", "Kamut"),
 
             Map.entry("대두", "Soybean"),
             Map.entry("콩", "Soybean"),
@@ -192,6 +215,18 @@ public class AllergenMatcher {
         return Optional.ofNullable(INGREDIENT_TO_CANONICAL.get(key));
     }
 
+    public Optional<String> matchGlutenCerealCanonical(String ingredientName) {
+        // 글루텐 함유 곡물 여부 확인(원재료 단계 대응)
+        if (ingredientName == null || ingredientName.isBlank()) return Optional.empty();
+        String key = ingredientName.trim();
+        for (Map.Entry<String, String> entry : GLUTEN_CEREAL_KO_TO_CANONICAL.entrySet()) {
+            if (key.contains(entry.getKey())) {
+                return Optional.of(entry.getValue());
+            }
+        }
+        return Optional.empty();
+    }
+
     public Set<String> directMultiMatchIngredientToCanonical(String ingredientName) {
         // 복수 알레르기 성분 매핑(간장/된장 등)
         if (ingredientName == null || ingredientName.isBlank()) return Set.of();
@@ -217,6 +252,11 @@ public class AllergenMatcher {
         for (String p : parts) {
             String token = p.trim();
             if (token.isEmpty()) continue;
+
+            Set<String> multi = MULTI_INGREDIENT_TO_CANONICAL.get(token);
+            if (multi != null && !multi.isEmpty()) {
+                out.addAll(multi);
+            }
 
             String canonical = HACCP_KO_TO_CANONICAL.get(token);
             if (canonical != null) out.add(canonical);
@@ -247,6 +287,7 @@ public class AllergenMatcher {
 
             out.addAll(matchByContains(token, HACCP_KO_TO_CANONICAL));
             out.addAll(matchByContains(token, INGREDIENT_TO_CANONICAL));
+            out.addAll(matchByContainsMulti(token, MULTI_INGREDIENT_TO_CANONICAL));
         }
         return out;
     }
@@ -268,6 +309,7 @@ public class AllergenMatcher {
 
             out.addAll(matchByContains(token, HACCP_KO_TO_CANONICAL));
             out.addAll(matchByContains(token, INGREDIENT_TO_CANONICAL));
+            out.addAll(matchByContainsMulti(token, MULTI_INGREDIENT_TO_CANONICAL));
         }
         return out;
     }
@@ -325,6 +367,18 @@ public class AllergenMatcher {
         List<String> out = new ArrayList<>();
         for (String p : parts) {
             if (!p.isBlank()) out.add(p);
+        }
+        return out;
+    }
+
+    private Set<String> matchByContainsMulti(String token, Map<String, Set<String>> mapping) {
+        // 부분 일치 키워드에 대한 복수 canonical 매핑
+        if (token == null || token.isBlank()) return Set.of();
+        Set<String> out = new LinkedHashSet<>();
+        for (Map.Entry<String, Set<String>> entry : mapping.entrySet()) {
+            if (token.contains(entry.getKey())) {
+                out.addAll(entry.getValue());
+            }
         }
         return out;
     }

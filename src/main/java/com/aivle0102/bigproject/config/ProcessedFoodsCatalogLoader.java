@@ -1,3 +1,5 @@
+// 가공식품 분류 카탈로그를 로딩해 HACCP 검색 후보 생성에 사용한다.
+// 품목명/대표식품명/분류 정보를 메모리로 제공한다.
 package com.aivle0102.bigproject.config;
 
 import com.fasterxml.jackson.databind.JsonNode;

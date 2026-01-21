@@ -1,3 +1,5 @@
+// HACCP 제품 라벨 근거(알레르기/원재료) 정보를 담는 DTO.
+// 제품명, 유형, 원재료 텍스트 등을 포함한다.
 package com.aivle0102.bigproject.dto;
 
 import lombok.Builder;

@@ -1,3 +1,5 @@
+// HACCP 제품 이미지/표기 정보 API를 호출하는 클라이언트.
+// prdkind/prdlstNm 검색 결과를 파싱해 반환한다.
 package com.aivle0102.bigproject.client;
 
 import com.fasterxml.jackson.databind.JsonNode;

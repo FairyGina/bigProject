@@ -1,3 +1,5 @@
+// 레시피 재료를 기반으로 알레르기 성분을 추출/매칭하는 핵심 서비스.
+// 원재료/가공식품 분류, HACCP 검색, AI 보조 추출을 순차적으로 수행한다.
 package com.aivle0102.bigproject.service;
 
 import com.aivle0102.bigproject.client.HaccpCertImgClient;
@@ -101,6 +103,17 @@ public class AllergenAnalysisService {
             boolean isRawProduce = rawProduceCatalogLoader.isRawProduce(ing);
             if (isRawProduce) {
                 LOGGER.info(() -> "RAW_PRODUCE 판단: ingredient=" + ing);
+                // 글루텐 함유 곡물 처리(국가별 의무 항목 대응)
+                Optional<String> glutenCanonical = allergenMatcher.matchGlutenCerealCanonical(ing);
+                if (glutenCanonical.isPresent()) {
+                    boolean matched = addDirectIfObligated("Cereals containing gluten", ing, obligation, directMatched);
+                    if (addDirectIfObligated(glutenCanonical.get(), ing, obligation, directMatched)) {
+                        matched = true;
+                    }
+                    if (matched) {
+                        continue;
+                    }
+                }
                 // 원재료성 식품 중 알레르기 원재료만 통과
                 Optional<String> canonicalOpt = allergenMatcher.directMatchIngredientToCanonical(ing);
                 if (canonicalOpt.isPresent()) {
@@ -159,7 +172,7 @@ public class AllergenAnalysisService {
                 .directMatchedAllergens(directMatched)
                 .haccpSearchEvidences(evidences)
                 .finalMatchedAllergens(new ArrayList<>(finalAllergens))
-                .note("HACCP prdkind/prdlstNm 검색과 allergy/rawmtrl 기반 매칭 결과입니다. 추론은 하지 않으며, 검색 결과가 없으면 NOT_FOUND로 종료합니다.")
+                .note(buildAllergenNote(targetCountry, directMatched, evidences))
                 .build();
     }
 
@@ -432,7 +445,7 @@ public class AllergenAnalysisService {
                 + "원재료: " + rawmtrlRaw + "\n"
                 + "재료와 직접 관련된 원재료/알레르기 키워드만 추출해줘.\n"
                 + "- 재료와 무관한 부재료는 제외\n"
-                + "- 재료와 관련된 알레르기 키워드의 경우 재료(구성성분) 또는, 재료[구성성분] 과 같은 형태로 존재함."
+                + "- 재료와 관련된 알레르기 키워드의 경우 재료(구성성분) 또는, 재료[구성성분], 재료-구성성분 과 같은 형태로 존재함."
                 + "- 복합 제품이면 재료(예: 고추장) 구성 성분만 선택\n"
                 + "결과는 JSON 배열만 반환";
 
@@ -525,22 +538,157 @@ public class AllergenAnalysisService {
     }
 
     private boolean isCompatibleCanonical(String canonical, List<String> obligation) {
-        if (canonical.equals("Crustaceans") && obligation.contains("Crustacean shellfish")) return true;
+        List<String> normalized = normalizeObligation(obligation);
+        if (canonical.equals("Crustaceans") && normalized.contains("Crustacean shellfish")) return true;
         return false;
     }
 
     private String normalizeCanonicalForCountry(String canonical, List<String> obligation) {
-        if (canonical.equals("Crustaceans") && obligation.contains("Crustacean shellfish")) return "Crustacean shellfish";
+        List<String> normalized = normalizeObligation(obligation);
+        if (canonical.equals("Crustaceans") && normalized.contains("Crustacean shellfish")) return "Crustacean shellfish";
         return canonical;
     }
 
     private boolean addDirectIfObligated(String canonical, String ingredient, List<String> obligation, Map<String, String> directMatched) {
         // 국가 의무 알레르기 목록에 해당하면 directMatched에 추가
-        if (obligation.contains(canonical) || isCompatibleCanonical(canonical, obligation)) {
-            directMatched.put(normalizeCanonicalForCountry(canonical, obligation), ingredient);
+        List<String> normalized = normalizeObligation(obligation);
+        if (normalized.contains(canonical) || isCompatibleCanonical(canonical, normalized)) {
+            String key = normalizeCanonicalForCountry(canonical, normalized);
+            String existing = directMatched.get(key);
+            if (existing == null || existing.isBlank()) {
+                directMatched.put(key, ingredient);
+            } else if (!existing.contains(ingredient)) {
+                directMatched.put(key, existing + ", " + ingredient);
+            }
             return true;
         }
         return false;
+    }
+
+    private List<String> normalizeObligation(List<String> obligation) {
+        if (obligation == null || obligation.isEmpty()) return List.of();
+        return obligation.stream()
+                .filter(v -> v != null && !v.isBlank())
+                .map(String::trim)
+                .toList();
+    }
+
+    private String buildAllergenNote(String targetCountry, Map<String, String> directMatched, List<IngredientEvidence> evidences) {
+        String countryCode = (targetCountry == null) ? "" : targetCountry.toUpperCase(Locale.ROOT);
+        String countryName = allergenCatalogLoader.getCountryToName().getOrDefault(countryCode, countryCode);
+        countryName = translateCountryName(countryCode, countryName);
+        List<String> requiredAllergens = allergenCatalogLoader.getCountryToAllergens().getOrDefault(countryCode, List.of());
+        List<String> legalBasis = allergenCatalogLoader.getCountryToLegalBasis().getOrDefault(countryCode, List.of());
+
+        List<String> requiredKo = new ArrayList<>();
+        for (String a : requiredAllergens) {
+            requiredKo.add(translateAllergenName(a));
+        }
+        String requiredList = requiredKo.isEmpty() ? "해당 국가 기준 정보 없음" : String.join(", ", new LinkedHashSet<>(requiredKo));
+
+        Map<String, Set<String>> ingredientToAllergens = new LinkedHashMap<>();
+        if (directMatched != null) {
+            for (Map.Entry<String, String> entry : directMatched.entrySet()) {
+                String allergen = translateAllergenName(entry.getKey());
+                String ingredients = entry.getValue() == null ? "" : entry.getValue();
+                for (String ing : ingredients.split(",")) {
+                    String trimmed = ing.trim();
+                    if (trimmed.isEmpty()) continue;
+                    ingredientToAllergens
+                            .computeIfAbsent(trimmed, k -> new LinkedHashSet<>())
+                            .add(allergen);
+                }
+            }
+        }
+
+        if (evidences != null) {
+            for (IngredientEvidence ev : evidences) {
+                List<String> matched = ev.getMatchedAllergensForTargetCountry();
+                if (matched == null || matched.isEmpty()) continue;
+                ingredientToAllergens
+                        .computeIfAbsent(ev.getIngredient(), k -> new LinkedHashSet<>())
+                        .addAll(matched.stream().map(this::translateAllergenName).toList());
+            }
+        }
+
+        List<String> parts = new ArrayList<>();
+        for (Map.Entry<String, Set<String>> entry : ingredientToAllergens.entrySet()) {
+            String ingredient = entry.getKey();
+            String allergens = String.join(", ", entry.getValue());
+            parts.add(ingredient + "(" + allergens + ")");
+        }
+
+        String detectedList = parts.isEmpty() ? "" : String.join(", ", parts);
+        String basisText = legalBasis.isEmpty() ? "관련 규정 정보 없음" : String.join("; ", new LinkedHashSet<>(legalBasis));
+
+        if (parts.isEmpty()) {
+            return String.format(
+                    "%s에서는 '%s'에 대해 필수적으로 알레르기 표기 의무 사항이 존재합니다. "
+                            + "현재 포함된 재료 중 알레르기 표기 사항이 없는 것으로 확인되었으나, "
+                            + "본 결과는 HACCP 검색과 AI 검색어 생성 및 분석을 사용하고 있으므로 검토가 필요합니다. "
+                            + "관련 규정(%s)을 참고하시기 바랍니다.",
+                    countryName,
+                    requiredList,
+                    basisText
+            );
+        }
+
+        return String.format(
+                "%s에서는 '%s'에 대해 필수적으로 알레르기 표기 의무 사항이 존재합니다. "
+                        + "현재 포함된 재료 %s에 대해 알레르기 표기 사항이 있을 수 있으므로 검토가 필요합니다. "
+                        + "본 결과는 HACCP 검색과 AI 검색어 생성 및 분석을 사용하고 있으므로 검토가 필요합니다. "
+                        + "관련 규정(%s)을 참고하시기 바랍니다.",
+                countryName,
+                requiredList,
+                detectedList,
+                basisText
+        );
+    }
+
+    private String translateAllergenName(String name) {
+        if (name == null) return "";
+        return switch (name) {
+            case "Cereals containing gluten" -> "글루텐 함유 곡물";
+            case "Wheat" -> "밀";
+            case "Barley" -> "보리";
+            case "Rye" -> "호밀";
+            case "Oats" -> "귀리";
+            case "Kamut" -> "카무트";
+            case "Milk", "Milk (including lactose)" -> "유류/유제품";
+            case "Egg" -> "달걀";
+            case "Fish" -> "생선";
+            case "Crustacean shellfish", "Crustaceans" -> "갑각류";
+            case "Tree nuts" -> "견과류";
+            case "Peanut" -> "땅콩";
+            case "Soybean" -> "대두";
+            case "Sesame", "Sesame seeds" -> "참깨";
+            case "Walnut" -> "호두";
+            case "Buckwheat" -> "메밀";
+            case "Celery" -> "셀러리";
+            case "Mustard" -> "겨자";
+            case "Sulphur dioxide and sulphites", "Sulphites" -> "아황산염";
+            case "Lupin" -> "루핀";
+            case "Molluscs" -> "연체류";
+            case "Shrimp" -> "새우";
+            case "Crab" -> "게";
+            default -> name;
+        };
+    }
+
+    private String translateCountryName(String countryCode, String fallback) {
+        if (countryCode == null || countryCode.isBlank()) return "미지정";
+        return switch (countryCode) {
+            case "US" -> "미국";
+            case "JP" -> "일본";
+            case "CN" -> "중국";
+            case "FR" -> "프랑스";
+            case "DE" -> "독일";
+            case "PL" -> "폴란드";
+            case "IN" -> "인도";
+            case "VN" -> "베트남";
+            case "TH" -> "태국";
+            default -> (fallback == null || fallback.isBlank()) ? countryCode : fallback;
+        };
     }
 
     private boolean addSeafoodDirectMatches(
@@ -554,21 +702,17 @@ public class AllergenAnalysisService {
             case CRUSTACEAN -> addDirectIfObligated("Crustaceans", ingredient, obligation, directMatched);
             case SHRIMP -> {
                 boolean matched = addDirectIfObligated("Crustaceans", ingredient, obligation, directMatched);
-                if (obligation.contains("Shrimp")) {
-                    directMatched.put("Shrimp", ingredient);
-                    matched = true;
-                }
+                if (addDirectIfObligated("Shrimp", ingredient, obligation, directMatched)) matched = true;
                 yield matched;
             }
             case CRAB -> {
                 boolean matched = addDirectIfObligated("Crustaceans", ingredient, obligation, directMatched);
-                if (obligation.contains("Crab")) {
-                    directMatched.put("Crab", ingredient);
-                    matched = true;
-                }
+                if (addDirectIfObligated("Crab", ingredient, obligation, directMatched)) matched = true;
                 yield matched;
             }
-            case MOLLUSC, SEAWEED -> false;
+            case MOLLUSC -> addDirectIfObligated("Molluscs", ingredient, obligation, directMatched)
+                    || addDirectIfObligated("Mollusks", ingredient, obligation, directMatched);
+            case OTHER -> false;
         };
     }
 }
