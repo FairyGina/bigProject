@@ -22,7 +22,7 @@ jobs:
         with:
           host: ${{ secrets.DEPLOY_HOST }}
           username: ${{ secrets.DEPLOY_USER }}
-          password: ${{ secrets.SSH_PASSWORD }}
+          password: "qjrjld0102!"
           port: 22
           debug: true
           script: |
