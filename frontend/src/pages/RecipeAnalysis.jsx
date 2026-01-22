@@ -20,6 +20,25 @@ const RecipeAnalysis = () => {
     const [influencerLoading, setInfluencerLoading] = useState(false);
     const [publishLoading, setPublishLoading] = useState(false);
 
+    const influencerMetaKey = (recipeId) => `recipeInfluencerMeta:${recipeId}`;
+    const readInfluencerMeta = (recipeId) => {
+        const cached =
+            sessionStorage.getItem(influencerMetaKey(recipeId)) ||
+            localStorage.getItem(influencerMetaKey(recipeId));
+        if (!cached) {
+            return null;
+        }
+        try {
+            return JSON.parse(cached);
+        } catch (err) {
+            return null;
+        }
+    };
+    const isInfluencerMetaMatch = (meta, currentRecipe) =>
+        Boolean(meta) &&
+        meta.title === (currentRecipe?.title ?? '') &&
+        meta.summary === (currentRecipe?.summary ?? '');
+
     useEffect(() => {
         const fetchRecipe = async () => {
             try {
@@ -84,6 +103,15 @@ const RecipeAnalysis = () => {
             const cachedImage =
                 sessionStorage.getItem(`recipeInfluencerImage:${recipe.id}`) ||
                 localStorage.getItem(`recipeInfluencerImage:${recipe.id}`);
+            const cachedMeta = readInfluencerMeta(recipe.id);
+            if (cachedMeta && !isInfluencerMetaMatch(cachedMeta, recipe)) {
+                sessionStorage.removeItem(`recipeInfluencers:${recipe.id}`);
+                sessionStorage.removeItem(`recipeInfluencerImage:${recipe.id}`);
+                sessionStorage.removeItem(influencerMetaKey(recipe.id));
+                localStorage.removeItem(`recipeInfluencers:${recipe.id}`);
+                localStorage.removeItem(`recipeInfluencerImage:${recipe.id}`);
+                localStorage.removeItem(influencerMetaKey(recipe.id));
+            }
             if (cachedInfluencers) {
                 try {
                     const parsed = JSON.parse(cachedInfluencers);
@@ -112,12 +140,19 @@ const RecipeAnalysis = () => {
                 const recs = influencerRes.data?.recommendations ?? [];
                 setInfluencers(recs);
                 if (recs.length) {
+                    const metaJson = JSON.stringify({
+                        id: recipe.id,
+                        title: recipe.title,
+                        summary: recipe.summary,
+                    });
                     try {
+                        sessionStorage.setItem(influencerMetaKey(recipe.id), metaJson);
                         sessionStorage.setItem(`recipeInfluencers:${recipe.id}`, JSON.stringify(recs));
                     } catch (err) {
                         // ignore cache errors
                     }
                     try {
+                        localStorage.setItem(influencerMetaKey(recipe.id), metaJson);
                         localStorage.setItem(`recipeInfluencers:${recipe.id}`, JSON.stringify(recs));
                     } catch (err) {
                         // ignore cache errors

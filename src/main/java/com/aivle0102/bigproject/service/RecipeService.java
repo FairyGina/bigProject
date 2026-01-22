@@ -80,6 +80,20 @@ public class RecipeService {
         recipe.setIngredientsJson(writeJson(request.getIngredients()));
         recipe.setStepsJson(writeJson(request.getSteps()));
         recipe.setImageBase64(request.getImageBase64());
+        if (request.isRegenerateReport()) {
+            ReportRequest reportRequest = new ReportRequest();
+            reportRequest.setRecipe(buildReportRecipe(request));
+            reportRequest.setTargetCountry(defaultIfBlank(request.getTargetCountry(), "??????"));
+            reportRequest.setTargetPersona(defaultIfBlank(request.getTargetPersona(), "20~30?? ???????? ?????????????"));
+            reportRequest.setPriceRange(defaultIfBlank(request.getPriceRange(), "USD 6~9"));
+            try {
+                var report = aiReportService.generateReport(reportRequest);
+                recipe.setReportJson(writeJsonMap(report));
+                recipe.setSummary(aiReportService.generateSummary(recipe.getReportJson()));
+            } catch (Exception e) {
+                throw new IllegalStateException("Failed to generate report for recipe", e);
+            }
+        }
 
         Recipe saved = recipeRepository.save(recipe);
         return toResponse(saved);

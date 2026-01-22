@@ -272,6 +272,58 @@ const UserCreateRecipe = () => {
         }
     };
 
+    const safeCacheRemove = (key) => {
+        try {
+            localStorage.removeItem(key);
+        } catch (err) {
+            // ignore remove errors
+        }
+    };
+
+    const safeSessionRemove = (key) => {
+        try {
+            sessionStorage.removeItem(key);
+        } catch (err) {
+            // ignore remove errors
+        }
+    };
+
+    const influencerMetaKey = (recipeId) => `recipeInfluencerMeta:${recipeId}`;
+
+    const buildInfluencerMeta = (recipe) => ({
+        id: recipe?.id ?? null,
+        title: recipe?.title ?? '',
+        summary: recipe?.summary ?? '',
+    });
+
+    const readInfluencerMeta = (recipeId) => {
+        const cached =
+            sessionStorage.getItem(influencerMetaKey(recipeId)) ||
+            localStorage.getItem(influencerMetaKey(recipeId));
+        if (!cached) {
+            return null;
+        }
+        try {
+            return JSON.parse(cached);
+        } catch (err) {
+            return null;
+        }
+    };
+
+    const isInfluencerMetaMatch = (meta, recipe) =>
+        Boolean(meta) &&
+        meta.title === (recipe?.title ?? '') &&
+        meta.summary === (recipe?.summary ?? '');
+
+    const clearInfluencerCache = (recipeId) => {
+        safeSessionRemove(`recipeInfluencers:${recipeId}`);
+        safeSessionRemove(`recipeInfluencerImage:${recipeId}`);
+        safeSessionRemove(influencerMetaKey(recipeId));
+        safeCacheRemove(`recipeInfluencers:${recipeId}`);
+        safeCacheRemove(`recipeInfluencerImage:${recipeId}`);
+        safeCacheRemove(influencerMetaKey(recipeId));
+    };
+
     const generateInfluencerAssets = async (recipe) => {
         const cachedInfluencers =
             sessionStorage.getItem(`recipeInfluencers:${recipe.id}`) ||
@@ -279,6 +331,10 @@ const UserCreateRecipe = () => {
         const cachedImage =
             sessionStorage.getItem(`recipeInfluencerImage:${recipe.id}`) ||
             localStorage.getItem(`recipeInfluencerImage:${recipe.id}`);
+        const cachedMeta = readInfluencerMeta(recipe.id);
+        if (cachedMeta && !isInfluencerMetaMatch(cachedMeta, recipe)) {
+            clearInfluencerCache(recipe.id);
+        }
         if (cachedInfluencers && cachedImage) {
             try {
                 const parsed = JSON.parse(cachedInfluencers);
@@ -308,6 +364,9 @@ const UserCreateRecipe = () => {
             const influencersJson = JSON.stringify(recs);
             safeSessionSet(`recipeInfluencers:${recipe.id}`, influencersJson);
             safeCacheSet(`recipeInfluencers:${recipe.id}`, influencersJson);
+            const metaJson = JSON.stringify(buildInfluencerMeta(recipe));
+            safeSessionSet(influencerMetaKey(recipe.id), metaJson);
+            safeCacheSet(influencerMetaKey(recipe.id), metaJson);
 
             const top = recs[0];
             if (top?.name && top?.imageUrl) {
@@ -349,6 +408,8 @@ const UserCreateRecipe = () => {
         }
         const recipeId = id || initialRecipe?.id || createdRecipe?.id;
         const isUpdate = Boolean(recipeId);
+        const isCreateFlow = !id;
+        const shouldRegenerate = isCreateFlow && (isDirty || !createdRecipe);
         const payload = {
             title: title.trim(),
             description: description.trim(),
@@ -359,9 +420,15 @@ const UserCreateRecipe = () => {
             targetPersona: labels.targetPersona,
             priceRange: 'USD 6~9',
             draft: true,
+            regenerateReport: shouldRegenerate,
         };
         setLoading(true);
         try {
+            if (shouldRegenerate && recipeId) {
+                clearInfluencerCache(recipeId);
+                setCreatedInfluencers([]);
+                setCreatedInfluencerImage('');
+            }
             const res = isUpdate
                 ? await axiosInstance.put(`/api/recipes/${recipeId}`, payload)
                 : await axiosInstance.post('/api/recipes', payload);
@@ -370,14 +437,14 @@ const UserCreateRecipe = () => {
             shouldBlockRef.current = false;
             sessionStorage.removeItem('recipeEditDirty');
 
-            if (!isUpdate) {
+            if (isCreateFlow && shouldRegenerate) {
                 const influencerOk = await generateInfluencerAssets(created);
                 if (!influencerOk) {
                     return;
                 }
             }
 
-            if (!id) {
+            if (isCreateFlow) {
                 setCreatedRecipe(created);
                 setShowReview(true);
                 setError('');

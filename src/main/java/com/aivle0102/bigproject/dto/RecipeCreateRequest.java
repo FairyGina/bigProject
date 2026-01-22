@@ -19,4 +19,5 @@ public class RecipeCreateRequest {
     private String targetPersona;
     private String priceRange;
     private boolean draft;
+    private boolean regenerateReport;
 }

@@ -49,9 +49,32 @@ const RecipeReport = () => {
         };
     }, [recipe]);
 
+    const influencerMetaKey = (recipeId) => `recipeInfluencerMeta:${recipeId}`;
     const getCachedInfluencers = (currentRecipe) => {
         if (Array.isArray(currentRecipe?.influencers) && currentRecipe.influencers.length) {
             return currentRecipe.influencers;
+        }
+        const cachedMeta =
+            sessionStorage.getItem(influencerMetaKey(currentRecipe?.id)) ||
+            localStorage.getItem(influencerMetaKey(currentRecipe?.id));
+        if (cachedMeta) {
+            try {
+                const meta = JSON.parse(cachedMeta);
+                if (
+                    meta.title !== (currentRecipe?.title ?? '') ||
+                    meta.summary !== (currentRecipe?.summary ?? '')
+                ) {
+                    sessionStorage.removeItem(`recipeInfluencers:${currentRecipe?.id}`);
+                    sessionStorage.removeItem(`recipeInfluencerImage:${currentRecipe?.id}`);
+                    sessionStorage.removeItem(influencerMetaKey(currentRecipe?.id));
+                    localStorage.removeItem(`recipeInfluencers:${currentRecipe?.id}`);
+                    localStorage.removeItem(`recipeInfluencerImage:${currentRecipe?.id}`);
+                    localStorage.removeItem(influencerMetaKey(currentRecipe?.id));
+                    return [];
+                }
+            } catch (err) {
+                // ignore meta parse errors
+            }
         }
         const cached =
             sessionStorage.getItem(`recipeInfluencers:${currentRecipe?.id}`) ||
