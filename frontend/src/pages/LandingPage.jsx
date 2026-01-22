@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import ThemeToggle from '../components/common/ThemeToggle';
+import Footer from '../components/common/Footer';
 
 const LandingPage = () => {
     const navigate = useNavigate();
@@ -91,6 +92,10 @@ const LandingPage = () => {
                     <br />
                     빈레시피
                 </p> */}
+            </div>
+
+            <div className="absolute bottom-0 left-0 right-0">
+                <Footer />
             </div>
         </motion.div>
     );
