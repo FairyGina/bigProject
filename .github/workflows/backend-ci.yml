@@ -64,6 +64,7 @@ jobs:
           SPRING_DATASOURCE_USERNAME: test
           SPRING_DATASOURCE_PASSWORD: test
           SPRING_JPA_HIBERNATE_DDL_AUTO: create-drop
+          JWT_SECRET: dGVzdC1zZWNyZXQta2V5LWZvci1jaS10ZXN0aW5nLXB1cnBvc2VzLW9ubHk=
         run: ./gradlew test --no-daemon
 
       - name: Generate test report
