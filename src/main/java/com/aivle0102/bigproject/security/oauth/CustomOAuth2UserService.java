@@ -13,6 +13,7 @@ import org.springframework.security.oauth2.core.user.OAuth2User;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 import java.util.*;
 
 @Service
@@ -53,7 +54,7 @@ public class CustomOAuth2UserService extends DefaultOAuth2UserService {
             String id = Objects.toString(response.get("id"), null);
             String name = Objects.toString(response.get("name"), null);
             String nickname = Objects.toString(response.get("nickname"), null);
-            String displayName = firstNonBlank(name, nickname, "User");
+            String displayName = firstNonBlank(name, nickname, "사용자");
             return new OAuth2UserProfile(id, displayName);
         }
         if ("kakao".equals(provider)) {
@@ -61,10 +62,10 @@ public class CustomOAuth2UserService extends DefaultOAuth2UserService {
             Map<String, Object> account = castMap(attributes.get("kakao_account"));
             Map<String, Object> profile = account != null ? castMap(account.get("profile")) : null;
             String nickname = profile != null ? Objects.toString(profile.get("nickname"), null) : null;
-            String displayName = firstNonBlank(nickname, "User");
+            String displayName = firstNonBlank(nickname, "사용자");
             return new OAuth2UserProfile(id, displayName);
         }
-        throw new OAuth2AuthenticationException("Unsupported provider: " + provider);
+        throw new OAuth2AuthenticationException("지원하지 않는 제공자입니다: " + provider);
     }
 
     private UserInfo createUser(String provider, OAuth2UserProfile profile) {
@@ -82,6 +83,7 @@ public class CustomOAuth2UserService extends DefaultOAuth2UserService {
                 .userState("1")
                 .joinDate(LocalDateTime.now())
                 .loginFailCount(0)
+                .passwordChangedAt(OffsetDateTime.now())
                 .provider(provider)
                 .providerId(profile.providerId())
                 .build();
@@ -103,7 +105,7 @@ public class CustomOAuth2UserService extends DefaultOAuth2UserService {
                 return value;
             }
         }
-        return "User";
+        return "사용자";
     }
 
     private record OAuth2UserProfile(String providerId, String displayName) {

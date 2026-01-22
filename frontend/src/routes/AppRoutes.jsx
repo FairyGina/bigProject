@@ -7,6 +7,8 @@ import SignUpPage from '../pages/SignUpPage';
 import FindPasswordPage from '../pages/FindPasswordPage';
 import ResetPasswordPage from '../pages/ResetPasswordPage';
 import OAuthCallbackPage from '../pages/OAuthCallbackPage';
+import PrivacyPolicyPage from '../pages/PrivacyPolicyPage';
+import TermsOfServicePage from '../pages/TermsOfServicePage';
 import MainBoard from '../pages/MainBoard';
 import UserBoard from '../pages/UserBoard';
 import AICreateRecipe from '../pages/AICreateRecipe';
@@ -58,6 +60,8 @@ const AppRoutes = () => {
             <Route path="/signup" element={<PublicOnlyRoute><SignUpPage /></PublicOnlyRoute>} />
             <Route path="/find-password" element={<PublicOnlyRoute><FindPasswordPage /></PublicOnlyRoute>} />
             <Route path="/reset-password" element={<PublicOnlyRoute><ResetPasswordPage /></PublicOnlyRoute>} />
+            <Route path="/privacy-policy" element={<PrivacyPolicyPage />} />
+            <Route path="/terms" element={<TermsOfServicePage />} />
             <Route path="/oauth/callback" element={<OAuthCallbackPage />} />
 
             {/* 보호된 라우트 */}
