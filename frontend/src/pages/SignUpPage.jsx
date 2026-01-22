@@ -135,43 +135,43 @@ const SignUpPage = () => {
         setError('');
 
         if (!consents.terms || !consents.privacy || !consents.thirdParty || !consents.uniqueId) {
-            showError('ÇÊ¼ö ¾à°ü¿¡ ¸ðµÎ µ¿ÀÇÇØÁÖ¼¼¿ä.');
+            showError('í•„ìˆ˜ ì•½ê´€ì— ëª¨ë‘ ë™ì˜í•´ì£¼ì„¸ìš”.');
             return;
         }
 
         if (formData.password !== formData.confirmPassword) {
-            showError('ºñ¹Ð¹øÈ£°¡ ÀÏÄ¡ÇÏÁö ¾Ê½À´Ï´Ù.');
+            showError('ë¹„ë°€ë²ˆí˜¸ê°€ ì¼ì¹˜í•˜ì§€ ì•ŠìŠµë‹ˆë‹¤.');
             return;
         }
 
         const passwordPattern = /^(?=.*[A-Za-z])(?=.*\d)(?=.*[@$!%*#?&])[A-Za-z\d@$!%*#?&]{8,}$/;
         if (!passwordPattern.test(formData.password)) {
-            showError('ºñ¹Ð¹øÈ£´Â 8ÀÚ ÀÌ»ó, ¿µ¹®+¼ýÀÚ+Æ¯¼ö¹®ÀÚ¸¦ Æ÷ÇÔÇØ¾ß ÇÕ´Ï´Ù.');
+            showError('ë¹„ë°€ë²ˆí˜¸ëŠ” 8ìž ì´ìƒ, ì˜ë¬¸+ìˆ«ìž+íŠ¹ìˆ˜ë¬¸ìžë¥¼ í¬í•¨í•´ì•¼ í•©ë‹ˆë‹¤.');
             return;
         }
 
         if (isGuessablePassword(formData.password, formData.userId, formData.birthDate)) {
-            showError('¿¬¼ÓµÈ ¹®ÀÚ¿­ÀÌ³ª ¾ÆÀÌµð/»ý³â¿ùÀÏ µî ÃßÃø °¡´ÉÇÑ Á¤º¸¸¦ ºñ¹Ð¹øÈ£¿¡ »ç¿ëÇÒ ¼ö ¾ø½À´Ï´Ù.');
+            showError('ì—°ì†ëœ ë¬¸ìžì—´ì´ë‚˜ ì•„ì´ë””/ìƒë…„ì›”ì¼ ë“± ì¶”ì¸¡ ê°€ëŠ¥í•œ ì •ë³´ë¥¼ ë¹„ë°€ë²ˆí˜¸ì— ì‚¬ìš©í•  ìˆ˜ ì—†ìŠµë‹ˆë‹¤.');
             return;
         }
 
         if (!formData.birthDate) {
-            showError('»ý³â¿ùÀÏÀ» ÀÔ·ÂÇØÁÖ¼¼¿ä.');
+            showError('ìƒë…„ì›”ì¼ì„ ìž…ë ¥í•´ì£¼ì„¸ìš”.');
             return;
         }
 
         try {
             const response = await axiosInstance.post('/api/auth/join', formData);
             if (response.status >= 200 && response.status < 300) {
-                alert('È¸¿ø°¡ÀÔÀÌ ¿Ï·áµÇ¾ú½À´Ï´Ù. ·Î±×ÀÎÇØÁÖ¼¼¿ä.');
+                alert('íšŒì›ê°€ìž…ì´ ì™„ë£Œë˜ì—ˆìŠµë‹ˆë‹¤. ë¡œê·¸ì¸í•´ì£¼ì„¸ìš”.');
                 navigate('/login');
             } else {
-                showError('È¸¿ø°¡ÀÔ¿¡ ½ÇÆÐÇß½À´Ï´Ù.');
+                showError('íšŒì›ê°€ìž…ì— ì‹¤íŒ¨í–ˆìŠµë‹ˆë‹¤.');
             }
         } catch (err) {
             console.error(err);
             const backendMessage = err.response?.data?.message;
-            showError(backendMessage || '¼­¹ö ¿¬°á¿¡ ½ÇÆÐÇß½À´Ï´Ù.');
+            showError(backendMessage || 'ì„œë²„ ì—°ê²°ì— ì‹¤íŒ¨í–ˆìŠµë‹ˆë‹¤.');
         }
     };
 
@@ -184,7 +184,7 @@ const SignUpPage = () => {
 
     const handleSocialSignup = (provider) => {
         if (!consents.terms || !consents.privacy || !consents.thirdParty || !consents.uniqueId) {
-            setError('ÇÊ¼ö ¾à°ü¿¡ ¸ðµÎ µ¿ÀÇÇØÁÖ¼¼¿ä.');
+            setError('í•„ìˆ˜ ì•½ê´€ì— ëª¨ë‘ ë™ì˜í•´ì£¼ì„¸ìš”.');
             return;
         }
 
@@ -211,8 +211,8 @@ const SignUpPage = () => {
 
                 <div className="flex justify-between items-start mb-10 pr-8">
                     <div>
-                        <h2 className="text-3xl font-bold mb-2">°èÁ¤ »ý¼º</h2>
-                        <p className="text-[color:var(--text-muted)]">ÇÊ¼ö Á¤º¸¸¦ ÀÔ·ÂÇØ ÁÖ¼¼¿ä.</p>
+                        <h2 className="text-3xl font-bold mb-2">ê³„ì • ìƒì„±</h2>
+                        <p className="text-[color:var(--text-muted)]">í•„ìˆ˜ ì •ë³´ë¥¼ ìž…ë ¥í•´ ì£¼ì„¸ìš”.</p>
                     </div>
                 </div>
 
@@ -232,7 +232,7 @@ const SignUpPage = () => {
                     <input
                         type="text"
                         name="userName"
-                        placeholder="ÀÌ¸§ (´Ð³×ÀÓ)"
+                        placeholder="ì´ë¦„ (ë‹‰ë„¤ìž„)"
                         value={formData.userName}
                         onChange={handleChange}
                         className="w-full p-4 rounded-2xl bg-[color:var(--surface-muted)] border border-[color:var(--border)] text-[color:var(--text)] placeholder:text-[color:var(--text-soft)] focus:outline-none focus:ring-2 focus:ring-[color:var(--accent)]"
@@ -241,7 +241,7 @@ const SignUpPage = () => {
                     <input
                         type="date"
                         name="birthDate"
-                        placeholder="»ý³â¿ùÀÏ"
+                        placeholder="ìƒë…„ì›”ì¼"
                         value={formData.birthDate}
                         onChange={handleChange}
                         className="w-full p-4 rounded-2xl bg-[color:var(--surface-muted)] border border-[color:var(--border)] text-[color:var(--text)] placeholder:text-[color:var(--text-soft)] focus:outline-none focus:ring-2 focus:ring-[color:var(--accent)]"
@@ -250,7 +250,7 @@ const SignUpPage = () => {
                     <input
                         type="email"
                         name="userId"
-                        placeholder="ÀÌ¸ÞÀÏ ÁÖ¼Ò (¾ÆÀÌµð)"
+                        placeholder="ì´ë©”ì¼ ì£¼ì†Œ (ì•„ì´ë””)"
                         value={formData.userId}
                         onChange={handleChange}
                         className="w-full p-4 rounded-2xl bg-[color:var(--surface-muted)] border border-[color:var(--border)] text-[color:var(--text)] placeholder:text-[color:var(--text-soft)] focus:outline-none focus:ring-2 focus:ring-[color:var(--accent)]"
@@ -259,7 +259,7 @@ const SignUpPage = () => {
                     <input
                         type="password"
                         name="password"
-                        placeholder="ºñ¹Ð¹øÈ£ (8ÀÚ ÀÌ»ó, ¿µ¹®+¼ýÀÚ+Æ¯¼ö¹®ÀÚ)"
+                        placeholder="ë¹„ë°€ë²ˆí˜¸ (8ìž ì´ìƒ, ì˜ë¬¸+ìˆ«ìž+íŠ¹ìˆ˜ë¬¸ìž)"
                         value={formData.password}
                         onChange={handleChange}
                         className="w-full p-4 rounded-2xl bg-[color:var(--surface-muted)] border border-[color:var(--border)] text-[color:var(--text)] placeholder:text-[color:var(--text-soft)] focus:outline-none focus:ring-2 focus:ring-[color:var(--accent)]"
@@ -268,7 +268,7 @@ const SignUpPage = () => {
                     <input
                         type="password"
                         name="confirmPassword"
-                        placeholder="ºñ¹Ð¹øÈ£ È®ÀÎ"
+                        placeholder="ë¹„ë°€ë²ˆí˜¸ í™•ì¸"
                         value={formData.confirmPassword}
                         onChange={handleChange}
                         className={`w-full p-4 rounded-2xl bg-[color:var(--surface-muted)] border ${formData.password && formData.confirmPassword && formData.password !== formData.confirmPassword ? 'border-red-500' : 'border-[color:var(--border)]'} text-[color:var(--text)] placeholder:text-[color:var(--text-soft)] focus:outline-none focus:ring-2 focus:ring-[color:var(--accent)] transition`}
@@ -283,13 +283,13 @@ const SignUpPage = () => {
                                     onChange={() => handleConsentChange('terms')}
                                     className="mt-1 h-4 w-4 accent-[color:var(--accent)]"
                                 />
-                                <span className="text-sm font-semibold">[ÇÊ¼ö] BeanRecipe ÀÌ¿ë¾à°ü µ¿ÀÇ</span>
+                                <span className="text-sm font-semibold">[í•„ìˆ˜] BeanRecipe ì´ìš©ì•½ê´€ ë™ì˜</span>
                             </label>
                             <details className="mt-2 text-xs text-[color:var(--text-muted)]">
-                                <summary className="cursor-pointer select-none">ÁÖ¿ä ³»¿ë º¸±â</summary>
+                                <summary className="cursor-pointer select-none">ì£¼ìš” ë‚´ìš© ë³´ê¸°</summary>
                                 <div className="mt-2 leading-relaxed space-y-1">
-                                    <p>¼­ºñ½º ÀÌ¿ëÀ» À§ÇØ ÇÊ¿äÇÑ ±âº» ±ÔÄ¢°ú Ã¥ÀÓ, ±ÝÁöÇàÀ§, °èÁ¤ °ü¸® ±âÁØÀ» ¾È³»ÇÕ´Ï´Ù.</p>
-                                    <p>È¸¿øÀº Á¤È®ÇÑ Á¤º¸¸¦ Á¦°øÇØ¾ß ÇÏ¸ç, Å¸ÀÎÀÇ ±Ç¸®¸¦ Ä§ÇØÇÏ´Â ÇàÀ§¸¦ ÇØ¼­´Â ¾È µË´Ï´Ù.</p>
+                                    <p>ì„œë¹„ìŠ¤ ì´ìš©ì„ ìœ„í•´ í•„ìš”í•œ ê¸°ë³¸ ê·œì¹™ê³¼ ì±…ìž„, ê¸ˆì§€í–‰ìœ„, ê³„ì • ê´€ë¦¬ ê¸°ì¤€ì„ ì•ˆë‚´í•©ë‹ˆë‹¤.</p>
+                                    <p>íšŒì›ì€ ì •í™•í•œ ì •ë³´ë¥¼ ì œê³µí•´ì•¼ í•˜ë©°, íƒ€ì¸ì˜ ê¶Œë¦¬ë¥¼ ì¹¨í•´í•˜ëŠ” í–‰ìœ„ë¥¼ í•´ì„œëŠ” ì•ˆ ë©ë‹ˆë‹¤.</p>
                                 </div>
                             </details>
                         </div>
@@ -302,16 +302,16 @@ const SignUpPage = () => {
                                     onChange={() => handleConsentChange('uniqueId')}
                                     className="mt-1 h-4 w-4 accent-[color:var(--accent)]"
                                 />
-                                <span className="text-sm font-semibold">[ÇÊ¼ö] °íÀ¯½Äº°Á¤º¸ ¼öÁý ¹× ÀÌ¿ë µ¿ÀÇ</span>
+                                <span className="text-sm font-semibold">[í•„ìˆ˜] ê³ ìœ ì‹ë³„ì •ë³´ ìˆ˜ì§‘ ë° ì´ìš© ë™ì˜</span>
                             </label>
                             <details className="mt-2 text-xs text-[color:var(--text-muted)]">
-                                <summary className="cursor-pointer select-none">ÁÖ¿ä ³»¿ë º¸±â</summary>
+                                <summary className="cursor-pointer select-none">ì£¼ìš” ë‚´ìš© ë³´ê¸°</summary>
                                 <div className="mt-2 leading-relaxed space-y-1">
-                                    <p>¼öÁý Ç×¸ñ: ÁÖ¹Îµî·Ï¹øÈ£(ÇÊ¿ä ½Ã¿¡¸¸ ¼öÁý).</p>
-                                    <p>¼öÁý ¸ñÀû: º»ÀÎÈ®ÀÎ, ºÎÁ¤ ÀÌ¿ë ¹æÁö, °ü·Ã ¹ý·É ÁØ¼ö.</p>
-                                    <p>º¸À¯ ¹× ÀÌ¿ë ±â°£: ¸ñÀû ´Þ¼º ½Ã Áï½Ã ÆÄ±â(¹ý·É¿¡ µû¶ó º¸°ü ÇÊ¿ä ½Ã ÇØ´ç ±â°£).</p>
-                                    <p>µ¿ÀÇ °ÅºÎ±Ç ¹× ºÒÀÌÀÍ: µ¿ÀÇ¸¦ °ÅºÎÇÒ ±Ç¸®°¡ ÀÖÀ¸³ª º»ÀÎÈ®ÀÎÀÌ ÇÊ¿äÇÑ ¼­ºñ½º ÀÌ¿ëÀÌ Á¦ÇÑµÉ ¼ö ÀÖ½À´Ï´Ù.</p>
-                                    <p>±Ù°Å: °³ÀÎÁ¤º¸º¸È£¹ý Á¦24Á¶ÀÇ2(ÁÖ¹Îµî·Ï¹øÈ£ Ã³¸® Á¦ÇÑ), Á¦15Á¶(¼öÁý¡¤ÀÌ¿ë).</p>
+                                    <p>ìˆ˜ì§‘ í•­ëª©: ì£¼ë¯¼ë“±ë¡ë²ˆí˜¸(í•„ìš” ì‹œì—ë§Œ ìˆ˜ì§‘).</p>
+                                    <p>ìˆ˜ì§‘ ëª©ì : ë³¸ì¸í™•ì¸, ë¶€ì • ì´ìš© ë°©ì§€, ê´€ë ¨ ë²•ë ¹ ì¤€ìˆ˜.</p>
+                                    <p>ë³´ìœ  ë° ì´ìš© ê¸°ê°„: ëª©ì  ë‹¬ì„± ì‹œ ì¦‰ì‹œ íŒŒê¸°(ë²•ë ¹ì— ë”°ë¼ ë³´ê´€ í•„ìš” ì‹œ í•´ë‹¹ ê¸°ê°„).</p>
+                                    <p>ë™ì˜ ê±°ë¶€ê¶Œ ë° ë¶ˆì´ìµ: ë™ì˜ë¥¼ ê±°ë¶€í•  ê¶Œë¦¬ê°€ ìžˆìœ¼ë‚˜ ë³¸ì¸í™•ì¸ì´ í•„ìš”í•œ ì„œë¹„ìŠ¤ ì´ìš©ì´ ì œí•œë  ìˆ˜ ìžˆìŠµë‹ˆë‹¤.</p>
+                                    <p>ê·¼ê±°: ê°œì¸ì •ë³´ë³´í˜¸ë²• ì œ24ì¡°ì˜2(ì£¼ë¯¼ë“±ë¡ë²ˆí˜¸ ì²˜ë¦¬ ì œí•œ), ì œ15ì¡°(ìˆ˜ì§‘Â·ì´ìš©).</p>
                                 </div>
                             </details>
                         </div>
@@ -324,16 +324,16 @@ const SignUpPage = () => {
                                     onChange={() => handleConsentChange('privacy')}
                                     className="mt-1 h-4 w-4 accent-[color:var(--accent)]"
                                 />
-                                <span className="text-sm font-semibold">[ÇÊ¼ö] °³ÀÎÁ¤º¸ ¼öÁý ¹× ÀÌ¿ë µ¿ÀÇ</span>
+                                <span className="text-sm font-semibold">[í•„ìˆ˜] ê°œì¸ì •ë³´ ìˆ˜ì§‘ ë° ì´ìš© ë™ì˜</span>
                             </label>
                             <details className="mt-2 text-xs text-[color:var(--text-muted)]">
-                                <summary className="cursor-pointer select-none">ÁÖ¿ä ³»¿ë º¸±â</summary>
+                                <summary className="cursor-pointer select-none">ì£¼ìš” ë‚´ìš© ë³´ê¸°</summary>
                                 <div className="mt-2 leading-relaxed space-y-1">
-                                    <p>¼öÁý ¸ñÀû: È¸¿ø°¡ÀÔ Ã³¸®, ¼­ºñ½º Á¦°ø, °í°´ Áö¿ø, ºÎÁ¤ ÀÌ¿ë ¹æÁö.</p>
-                                    <p>¼öÁý Ç×¸ñ: ÀÌ¸§(´Ð³×ÀÓ), ÀÌ¸ÞÀÏ(¾ÆÀÌµð), »ý³â¿ùÀÏ, ºñ¹Ð¹øÈ£(¾ÏÈ£È­ ÀúÀå).</p>
-                                    <p>º¸À¯ ¹× ÀÌ¿ë ±â°£: È¸¿ø Å»Åð ½Ã±îÁö(°ü·Ã ¹ý·É¿¡ µû¶ó º¸°ü ÇÊ¿ä ½Ã ÇØ´ç ±â°£).</p>
-                                    <p>µ¿ÀÇ °ÅºÎ±Ç ¹× ºÒÀÌÀÍ: µ¿ÀÇ¸¦ °ÅºÎÇÒ ±Ç¸®°¡ ÀÖÀ¸³ª ÇÊ¼ö Ç×¸ñ ¹Ìµ¿ÀÇ ½Ã °¡ÀÔÀÌ Á¦ÇÑµË´Ï´Ù.</p>
-                                    <p>±Ù°Å: °³ÀÎÁ¤º¸º¸È£¹ý Á¦15Á¶(¼öÁý¡¤ÀÌ¿ë), Á¦22Á¶(µ¿ÀÇ).</p>
+                                    <p>ìˆ˜ì§‘ ëª©ì : íšŒì›ê°€ìž… ì²˜ë¦¬, ì„œë¹„ìŠ¤ ì œê³µ, ê³ ê° ì§€ì›, ë¶€ì • ì´ìš© ë°©ì§€.</p>
+                                    <p>ìˆ˜ì§‘ í•­ëª©: ì´ë¦„(ë‹‰ë„¤ìž„), ì´ë©”ì¼(ì•„ì´ë””), ìƒë…„ì›”ì¼, ë¹„ë°€ë²ˆí˜¸(ì•”í˜¸í™” ì €ìž¥).</p>
+                                    <p>ë³´ìœ  ë° ì´ìš© ê¸°ê°„: íšŒì› íƒˆí‡´ ì‹œê¹Œì§€(ê´€ë ¨ ë²•ë ¹ì— ë”°ë¼ ë³´ê´€ í•„ìš” ì‹œ í•´ë‹¹ ê¸°ê°„).</p>
+                                    <p>ë™ì˜ ê±°ë¶€ê¶Œ ë° ë¶ˆì´ìµ: ë™ì˜ë¥¼ ê±°ë¶€í•  ê¶Œë¦¬ê°€ ìžˆìœ¼ë‚˜ í•„ìˆ˜ í•­ëª© ë¯¸ë™ì˜ ì‹œ ê°€ìž…ì´ ì œí•œë©ë‹ˆë‹¤.</p>
+                                    <p>ê·¼ê±°: ê°œì¸ì •ë³´ë³´í˜¸ë²• ì œ15ì¡°(ìˆ˜ì§‘Â·ì´ìš©), ì œ22ì¡°(ë™ì˜).</p>
                                 </div>
                             </details>
                         </div>
@@ -346,17 +346,17 @@ const SignUpPage = () => {
                                     onChange={() => handleConsentChange('thirdParty')}
                                     className="mt-1 h-4 w-4 accent-[color:var(--accent)]"
                                 />
-                                <span className="text-sm font-semibold">[ÇÊ¼ö] °³ÀÎÁ¤º¸ Á¦3ÀÚ Á¦°ø µ¿ÀÇ</span>
+                                <span className="text-sm font-semibold">[í•„ìˆ˜] ê°œì¸ì •ë³´ ì œ3ìž ì œê³µ ë™ì˜</span>
                             </label>
                             <details className="mt-2 text-xs text-[color:var(--text-muted)]">
-                                <summary className="cursor-pointer select-none">ÁÖ¿ä ³»¿ë º¸±â</summary>
+                                <summary className="cursor-pointer select-none">ì£¼ìš” ë‚´ìš© ë³´ê¸°</summary>
                                 <div className="mt-2 leading-relaxed space-y-1">
-                                    <p>Á¦°ø¹Þ´Â ÀÚ: BeanRecipe Á¦ÈÞ ¼­ºñ½º ¿î¿µ ÆÄÆ®³Ê(Á¦ÈÞ»ç ¸ñ·ÏÀº ¾à°ü¿¡¼­ ¾È³»).</p>
-                                    <p>ÀÌ¿ë ¸ñÀû: ¼­ºñ½º ¿¬µ¿ Á¦°ø, °í°´Áö¿ø, °èÁ¤ ¿¬°è Ã³¸®.</p>
-                                    <p>Á¦°ø Ç×¸ñ: ÀÌ¸§(´Ð³×ÀÓ), ÀÌ¸ÞÀÏ(¾ÆÀÌµð), »ý³â¿ùÀÏ.</p>
-                                    <p>º¸À¯ ¹× ÀÌ¿ë ±â°£: Á¦ÈÞ ¸ñÀû ´Þ¼º ¶Ç´Â È¸¿ø Å»Åð ½Ã±îÁö.</p>
-                                    <p>µ¿ÀÇ °ÅºÎ±Ç ¹× ºÒÀÌÀÍ: µ¿ÀÇ¸¦ °ÅºÎÇÒ ±Ç¸®°¡ ÀÖÀ¸³ª ÇÊ¼ö µ¿ÀÇ ¹ÌÁ¦°ø ½Ã °¡ÀÔÀÌ Á¦ÇÑµË´Ï´Ù.</p>
-                                    <p>±Ù°Å: °³ÀÎÁ¤º¸º¸È£¹ý Á¦17Á¶(Á¦3ÀÚ Á¦°ø).</p>
+                                    <p>ì œê³µë°›ëŠ” ìž: BeanRecipe ì œíœ´ ì„œë¹„ìŠ¤ ìš´ì˜ íŒŒíŠ¸ë„ˆ(ì œíœ´ì‚¬ ëª©ë¡ì€ ì•½ê´€ì—ì„œ ì•ˆë‚´).</p>
+                                    <p>ì´ìš© ëª©ì : ì„œë¹„ìŠ¤ ì—°ë™ ì œê³µ, ê³ ê°ì§€ì›, ê³„ì • ì—°ê³„ ì²˜ë¦¬.</p>
+                                    <p>ì œê³µ í•­ëª©: ì´ë¦„(ë‹‰ë„¤ìž„), ì´ë©”ì¼(ì•„ì´ë””), ìƒë…„ì›”ì¼.</p>
+                                    <p>ë³´ìœ  ë° ì´ìš© ê¸°ê°„: ì œíœ´ ëª©ì  ë‹¬ì„± ë˜ëŠ” íšŒì› íƒˆí‡´ ì‹œê¹Œì§€.</p>
+                                    <p>ë™ì˜ ê±°ë¶€ê¶Œ ë° ë¶ˆì´ìµ: ë™ì˜ë¥¼ ê±°ë¶€í•  ê¶Œë¦¬ê°€ ìžˆìœ¼ë‚˜ í•„ìˆ˜ ë™ì˜ ë¯¸ì œê³µ ì‹œ ê°€ìž…ì´ ì œí•œë©ë‹ˆë‹¤.</p>
+                                    <p>ê·¼ê±°: ê°œì¸ì •ë³´ë³´í˜¸ë²• ì œ17ì¡°(ì œ3ìž ì œê³µ).</p>
                                 </div>
                             </details>
                         </div>
@@ -366,13 +366,13 @@ const SignUpPage = () => {
                         type="submit"
                         className="w-full py-4 mt-8 bg-[color:var(--accent)] text-[color:var(--accent-contrast)] rounded-2xl font-bold hover:bg-[color:var(--accent-strong)] transition shadow-[0_10px_30px_var(--shadow)]"
                     >
-                        È¸¿ø°¡ÀÔ ¿Ï·á
+                        íšŒì›ê°€ìž… ì™„ë£Œ
                     </button>
                 </form>
 
                 <div className="flex items-center gap-3 text-[color:var(--text-muted)] text-xs uppercase tracking-[0.2em] justify-center mt-6">
                     <span className="h-px flex-1 bg-[color:var(--border)]/60"></span>
-                    ¼Ò¼È È¸¿ø°¡ÀÔ
+                    ì†Œì…œ íšŒì›ê°€ìž…
                     <span className="h-px flex-1 bg-[color:var(--border)]/60"></span>
                 </div>
                 <div className="grid grid-cols-1 gap-3 mt-4">
@@ -381,14 +381,14 @@ const SignUpPage = () => {
                         onClick={() => handleSocialSignup('naver')}
                         className="w-full py-3 rounded-2xl border border-[color:var(--border)] text-[color:var(--text)] hover:bg-[color:var(--surface-muted)] transition"
                     >
-                        ³×ÀÌ¹ö·Î È¸¿ø°¡ÀÔ
+                        ë„¤ì´ë²„ë¡œ íšŒì›ê°€ìž…
                     </button>
                     <button
                         type="button"
                         onClick={() => handleSocialSignup('kakao')}
                         className="w-full py-3 rounded-2xl border border-[color:var(--border)] text-[color:var(--text)] hover:bg-[color:var(--surface-muted)] transition"
                     >
-                        Ä«Ä«¿À·Î È¸¿ø°¡ÀÔ
+                        ì¹´ì¹´ì˜¤ë¡œ íšŒì›ê°€ìž…
                     </button>
                 </div>
             </GlassCard>
