@@ -34,8 +34,8 @@ public class RecipeService {
 
         ReportRequest reportRequest = new ReportRequest();
         reportRequest.setRecipe(buildReportRecipe(request));
-        reportRequest.setTargetCountry(defaultIfBlank(request.getTargetCountry(), "??????"));
-        reportRequest.setTargetPersona(defaultIfBlank(request.getTargetPersona(), "20~30?? ???????? ?????????????"));
+        reportRequest.setTargetCountry(defaultIfBlank(request.getTargetCountry(), "미국"));
+        reportRequest.setTargetPersona(defaultIfBlank(request.getTargetPersona(), "20~30대 바쁜 직장인"));
         reportRequest.setPriceRange(defaultIfBlank(request.getPriceRange(), "USD 6~9"));
 
         String reportJson;
