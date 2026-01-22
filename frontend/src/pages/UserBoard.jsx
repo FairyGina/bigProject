@@ -53,7 +53,7 @@ const UserBoard = () => {
                 </div>
 
                 <div className="mt-8">
-                    {loading && <span className="text-sm text-[color:var(--text-muted)]">?????? ??..</span>}
+                    {loading && <span className="text-sm text-[color:var(--text-muted)]">레시피를 불러오는 중입니다.</span>}
                 </div>
 
                 {error && (
