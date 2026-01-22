@@ -285,7 +285,9 @@ public class AuthService {
                 return true;
             }
         }
-        return hasSequentialDigits(lower, SEQUENTIAL_LENGTH) || hasSequentialLetters(lower, SEQUENTIAL_LENGTH);
+        return hasSequentialDigits(lower, SEQUENTIAL_LENGTH)
+                || hasSequentialLetters(lower, SEQUENTIAL_LENGTH)
+                || hasKeyboardSequence(lower, SEQUENTIAL_LENGTH);
     }
 
     private boolean hasSequentialDigits(String value, int length) {
@@ -330,6 +332,34 @@ public class AuthService {
                 dec = 1;
             }
             if (inc >= length || dec >= length) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private boolean hasKeyboardSequence(String value, int length) {
+        if (value == null || value.isBlank()) {
+            return false;
+        }
+        String lower = value.toLowerCase();
+        String[] rows = { "qwertyuiop", "asdfghjkl", "zxcvbnm" };
+        for (String row : rows) {
+            if (containsKeyboardRun(lower, row, length)) {
+                return true;
+            }
+            String reversed = new StringBuilder(row).reverse().toString();
+            if (containsKeyboardRun(lower, reversed, length)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private boolean containsKeyboardRun(String value, String row, int length) {
+        for (int i = 0; i <= row.length() - length; i += 1) {
+            String seq = row.substring(i, i + length);
+            if (value.contains(seq)) {
                 return true;
             }
         }

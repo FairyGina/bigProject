@@ -2,8 +2,8 @@ package com.aivle0102.bigproject.service;
 
 import com.aivle0102.bigproject.dto.ImageGenerateRequest;
 import com.aivle0102.bigproject.dto.ImageGenerateResponse;
-import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.core.io.ByteArrayResource;
 import org.springframework.http.MediaType;
 import org.springframework.http.client.reactive.ReactorClientHttpConnector;
@@ -21,13 +21,18 @@ import java.util.List;
 import java.util.Map;
 
 @Service
-@RequiredArgsConstructor
 public class InfluencerImageGenerationService {
 
     private final WebClient openAiImageWebClient;
 
     @Value("${openai.image-model}")
     private String imageModel;
+
+    public InfluencerImageGenerationService(
+            @Qualifier("openAiImageWebClient") WebClient openAiImageWebClient
+    ) {
+        this.openAiImageWebClient = openAiImageWebClient;
+    }
 
     public ImageGenerateResponse generate(ImageGenerateRequest req) {
         byte[] baseImage = downloadAndValidateImage(req.getInfluencerImageUrl());

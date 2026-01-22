@@ -69,6 +69,22 @@ const ResetPasswordPage = () => {
         return false;
     };
 
+    const hasKeyboardSequence = (value, length = 3) => {
+        if (!value) return false;
+        const lower = value.toLowerCase();
+        const rows = ['qwertyuiop', 'asdfghjkl', 'zxcvbnm'];
+        const containsRun = (row) => {
+            for (let i = 0; i <= row.length - length; i += 1) {
+                const seq = row.slice(i, i + length);
+                if (lower.includes(seq)) {
+                    return true;
+                }
+            }
+            return false;
+        };
+        return rows.some((row) => containsRun(row) || containsRun([...row].reverse().join('')));
+    };
+
     const isGuessablePassword = (password, email) => {
         if (!password) return false;
         const lower = password.toLowerCase();
@@ -78,7 +94,11 @@ const ResetPasswordPage = () => {
                 return true;
             }
         }
-        return hasSequentialDigits(password, 3) || hasSequentialLetters(password, 3);
+        return (
+            hasSequentialDigits(password, 3) ||
+            hasSequentialLetters(password, 3) ||
+            hasKeyboardSequence(password, 3)
+        );
     };
 
     const handleFindPassword = async () => {
