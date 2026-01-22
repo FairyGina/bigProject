@@ -4,6 +4,7 @@ import { Mail, Lock, X } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import GlassCard from '../components/common/GlassCard';
 import ThemeToggle from '../components/common/ThemeToggle';
+import Footer from '../components/common/Footer';
 import { useAuth } from '../context/AuthContext';
 import axiosInstance from '../axiosConfig';
 
@@ -25,6 +26,9 @@ const LoginPage = () => {
 
     const handleLogin = async () => {
         setError('');
+        setShowResetModal(false);
+        setShowWarningModal(false);
+        setWarningCount(null);
         const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
         if (!userId) {
             setError('아이디(이메일)를 입력해주세요.');
@@ -39,6 +43,7 @@ const LoginPage = () => {
             return;
         }
         try {
+            await axiosInstance.get('/api/csrf');
             const response = await axiosInstance.post('/api/auth/login', { userId, password });
             const data = response.data;
 
@@ -47,6 +52,26 @@ const LoginPage = () => {
                 if (data.userName) {
                     localStorage.setItem('userName', data.userName);
                 }
+                if (data.userId) {
+                    localStorage.setItem('userId', data.userId);
+                } else {
+                    localStorage.setItem('userId', userId);
+                }
+            }
+
+            const deferredUntil = localStorage.getItem('passwordChangeDeferredUntil');
+            const deferValid = deferredUntil && new Date(deferredUntil) > new Date();
+            const changedAtRaw = data.passwordChangedAt || data.passwordExpiryAt;
+            const changedAt = changedAtRaw ? new Date(changedAtRaw) : null;
+            const expiryAt = changedAt ? new Date(changedAt) : null;
+            if (expiryAt) {
+                expiryAt.setMonth(expiryAt.getMonth() + 6);
+            }
+            const clientExpired = expiryAt && !Number.isNaN(expiryAt.getTime()) && new Date() > expiryAt;
+            if (clientExpired && !data.socialAccount && !deferValid) {
+                localStorage.setItem('passwordChangePrompt', 'true');
+            } else {
+                localStorage.removeItem('passwordChangePrompt');
             }
 
             navigate('/mainboard');
@@ -54,7 +79,7 @@ const LoginPage = () => {
             console.error('Login error:', err);
             const errorCode = err.response?.data?.errorCode;
             const backendMessage = err.response?.data?.message;
-            if (errorCode === 'PASSWORD_RESET_REQUIRED' || err.response?.status === 403) {
+            if (errorCode === 'PASSWORD_RESET_REQUIRED') {
                 setShowResetModal(true);
                 return;
             }
@@ -62,6 +87,10 @@ const LoginPage = () => {
                 const count = errorCode === 'PASSWORD_RESET_WARNING_4' ? 4 : 3;
                 setWarningCount(count);
                 setShowWarningModal(true);
+                return;
+            }
+            if (err.response?.status === 403) {
+                setError('보안 토큰이 만료되었거나 권한이 없습니다. 새로고침 후 다시 시도해주세요.');
                 return;
             }
             if (err.response && err.response.data) {
@@ -88,7 +117,7 @@ const LoginPage = () => {
         <motion.div
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
-            className="min-h-screen flex items-center justify-center p-6 text-[color:var(--text)]"
+            className="min-h-screen flex flex-col items-center justify-center p-6 text-[color:var(--text)]"
             style={{ background: 'linear-gradient(135deg, var(--bg-1), var(--bg-2), var(--bg-3))' }}
         >
             {showResetModal && (
@@ -246,8 +275,12 @@ const LoginPage = () => {
                     </button>
                 </p>
             </GlassCard>
+            <div className="w-full max-w-4xl mt-6">
+                <Footer />
+            </div>
         </motion.div>
     );
 };
 
 export default LoginPage;
+
