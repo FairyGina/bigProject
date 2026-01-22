@@ -5,7 +5,9 @@ import lombok.*;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 
 @Entity
 @Table(name = "userinfo", schema = "public")
@@ -35,6 +37,9 @@ public class UserInfo {
     @Column(name = "username", nullable = false, length = 50)
     private String userName;
 
+    @Column(name = "birthdate")
+    private LocalDate birthDate;
+
     @Column(name = "userstate", nullable = false)
     @JdbcTypeCode(SqlTypes.CHAR)
     private String userState;
@@ -44,6 +49,9 @@ public class UserInfo {
 
     @Column(name = "loginfailcount", nullable = false)
     private int loginFailCount;
+
+    @Column(name = "password_changed_at", nullable = false)
+    private OffsetDateTime passwordChangedAt;
 
     @Column(name = "provider", length = 20)
     private String provider;
@@ -69,6 +77,14 @@ public class UserInfo {
 
     public void setLoginFailCount(int loginFailCount) {
         this.loginFailCount = loginFailCount;
+    }
+
+    public void setPasswordChangedAt(OffsetDateTime passwordChangedAt) {
+        this.passwordChangedAt = passwordChangedAt;
+    }
+
+    public void setBirthDate(LocalDate birthDate) {
+        this.birthDate = birthDate;
     }
 
     public void setProvider(String provider) {

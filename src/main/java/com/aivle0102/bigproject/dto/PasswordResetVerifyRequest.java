@@ -9,10 +9,10 @@ import lombok.Setter;
 @Setter
 public class PasswordResetVerifyRequest {
 
-    @NotBlank(message = "userId is required")
+    @NotBlank(message = "아이디는 필수입니다.")
     private String userId;
 
-    @NotBlank(message = "code is required")
-    @Size(min = 4, max = 8, message = "code must be 4-8 characters")
+    @NotBlank(message = "인증 코드는 필수입니다.")
+    @Size(min = 4, max = 8, message = "인증 코드는 4~8자여야 합니다.")
     private String code;
 }
