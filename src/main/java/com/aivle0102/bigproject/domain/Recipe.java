@@ -48,6 +48,12 @@ public class Recipe {
     @Column(name = "image_base64", columnDefinition = "TEXT")
     private String imageBase64;
 
+    @Column(name = "influencer_json", columnDefinition = "TEXT")
+    private String influencerJson;
+
+    @Column(name = "influencer_image_base64", columnDefinition = "TEXT")
+    private String influencerImageBase64;
+
     @Column(name = "status", nullable = false, length = 20)
     private String status;
 

@@ -49,10 +49,13 @@ const RecipeReport = () => {
         };
     }, [recipe]);
 
-    const getCachedInfluencers = (recipeId) => {
+    const getCachedInfluencers = (currentRecipe) => {
+        if (Array.isArray(currentRecipe?.influencers) && currentRecipe.influencers.length) {
+            return currentRecipe.influencers;
+        }
         const cached =
-            sessionStorage.getItem(`recipeInfluencers:${recipeId}`) ||
-            localStorage.getItem(`recipeInfluencers:${recipeId}`);
+            sessionStorage.getItem(`recipeInfluencers:${currentRecipe?.id}`) ||
+            localStorage.getItem(`recipeInfluencers:${currentRecipe?.id}`);
         if (!cached) {
             return [];
         }
@@ -64,9 +67,10 @@ const RecipeReport = () => {
         }
     };
 
-    const getCachedInfluencerImage = (recipeId) =>
-        sessionStorage.getItem(`recipeInfluencerImage:${recipeId}`) ||
-        localStorage.getItem(`recipeInfluencerImage:${recipeId}`) ||
+    const getCachedInfluencerImage = (currentRecipe) =>
+        currentRecipe?.influencerImageBase64 ||
+        sessionStorage.getItem(`recipeInfluencerImage:${currentRecipe?.id}`) ||
+        localStorage.getItem(`recipeInfluencerImage:${currentRecipe?.id}`) ||
         '';
 
 
@@ -200,9 +204,10 @@ const RecipeReport = () => {
                                         if (recipe?.id) {
                                             navigate(`/mainboard/recipes/${recipe.id}/report`, {
                                                 state: {
+                                                    fromReview: false,
                                                     reportInput,
-                                                    influencers: getCachedInfluencers(recipe.id),
-                                                    influencerImageBase64: getCachedInfluencerImage(recipe.id),
+                                                    influencers: getCachedInfluencers(recipe),
+                                                    influencerImageBase64: getCachedInfluencerImage(recipe),
                                                 },
                                             });
                                         }

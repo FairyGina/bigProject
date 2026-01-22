@@ -58,6 +58,8 @@ CREATE TABLE IF NOT EXISTS recipe (
     report_json TEXT,
     summary TEXT,
     image_base64 TEXT,
+    influencer_json TEXT,
+    influencer_image_base64 TEXT,
     status VARCHAR(20) NOT NULL DEFAULT 'PUBLISHED',
     author_id VARCHAR(50) NOT NULL,
     author_name VARCHAR(50),
@@ -66,3 +68,8 @@ CREATE TABLE IF NOT EXISTS recipe (
 
 CREATE INDEX IF NOT EXISTS idx_recipe_created_at ON recipe(created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_recipe_author_id ON recipe(author_id);
+
+-- Migration: add influencer storage columns for existing databases
+ALTER TABLE recipe
+    ADD COLUMN IF NOT EXISTS influencer_json TEXT,
+    ADD COLUMN IF NOT EXISTS influencer_image_base64 TEXT;

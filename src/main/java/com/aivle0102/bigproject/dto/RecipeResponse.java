@@ -18,6 +18,8 @@ public class RecipeResponse {
     private String imageBase64;
     private Map<String, Object> report;
     private String summary;
+    private List<Map<String, Object>> influencers;
+    private String influencerImageBase64;
     private String status;
     private String authorId;
     private String authorName;

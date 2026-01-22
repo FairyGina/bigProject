@@ -31,7 +31,7 @@ const labels = {
     ingredientAdd: '재료 추가',
     ingredientPlaceholder: '재료명 / 용량',
     guideTitle: '레시피 생성 안내',
-    guideBody: '생성까지 1~2분정도 소요됩니다.',
+    guideBody: '생성까지 2~3분정도 소요됩니다.',
     createLabel: '레시피 생성',
     updateLabel: '레시피 수정',
     creatingLabel: '생성 중...',
@@ -502,6 +502,7 @@ const UserCreateRecipe = () => {
                                             onClick={() =>
                                                 navigate(`/mainboard/recipes/${createdRecipe.id}/report`, {
                                                     state: {
+                                                        fromReview: true,
                                                         influencers: createdInfluencers,
                                                         influencerImageBase64: createdInfluencerImage,
                                                     },
