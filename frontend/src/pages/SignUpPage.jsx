@@ -184,13 +184,18 @@ const SignUpPage = () => {
 
     const handleSocialSignup = (provider) => {
         if (!consents.terms || !consents.privacy || !consents.thirdParty || !consents.uniqueId) {
-            setError('필수 약관에 모두 동의해주세요.');
+            showError('필수 약관에 모두 동의해주세요.');
             return;
         }
 
-        sessionStorage.setItem('oauthFlow', 'signup');
-        localStorage.setItem('oauthFlow', 'signup');
-        window.location.href = `http://localhost:8080/oauth2/authorization/${provider}`;
+        try {
+            sessionStorage.setItem('oauthFlow', 'signup');
+            localStorage.setItem('oauthFlow', 'signup');
+        } catch (storageError) {
+            console.warn('OAuth flow storage unavailable:', storageError);
+        }
+        const baseUrl = (import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080').replace(/\/$/, '');
+        window.location.assign(`${baseUrl}/oauth2/authorization/${provider}`);
     };
 
     return (
