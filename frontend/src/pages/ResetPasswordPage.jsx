@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+﻿import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { KeyRound, Mail, User, X } from 'lucide-react';
 import { useLocation, useNavigate } from 'react-router-dom';
@@ -17,11 +17,75 @@ const ResetPasswordPage = () => {
     const [confirmPassword, setConfirmPassword] = useState('');
     const [error, setError] = useState('');
 
+    const hasSequentialDigits = (value, length = 3) => {
+        if (!value) return false;
+        const s = value;
+        let inc = 1;
+        let dec = 1;
+        for (let i = 1; i < s.length; i += 1) {
+            const prev = s[i - 1];
+            const curr = s[i];
+            const isDigitSeq = /\d/.test(prev) && /\d/.test(curr);
+            if (isDigitSeq && curr.charCodeAt(0) - prev.charCodeAt(0) === 1) {
+                inc += 1;
+            } else {
+                inc = 1;
+            }
+            if (isDigitSeq && prev.charCodeAt(0) - curr.charCodeAt(0) === 1) {
+                dec += 1;
+            } else {
+                dec = 1;
+            }
+            if (inc >= length || dec >= length) {
+                return true;
+            }
+        }
+        return false;
+    };
+
+    const hasSequentialLetters = (value, length = 3) => {
+        if (!value) return false;
+        const s = value.toLowerCase();
+        let inc = 1;
+        let dec = 1;
+        for (let i = 1; i < s.length; i += 1) {
+            const prev = s[i - 1];
+            const curr = s[i];
+            const isAlphaSeq = /[a-z]/.test(prev) && /[a-z]/.test(curr);
+            if (isAlphaSeq && curr.charCodeAt(0) - prev.charCodeAt(0) === 1) {
+                inc += 1;
+            } else {
+                inc = 1;
+            }
+            if (isAlphaSeq && prev.charCodeAt(0) - curr.charCodeAt(0) === 1) {
+                dec += 1;
+            } else {
+                dec = 1;
+            }
+            if (inc >= length || dec >= length) {
+                return true;
+            }
+        }
+        return false;
+    };
+
+    const isGuessablePassword = (password, email) => {
+        if (!password) return false;
+        const lower = password.toLowerCase();
+        if (email) {
+            const local = email.split('@')[0]?.replace(/[^a-z0-9]/gi, '').toLowerCase();
+            if (local && local.length >= 3 && lower.includes(local)) {
+                return true;
+            }
+        }
+        return hasSequentialDigits(password, 3) || hasSequentialLetters(password, 3);
+    };
+
     const handleFindPassword = async () => {
         setError('');
         const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
         if (!name || !email) {
-            setError('이름과 아이디를 입력해 주세요.');
+            setError('이름과 아이디를 입력해주세요.');
             return;
         }
         if (!emailPattern.test(email)) {
@@ -30,6 +94,10 @@ const ResetPasswordPage = () => {
         }
         if (!newPassword || newPassword !== confirmPassword) {
             setError('새 비밀번호가 일치하지 않습니다.');
+            return;
+        }
+        if (isGuessablePassword(newPassword, email)) {
+            setError('연속된 문자열이나 아이디 등 추측 가능한 정보를 비밀번호에 사용할 수 없습니다.');
             return;
         }
         try {
@@ -96,7 +164,7 @@ const ResetPasswordPage = () => {
                         <Mail className="absolute left-4 top-4 text-[color:var(--text-soft)]" size={20} />
                         <input
                             type="email"
-                            placeholder="아이디(이메일)"
+                            placeholder="이메일"
                             value={email}
                             onChange={(e) => setEmail(e.target.value)}
                             className="w-full pl-12 p-4 rounded-2xl bg-[color:var(--surface-muted)] border border-[color:var(--border)] text-[color:var(--text)] placeholder:text-[color:var(--text-soft)] focus:outline-none focus:ring-2 focus:ring-[color:var(--accent)] transition"
