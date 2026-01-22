@@ -1,7 +1,7 @@
 package com.aivle0102.bigproject.client;
 
-import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.client.WebClient;
 import org.springframework.web.util.UriComponentsBuilder;
@@ -11,13 +11,16 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import java.net.URI;
 
 @Component
-@RequiredArgsConstructor
 public class SerpApiClient {
     private final WebClient serpApiWebClient;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     @Value("${serpapi.api-key}")
     private String apiKey;
+
+    public SerpApiClient(@Qualifier("serpApiWebClient") WebClient serpApiWebClient) {
+        this.serpApiWebClient = serpApiWebClient;
+    }
 
     public JsonNode googleSearch(String query) {
         String raw = serpApiWebClient.get()

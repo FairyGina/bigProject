@@ -1,9 +1,8 @@
-package com.aivle0102.bigproject.service;
+﻿package com.aivle0102.bigproject.service;
 
 import com.aivle0102.bigproject.domain.UserInfo;
 import com.aivle0102.bigproject.exception.CustomException;
 import com.aivle0102.bigproject.repository.UserInfoRepository;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.http.HttpStatus;
@@ -19,7 +18,6 @@ import java.util.concurrent.ConcurrentHashMap;
 
 @Slf4j
 @Service
-@RequiredArgsConstructor
 public class PasswordResetCodeService {
 
     private static final Duration CODE_TTL = Duration.ofMinutes(3);
@@ -27,13 +25,21 @@ public class PasswordResetCodeService {
     private static final int CODE_LENGTH = 6;
 
     private final UserInfoRepository userInfoRepository;
-    @Qualifier("gmailMailSender")
     private final JavaMailSender gmailMailSender;
-    @Qualifier("naverMailSender")
     private final JavaMailSender naverMailSender;
     private final SecureRandom random = new SecureRandom();
     private final Map<String, CodeEntry> codeStore = new ConcurrentHashMap<>();
     private final Map<String, Instant> verifiedStore = new ConcurrentHashMap<>();
+
+    public PasswordResetCodeService(
+            UserInfoRepository userInfoRepository,
+            @Qualifier("gmailMailSender") JavaMailSender gmailMailSender,
+            @Qualifier("naverMailSender") JavaMailSender naverMailSender
+    ) {
+        this.userInfoRepository = userInfoRepository;
+        this.gmailMailSender = gmailMailSender;
+        this.naverMailSender = naverMailSender;
+    }
 
     public void sendResetCode(String userId, String userName) {
         UserInfo userInfo = userInfoRepository.findByUserIdAndUserNameAndUserState(userId, userName, "1")
@@ -48,7 +54,7 @@ public class PasswordResetCodeService {
             message.setTo(userInfo.getUserId());
             message.setFrom(resolveFromAddress(mailSender));
             message.setSubject("[BeanRecipe] 비밀번호 재설정 인증번호를 확인해주세요.");
-            message.setText("인증번호: " + code + "\n3분 이내에 입력해 주세요.");
+            message.setText("인증번호: " + code + "\n3분 이내에 입력해주세요.");
             mailSender.send(message);
         } catch (Exception ex) {
             log.warn("Failed to send reset code email for userId={}. Code={}", userId, code, ex);
@@ -58,7 +64,7 @@ public class PasswordResetCodeService {
     public void verifyResetCode(String userId, String code) {
         CodeEntry entry = codeStore.get(userId);
         if (entry == null) {
-            throw new CustomException("인증번호를 다시 요청해 주세요.", HttpStatus.BAD_REQUEST, "VERIFICATION_CODE_NOT_FOUND");
+            throw new CustomException("인증번호를 다시 요청해주세요.", HttpStatus.BAD_REQUEST, "VERIFICATION_CODE_NOT_FOUND");
         }
         if (Instant.now().isAfter(entry.expiresAt())) {
             codeStore.remove(userId);
@@ -113,3 +119,4 @@ public class PasswordResetCodeService {
     private record CodeEntry(String code, Instant expiresAt) {
     }
 }
+

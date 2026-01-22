@@ -8,9 +8,9 @@ import lombok.Setter;
 @Setter
 public class PasswordResetRequest {
 
-    @NotBlank(message = "userId is required")
+    @NotBlank(message = "아이디는 필수입니다.")
     private String userId;
 
-    @NotBlank(message = "userName is required")
+    @NotBlank(message = "이름은 필수입니다.")
     private String userName;
 }
