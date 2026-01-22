@@ -53,8 +53,26 @@ const RecipeAnalysis = () => {
     const report = recipe?.report || null;
 
     useEffect(() => {
+        if (Array.isArray(recipe?.influencers) && recipe.influencers.length) {
+            setInfluencers(recipe.influencers);
+        }
+        if (recipe?.influencerImageBase64) {
+            setImageBase64(recipe.influencerImageBase64);
+        }
+    }, [recipe]);
+
+    useEffect(() => {
         const fetchInfluencers = async () => {
             if (!recipe) {
+                return;
+            }
+            if (Array.isArray(recipe?.influencers) && recipe.influencers.length) {
+                setInfluencers(recipe.influencers);
+            }
+            if (recipe?.influencerImageBase64) {
+                setImageBase64(recipe.influencerImageBase64);
+            }
+            if ((recipe?.influencers?.length || 0) > 0 && recipe?.influencerImageBase64) {
                 return;
             }
             if (influencers.length && imageBase64) {
@@ -148,7 +166,10 @@ const RecipeAnalysis = () => {
         }
         setPublishLoading(true);
         try {
-            const res = await axiosInstance.put(`/api/recipes/${recipe.id}/publish`);
+            const res = await axiosInstance.put(`/api/recipes/${recipe.id}/publish`, {
+                influencers,
+                influencerImageBase64: imageBase64,
+            });
             setRecipe(res.data);
             navigate(`/mainboard/recipes/${recipe.id}`);
         } catch (err) {
@@ -607,15 +628,20 @@ const RecipeAnalysis = () => {
                         )}
                         <button
                             type="button"
-                            onClick={() =>
-                                navigate('/mainboard/create/manual', {
-                                    state: {
-                                        reviewRecipeId: recipe.id,
-                                        influencers,
-                                        influencerImageBase64: imageBase64,
-                                    },
-                                })
-                            }
+                            onClick={() => {
+                                const fromReview = location.state?.fromReview;
+                                if (fromReview) {
+                                    navigate('/mainboard/create/manual', {
+                                        state: {
+                                            reviewRecipeId: recipe.id,
+                                            influencers,
+                                            influencerImageBase64: imageBase64,
+                                        },
+                                    });
+                                } else {
+                                    navigate(`/mainboard/recipes/${recipe.id}`);
+                                }
+                            }}
                             className="w-full py-2 rounded-xl border border-[color:var(--border)] text-sm text-[color:var(--text)] hover:bg-[color:var(--surface-muted)] transition"
                         >
                             요약으로 돌아가기

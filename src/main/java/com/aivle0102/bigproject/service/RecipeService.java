@@ -3,6 +3,7 @@ package com.aivle0102.bigproject.service;
 import com.aivle0102.bigproject.domain.Recipe;
 import com.aivle0102.bigproject.domain.UserInfo;
 import com.aivle0102.bigproject.dto.RecipeCreateRequest;
+import com.aivle0102.bigproject.dto.RecipePublishRequest;
 import com.aivle0102.bigproject.dto.RecipeResponse;
 import com.aivle0102.bigproject.dto.ReportRequest;
 import com.aivle0102.bigproject.repository.RecipeRepository;
@@ -112,11 +113,19 @@ public class RecipeService {
     }
 
     @Transactional
-    public RecipeResponse publish(Long id, String requesterId) {
+    public RecipeResponse publish(Long id, String requesterId, RecipePublishRequest request) {
         Recipe recipe = recipeRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Recipe not found"));
         if (!recipe.getAuthorId().equals(requesterId)) {
             throw new IllegalArgumentException("Recipe not found");
+        }
+        if (request != null) {
+            if (request.getInfluencers() != null) {
+                recipe.setInfluencerJson(writeJsonMapList(request.getInfluencers()));
+            }
+            if (request.getInfluencerImageBase64() != null) {
+                recipe.setInfluencerImageBase64(request.getInfluencerImageBase64());
+            }
         }
         recipe.setStatus("PUBLISHED");
         Recipe saved = recipeRepository.save(recipe);
@@ -143,6 +152,8 @@ public class RecipeService {
                 recipe.getImageBase64(),
                 readJsonMap(recipe.getReportJson()),
                 recipe.getSummary(),
+                readJsonMapList(recipe.getInfluencerJson()),
+                recipe.getInfluencerImageBase64(),
                 recipe.getStatus(),
                 recipe.getAuthorId(),
                 recipe.getAuthorName(),
@@ -155,6 +166,14 @@ public class RecipeService {
             return objectMapper.writeValueAsString(values == null ? Collections.emptyList() : values);
         } catch (Exception e) {
             throw new IllegalStateException("Failed to serialize recipe data", e);
+        }
+    }
+
+    private String writeJsonMapList(List<java.util.Map<String, Object>> value) {
+        try {
+            return objectMapper.writeValueAsString(value == null ? Collections.emptyList() : value);
+        } catch (Exception e) {
+            throw new IllegalStateException("Failed to serialize influencer data", e);
         }
     }
 
@@ -174,6 +193,17 @@ public class RecipeService {
             return objectMapper.writeValueAsString(value);
         } catch (Exception e) {
             throw new IllegalStateException("Failed to serialize report", e);
+        }
+    }
+
+    private List<java.util.Map<String, Object>> readJsonMapList(String value) {
+        if (value == null || value.isBlank()) {
+            return Collections.emptyList();
+        }
+        try {
+            return objectMapper.readValue(value, new TypeReference<>() {});
+        } catch (Exception e) {
+            return Collections.emptyList();
         }
     }
 
