@@ -10,8 +10,11 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.util.UriComponentsBuilder;
 
 import java.io.IOException;
+import com.aivle0102.bigproject.security.RedirectValidator;
+import lombok.extern.slf4j.Slf4j;
 
 @Component
+@Slf4j
 public class OAuth2AuthenticationFailureHandler implements AuthenticationFailureHandler {
 
     @Value("${app.oauth2.redirect-uri}")
@@ -28,6 +31,13 @@ public class OAuth2AuthenticationFailureHandler implements AuthenticationFailure
                 .build()
                 .toUriString();
 
-        response.sendRedirect(targetUrl);
+        try {
+            log.info("OAuth2 failure redirectUri={}, targetUrl={}", redirectUri, targetUrl);
+            String safeTargetUrl = RedirectValidator.sanitizeAndValidateSameOrigin(redirectUri, targetUrl);
+            response.sendRedirect(safeTargetUrl);
+        } catch (IllegalArgumentException ex) {
+            log.warn("OAuth2 redirect blocked: {}", ex.getMessage());
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST);
+        }
     }
 }
