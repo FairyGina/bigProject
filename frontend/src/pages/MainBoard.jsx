@@ -1,19 +1,34 @@
-import React from 'react';
-import { Plus } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
-
-const recipeCards = [
-    { id: 1, name: '레시피명1' },
-    { id: 2, name: '레시피명2' },
-    { id: 3, name: '레시피명3' },
-    { id: 4, name: '레시피명4' },
-    { id: 5, name: '레시피명5' },
-];
+import { useNavigate } from 'react-router-dom';
+import axiosInstance from '../axiosConfig';
 
 const MainBoard = () => {
     const { user } = useAuth();
-    const rawName = user?.userName || localStorage.getItem('userName') || '김에이블러';
+    const navigate = useNavigate();
+    const rawName = user?.userName || localStorage.getItem('userName') || '게스트';
     const maskedName = rawName.length <= 1 ? '*' : `${rawName.slice(0, -1)}*`;
+
+    const [recipes, setRecipes] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState('');
+
+    useEffect(() => {
+        const fetchRecipes = async () => {
+            try {
+                setLoading(true);
+                const res = await axiosInstance.get('/api/recipes');
+                setRecipes(res.data || []);
+            } catch (err) {
+                console.error('Failed to fetch recipes', err);
+                setError('레시피 목록을 불러오지 못했습니다.');
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        fetchRecipes();
+    }, []);
 
     return (
         <div className="relative">
@@ -24,42 +39,52 @@ const MainBoard = () => {
                 <div className="flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
                     <div>
                         <p className="text-xs uppercase tracking-[0.4em] text-[color:var(--text-soft)] mb-2">레시피 허브</p>
-                        <h2 className="text-2xl md:text-3xl font-semibold text-[color:var(--text)]">레시피 허브 대시보드</h2>
+                        <h2 className="text-2xl md:text-3xl font-semibold text-[color:var(--text)]">전체 레시피</h2>
                     </div>
                     <div className="flex items-center gap-3">
                         <div className="text-right">
                             <p className="text-sm font-semibold text-[color:var(--text)]">{maskedName}</p>
-                            <p className="text-xs text-[color:var(--text-soft)]">공유 레시피 관리</p>
                         </div>
-                        <div className="h-10 w-10 rounded-full shadow-[0_10px_20px_var(--shadow)]" style={{ background: 'linear-gradient(135deg, var(--avatar-1), var(--avatar-2))' }} />
+                        <div
+                            className="h-10 w-10 rounded-full shadow-[0_10px_20px_var(--shadow)]"
+                            style={{ background: 'linear-gradient(135deg, var(--avatar-1), var(--avatar-2))' }}
+                        />
                     </div>
                 </div>
 
-                <div className="mt-8 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {recipeCards.map((card) => (
-                        <div
-                            key={card.id}
-                            className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[0_12px_30px_var(--shadow)] overflow-hidden"
+                <div className="mt-8">
+                    {loading && <span className="text-sm text-[color:var(--text-muted)]">?????? ??..</span>}
+                </div>
+
+                {error && (
+                    <div className="mt-4 text-sm text-[color:var(--danger)]">{error}</div>
+                )}
+
+                <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {recipes.map((recipe) => (
+                        <button
+                            type="button"
+                            key={recipe.id}
+                            onClick={() => navigate(`/mainboard/recipes/${recipe.id}`)}
+                            className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[0_12px_30px_var(--shadow)] overflow-hidden text-left"
                         >
-                            <div className="h-32 bg-[color:var(--surface-muted)] flex items-center justify-center text-sm text-[color:var(--text-soft)]">
-                                사진
+                            <div className="h-32 bg-[color:var(--surface-muted)] flex items-center justify-center text-sm text-[color:var(--text-soft)] overflow-hidden">
+                                {recipe.imageBase64 ? (
+                                    <img src={recipe.imageBase64} alt={recipe.title} className="h-full w-full object-cover" />
+                                ) : (
+                                    '이미지 영역'
+                                )}
                             </div>
                             <div className="bg-[color:var(--accent)] text-[color:var(--accent-contrast)] text-center text-sm font-semibold py-2">
-                                {card.name}
+                                {recipe.title}
                             </div>
-                        </div>
+                        </button>
                     ))}
                 </div>
 
-                <div className="mt-10 flex justify-end">
-                    <button
-                        type="button"
-                        className="h-12 w-12 rounded-full bg-[color:var(--accent)] text-[color:var(--accent-contrast)] flex items-center justify-center shadow-[0_12px_30px_var(--shadow-strong)] hover:bg-[color:var(--accent-strong)] transition"
-                        aria-label="레시피 추가"
-                    >
-                        <Plus size={20} />
-                    </button>
-                </div>
+                {!loading && recipes.length === 0 && (
+                    <p className="mt-6 text-sm text-[color:var(--text-muted)]">등록된 레시피가 없습니다.</p>
+                )}
             </div>
         </div>
     );

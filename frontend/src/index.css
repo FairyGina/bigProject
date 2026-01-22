@@ -13,6 +13,12 @@
 
 html {
   scroll-behavior: smooth;
+  min-height: 100%;
+}
+
+body {
+  min-height: 100%;
+  background: linear-gradient(135deg, var(--bg-1), var(--bg-2), var(--bg-3));
 }
 
 :root {

@@ -5,11 +5,15 @@ import LandingPage from '../pages/LandingPage';
 import LoginPage from '../pages/LoginPage';
 import SignUpPage from '../pages/SignUpPage';
 import FindPasswordPage from '../pages/FindPasswordPage';
+import ResetPasswordPage from '../pages/ResetPasswordPage';
+import OAuthCallbackPage from '../pages/OAuthCallbackPage';
 import MainBoard from '../pages/MainBoard';
 import UserBoard from '../pages/UserBoard';
 import AICreateRecipe from '../pages/AICreateRecipe';
 import UserCreateRecipe from '../pages/UserCreateRecipe';
 import NoticeBoard from '../pages/NoticeBoard';
+import RecipeReport from '../pages/RecipeReport';
+import RecipeAnalysis from '../pages/RecipeAnalysis';
 import NotFound from '../pages/NotFound';
 import MainLayout from '../components/layout/MainLayout';
 import PasswordCheckPage from '../pages/PasswordCheckPage';
@@ -54,6 +58,8 @@ const AppRoutes = () => {
             <Route path="/login" element={<PublicOnlyRoute><LoginPage /></PublicOnlyRoute>} />
             <Route path="/signup" element={<PublicOnlyRoute><SignUpPage /></PublicOnlyRoute>} />
             <Route path="/find-password" element={<PublicOnlyRoute><FindPasswordPage /></PublicOnlyRoute>} />
+            <Route path="/reset-password" element={<PublicOnlyRoute><ResetPasswordPage /></PublicOnlyRoute>} />
+            <Route path="/oauth/callback" element={<OAuthCallbackPage />} />
 
             {/* 보호된 라우트 */}
             <Route
@@ -68,6 +74,9 @@ const AppRoutes = () => {
                                 <Route path="user-hub/recipes" element={<UserBoard />} />
                                 <Route path="user-hub/password-check" element={<PasswordCheckPage />} />
                                 <Route path="user-hub/profile" element={<UserProfilePage />} />
+                                <Route path="recipes/:id" element={<RecipeReport />} />
+                                <Route path="recipes/:id/edit" element={<UserCreateRecipe />} />
+                                <Route path="recipes/:id/report" element={<RecipeAnalysis />} />
                                 <Route path="create/ai" element={<AICreateRecipe />} />
                                 <Route path="create/manual" element={<UserCreateRecipe />} />
                                 <Route path="settings/password-check" element={<PasswordCheckPage />} />
