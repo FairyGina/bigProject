@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import axiosInstance from '../axiosConfig';
 import { motion } from 'framer-motion';
 import { X } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
@@ -43,22 +44,16 @@ const SignUpPage = () => {
         }
 
         try {
-            const response = await fetch('http://localhost:8080/api/auth/join', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(formData)
-            });
+            const response = await axiosInstance.post('/api/auth/join', formData);
 
-            if (response.ok) {
+            if (response.status === 200 || response.status === 201) {
                 alert('회원가입이 완료되었습니다. 로그인해주세요.');
                 navigate('/login');
-            } else {
-                const errorData = await response.json();
-                setError(errorData.message || '회원가입에 실패했습니다.');
             }
         } catch (err) {
             console.error(err);
-            setError('서버 연결에 실패했습니다.');
+            const message = err.response?.data?.message || '회원가입에 실패했습니다.';
+            setError(message);
         }
     };
 
