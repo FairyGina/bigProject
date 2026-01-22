@@ -1,23 +1,27 @@
 # Build stage
-FROM gradle:8.5-jdk17 AS builder
+FROM gradle:9.2-jdk21 AS builder
 
 WORKDIR /app
 
-# Copy gradle files
+# 1. 빌드에 필요한 핵심 파일들을 먼저 복사
+COPY gradlew .
+COPY gradle gradle
 COPY build.gradle settings.gradle ./
-COPY gradle ./gradle
 
-# Download dependencies (cached layer)
-RUN gradle dependencies --no-daemon || true
+# 2. Windows CRLF -> Linux LF 변환 및 실행 권한 부여
+RUN sed -i 's/\r$//' ./gradlew && chmod +x ./gradlew
 
-# Copy source code
-COPY src ./src
+# 3. 의존성 미리 다운로드 (캐싱을 위해)
+RUN ./gradlew dependencies --no-daemon || true
 
-# Build the application
-RUN gradle bootJar --no-daemon
+# 4. 소스 코드 복사
+COPY src src
+
+# 5. 빌드 실행
+RUN ./gradlew bootJar --no-daemon
 
 # Runtime stage
-FROM eclipse-temurin:17-jre-alpine
+FROM eclipse-temurin:21-jre-alpine
 
 WORKDIR /app
 
