@@ -1,4 +1,8 @@
+<<<<<<< HEAD
 import React, { useState } from 'react';
+=======
+﻿import React, { useState } from 'react';
+>>>>>>> upstream/UI3
 import { motion } from 'framer-motion';
 import { Search } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
@@ -11,12 +15,30 @@ const PasswordCheckPage = () => {
 
     const handlePasswordCheck = async () => {
         setError('');
+<<<<<<< HEAD
         try {
             // const response = await axiosInstance.post('/api/user/verify-password', { password });
             navigate('/mainboard/user-hub/profile');
         } catch (err) {
             console.error(err);
             navigate('/mainboard/user-hub/profile');
+=======
+        if (!password.trim()) {
+            setError('비밀번호를 입력해주세요.');
+            return;
+        }
+        try {
+            await axiosInstance.get('/api/csrf');
+            await axiosInstance.post('/api/user/verify-password', { password });
+            navigate('/mainboard/user-hub/profile');
+        } catch (err) {
+            console.error(err);
+            const message =
+                err?.response?.data?.message ||
+                err?.response?.data?.error ||
+                '비밀번호가 일치하지 않습니다.';
+            setError(message);
+>>>>>>> upstream/UI3
         }
     };
 
@@ -48,7 +70,16 @@ const PasswordCheckPage = () => {
                     type="password"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
+<<<<<<< HEAD
                     placeholder="비밀번호를 입력해주세요."
+=======
+                    onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                            handlePasswordCheck();
+                        }
+                    }}
+                    placeholder="정보 수정을 위해 입력해주세요."
+>>>>>>> upstream/UI3
                     className="w-full p-4 rounded-xl bg-[color:var(--surface-muted)] border border-[color:var(--border)] text-[color:var(--text)] placeholder:text-[color:var(--text-soft)] focus:outline-none focus:ring-2 focus:ring-[color:var(--accent)] transition-colors text-lg"
                 />
 

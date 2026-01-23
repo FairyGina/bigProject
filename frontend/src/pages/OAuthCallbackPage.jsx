@@ -1,4 +1,8 @@
+<<<<<<< HEAD
 import React, { useEffect, useRef, useState } from 'react';
+=======
+﻿import React, { useEffect, useRef, useState } from 'react';
+>>>>>>> upstream/UI3
 import { useLocation, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import GlassCard from '../components/common/GlassCard';
@@ -34,8 +38,13 @@ const OAuthCallbackPage = () => {
         if (errorParam) {
             setError(
                 flowValue === 'signup'
+<<<<<<< HEAD
                     ? '소셜 회원가입에 실패했습니다. 다시 시도해주세요.'
                     : '소셜 로그인에 실패했습니다. 다시 시도해주세요.'
+=======
+                    ? '회원가입 처리 중 오류가 발생했습니다. 다시 시도해주세요.'
+                    : '로그인 처리 중 오류가 발생했습니다. 다시 시도해주세요.'
+>>>>>>> upstream/UI3
             );
             return;
         }
@@ -43,8 +52,13 @@ const OAuthCallbackPage = () => {
         if (!token) {
             setError(
                 flowValue === 'signup'
+<<<<<<< HEAD
                     ? '회원가입 정보를 확인할 수 없습니다. 다시 시도해주세요.'
                     : '로그인 정보를 확인할 수 없습니다. 다시 시도해주세요.'
+=======
+                    ? '회원가입 토큰이 없습니다. 다시 시도해주세요.'
+                    : '로그인 토큰이 없습니다. 다시 시도해주세요.'
+>>>>>>> upstream/UI3
             );
             return;
         }
@@ -75,8 +89,16 @@ const OAuthCallbackPage = () => {
         if (extractedName) {
             localStorage.setItem('userName', extractedName);
         }
+<<<<<<< HEAD
         if (flowValue === 'signup') {
             alert('회원가입이 완료 되었습니다.');
+=======
+        if (userId) {
+            localStorage.setItem('userId', userId);
+        }
+        if (flowValue === 'signup') {
+            alert('회원가입이 완료되었습니다.');
+>>>>>>> upstream/UI3
         }
         window.location.replace('/mainboard');
     }, [flow, location.search, login, navigate]);
@@ -98,7 +120,11 @@ const OAuthCallbackPage = () => {
                 ) : (
                     <>
                         <h2 className="text-2xl font-bold mb-3">
+<<<<<<< HEAD
                             {flow === 'signup' ? '회원가입 실패' : '로그인 실패'}
+=======
+                            {flow === 'signup' ? '회원가입 오류' : '로그인 오류'}
+>>>>>>> upstream/UI3
                         </h2>
                         <p className="text-[color:var(--text-muted)] mb-6">{error}</p>
                         <button

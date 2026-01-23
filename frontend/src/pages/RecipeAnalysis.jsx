@@ -20,6 +20,28 @@ const RecipeAnalysis = () => {
     const [influencerLoading, setInfluencerLoading] = useState(false);
     const [publishLoading, setPublishLoading] = useState(false);
 
+<<<<<<< HEAD
+=======
+    const influencerMetaKey = (recipeId) => `recipeInfluencerMeta:${recipeId}`;
+    const readInfluencerMeta = (recipeId) => {
+        const cached =
+            sessionStorage.getItem(influencerMetaKey(recipeId)) ||
+            localStorage.getItem(influencerMetaKey(recipeId));
+        if (!cached) {
+            return null;
+        }
+        try {
+            return JSON.parse(cached);
+        } catch (err) {
+            return null;
+        }
+    };
+    const isInfluencerMetaMatch = (meta, currentRecipe) =>
+        Boolean(meta) &&
+        meta.title === (currentRecipe?.title ?? '') &&
+        meta.summary === (currentRecipe?.summary ?? '');
+
+>>>>>>> upstream/UI3
     useEffect(() => {
         const fetchRecipe = async () => {
             try {
@@ -53,10 +75,34 @@ const RecipeAnalysis = () => {
     const report = recipe?.report || null;
 
     useEffect(() => {
+<<<<<<< HEAD
+=======
+        if (Array.isArray(recipe?.influencers) && recipe.influencers.length) {
+            setInfluencers(recipe.influencers);
+        }
+        if (recipe?.influencerImageBase64) {
+            setImageBase64(recipe.influencerImageBase64);
+        }
+    }, [recipe]);
+
+    useEffect(() => {
+>>>>>>> upstream/UI3
         const fetchInfluencers = async () => {
             if (!recipe) {
                 return;
             }
+<<<<<<< HEAD
+=======
+            if (Array.isArray(recipe?.influencers) && recipe.influencers.length) {
+                setInfluencers(recipe.influencers);
+            }
+            if (recipe?.influencerImageBase64) {
+                setImageBase64(recipe.influencerImageBase64);
+            }
+            if ((recipe?.influencers?.length || 0) > 0 && recipe?.influencerImageBase64) {
+                return;
+            }
+>>>>>>> upstream/UI3
             if (influencers.length && imageBase64) {
                 return;
             }
@@ -66,6 +112,18 @@ const RecipeAnalysis = () => {
             const cachedImage =
                 sessionStorage.getItem(`recipeInfluencerImage:${recipe.id}`) ||
                 localStorage.getItem(`recipeInfluencerImage:${recipe.id}`);
+<<<<<<< HEAD
+=======
+            const cachedMeta = readInfluencerMeta(recipe.id);
+            if (cachedMeta && !isInfluencerMetaMatch(cachedMeta, recipe)) {
+                sessionStorage.removeItem(`recipeInfluencers:${recipe.id}`);
+                sessionStorage.removeItem(`recipeInfluencerImage:${recipe.id}`);
+                sessionStorage.removeItem(influencerMetaKey(recipe.id));
+                localStorage.removeItem(`recipeInfluencers:${recipe.id}`);
+                localStorage.removeItem(`recipeInfluencerImage:${recipe.id}`);
+                localStorage.removeItem(influencerMetaKey(recipe.id));
+            }
+>>>>>>> upstream/UI3
             if (cachedInfluencers) {
                 try {
                     const parsed = JSON.parse(cachedInfluencers);
@@ -94,12 +152,26 @@ const RecipeAnalysis = () => {
                 const recs = influencerRes.data?.recommendations ?? [];
                 setInfluencers(recs);
                 if (recs.length) {
+<<<<<<< HEAD
                     try {
+=======
+                    const metaJson = JSON.stringify({
+                        id: recipe.id,
+                        title: recipe.title,
+                        summary: recipe.summary,
+                    });
+                    try {
+                        sessionStorage.setItem(influencerMetaKey(recipe.id), metaJson);
+>>>>>>> upstream/UI3
                         sessionStorage.setItem(`recipeInfluencers:${recipe.id}`, JSON.stringify(recs));
                     } catch (err) {
                         // ignore cache errors
                     }
                     try {
+<<<<<<< HEAD
+=======
+                        localStorage.setItem(influencerMetaKey(recipe.id), metaJson);
+>>>>>>> upstream/UI3
                         localStorage.setItem(`recipeInfluencers:${recipe.id}`, JSON.stringify(recs));
                     } catch (err) {
                         // ignore cache errors
@@ -148,7 +220,14 @@ const RecipeAnalysis = () => {
         }
         setPublishLoading(true);
         try {
+<<<<<<< HEAD
             const res = await axiosInstance.put(`/api/recipes/${recipe.id}/publish`);
+=======
+            const res = await axiosInstance.put(`/api/recipes/${recipe.id}/publish`, {
+                influencers,
+                influencerImageBase64: imageBase64,
+            });
+>>>>>>> upstream/UI3
             setRecipe(res.data);
             navigate(`/mainboard/recipes/${recipe.id}`);
         } catch (err) {
@@ -607,6 +686,7 @@ const RecipeAnalysis = () => {
                         )}
                         <button
                             type="button"
+<<<<<<< HEAD
                             onClick={() =>
                                 navigate('/mainboard/create/manual', {
                                     state: {
@@ -616,6 +696,22 @@ const RecipeAnalysis = () => {
                                     },
                                 })
                             }
+=======
+                            onClick={() => {
+                                const fromReview = location.state?.fromReview;
+                                if (fromReview) {
+                                    navigate('/mainboard/create/manual', {
+                                        state: {
+                                            reviewRecipeId: recipe.id,
+                                            influencers,
+                                            influencerImageBase64: imageBase64,
+                                        },
+                                    });
+                                } else {
+                                    navigate(`/mainboard/recipes/${recipe.id}`);
+                                }
+                            }}
+>>>>>>> upstream/UI3
                             className="w-full py-2 rounded-xl border border-[color:var(--border)] text-sm text-[color:var(--text)] hover:bg-[color:var(--surface-muted)] transition"
                         >
                             요약으로 돌아가기

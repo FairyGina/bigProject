@@ -10,9 +10,9 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 public class LoginRequest {
 
-    @NotBlank(message = "userId is required")
+    @NotBlank(message = "아이디는 필수입니다.")
     private String userId;
 
-    @NotBlank(message = "password is required")
+    @NotBlank(message = "비밀번호는 필수입니다.")
     private String password;
 }

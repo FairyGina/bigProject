@@ -49,10 +49,43 @@ const RecipeReport = () => {
         };
     }, [recipe]);
 
+<<<<<<< HEAD
     const getCachedInfluencers = (recipeId) => {
         const cached =
             sessionStorage.getItem(`recipeInfluencers:${recipeId}`) ||
             localStorage.getItem(`recipeInfluencers:${recipeId}`);
+=======
+    const influencerMetaKey = (recipeId) => `recipeInfluencerMeta:${recipeId}`;
+    const getCachedInfluencers = (currentRecipe) => {
+        if (Array.isArray(currentRecipe?.influencers) && currentRecipe.influencers.length) {
+            return currentRecipe.influencers;
+        }
+        const cachedMeta =
+            sessionStorage.getItem(influencerMetaKey(currentRecipe?.id)) ||
+            localStorage.getItem(influencerMetaKey(currentRecipe?.id));
+        if (cachedMeta) {
+            try {
+                const meta = JSON.parse(cachedMeta);
+                if (
+                    meta.title !== (currentRecipe?.title ?? '') ||
+                    meta.summary !== (currentRecipe?.summary ?? '')
+                ) {
+                    sessionStorage.removeItem(`recipeInfluencers:${currentRecipe?.id}`);
+                    sessionStorage.removeItem(`recipeInfluencerImage:${currentRecipe?.id}`);
+                    sessionStorage.removeItem(influencerMetaKey(currentRecipe?.id));
+                    localStorage.removeItem(`recipeInfluencers:${currentRecipe?.id}`);
+                    localStorage.removeItem(`recipeInfluencerImage:${currentRecipe?.id}`);
+                    localStorage.removeItem(influencerMetaKey(currentRecipe?.id));
+                    return [];
+                }
+            } catch (err) {
+                // ignore meta parse errors
+            }
+        }
+        const cached =
+            sessionStorage.getItem(`recipeInfluencers:${currentRecipe?.id}`) ||
+            localStorage.getItem(`recipeInfluencers:${currentRecipe?.id}`);
+>>>>>>> upstream/UI3
         if (!cached) {
             return [];
         }
@@ -64,9 +97,16 @@ const RecipeReport = () => {
         }
     };
 
+<<<<<<< HEAD
     const getCachedInfluencerImage = (recipeId) =>
         sessionStorage.getItem(`recipeInfluencerImage:${recipeId}`) ||
         localStorage.getItem(`recipeInfluencerImage:${recipeId}`) ||
+=======
+    const getCachedInfluencerImage = (currentRecipe) =>
+        currentRecipe?.influencerImageBase64 ||
+        sessionStorage.getItem(`recipeInfluencerImage:${currentRecipe?.id}`) ||
+        localStorage.getItem(`recipeInfluencerImage:${currentRecipe?.id}`) ||
+>>>>>>> upstream/UI3
         '';
 
 
@@ -200,9 +240,16 @@ const RecipeReport = () => {
                                         if (recipe?.id) {
                                             navigate(`/mainboard/recipes/${recipe.id}/report`, {
                                                 state: {
+<<<<<<< HEAD
                                                     reportInput,
                                                     influencers: getCachedInfluencers(recipe.id),
                                                     influencerImageBase64: getCachedInfluencerImage(recipe.id),
+=======
+                                                    fromReview: false,
+                                                    reportInput,
+                                                    influencers: getCachedInfluencers(recipe),
+                                                    influencerImageBase64: getCachedInfluencerImage(recipe),
+>>>>>>> upstream/UI3
                                                 },
                                             });
                                         }

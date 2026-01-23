@@ -1,6 +1,7 @@
 package com.aivle0102.bigproject.controller;
 
 import com.aivle0102.bigproject.dto.RecipeCreateRequest;
+import com.aivle0102.bigproject.dto.RecipePublishRequest;
 import com.aivle0102.bigproject.dto.RecipeResponse;
 import com.aivle0102.bigproject.service.RecipeService;
 import lombok.RequiredArgsConstructor;
@@ -54,15 +55,19 @@ public class RecipeController {
     }
 
     @PutMapping("/{id}/publish")
-    public ResponseEntity<RecipeResponse> publish(@PathVariable Long id, Principal principal) {
+    public ResponseEntity<RecipeResponse> publish(
+            @PathVariable Long id,
+            @RequestBody(required = false) RecipePublishRequest request,
+            Principal principal) {
         if (principal == null) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
         }
-        return ResponseEntity.ok(recipeService.publish(id, principal.getName()));
+        return ResponseEntity.ok(recipeService.publish(id, principal.getName(), request));
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<RecipeResponse> update(@PathVariable Long id, @RequestBody RecipeCreateRequest request, Principal principal) {
+    public ResponseEntity<RecipeResponse> update(@PathVariable Long id, @RequestBody RecipeCreateRequest request,
+            Principal principal) {
         if (principal == null) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
         }

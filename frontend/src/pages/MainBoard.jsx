@@ -53,7 +53,11 @@ const MainBoard = () => {
                 </div>
 
                 <div className="mt-8">
+<<<<<<< HEAD
                     {loading && <span className="text-sm text-[color:var(--text-muted)]">?????? ??..</span>}
+=======
+                    {loading && <span className="text-sm text-[color:var(--text-muted)]">레시피를 불러오는 중입니다.</span>}
+>>>>>>> upstream/UI3
                 </div>
 
                 {error && (

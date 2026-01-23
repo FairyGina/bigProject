@@ -9,16 +9,16 @@ import lombok.Setter;
 @Setter
 public class ResetPasswordRequest {
 
-    @NotBlank(message = "userId is required")
+    @NotBlank(message = "아이디는 필수입니다.")
     private String userId;
 
-    @NotBlank(message = "userName is required")
+    @NotBlank(message = "이름은 필수입니다.")
     private String userName;
 
-    @NotBlank(message = "newPassword is required")
-    @Size(min = 8, max = 100, message = "newPassword must be at least 8 characters")
+    @NotBlank(message = "새 비밀번호는 필수입니다.")
+    @Size(min = 8, max = 100, message = "새 비밀번호는 8자 이상이어야 합니다.")
     private String newPassword;
 
-    @NotBlank(message = "confirmPassword is required")
+    @NotBlank(message = "새 비밀번호 확인은 필수입니다.")
     private String confirmPassword;
 }
