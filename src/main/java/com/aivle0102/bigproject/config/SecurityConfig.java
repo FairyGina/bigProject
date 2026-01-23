@@ -73,7 +73,7 @@ public class SecurityConfig {
                 return http.build();
         }
 
-        @org.springframework.beans.factory.annotation.Value("${cors.allowed-origins:http://localhost:3000,http://localhost:5173,http://localhost}")
+        @org.springframework.beans.factory.annotation.Value("${cors.allowed-origins:http://localhost:3000,http://localhost:5173,http://localhost,http://20.197.14.81}")
         private List<String> allowedOrigins;
 
         @Bean
