@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+﻿import React, { useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import axiosInstance from '../axiosConfig';
@@ -183,13 +183,6 @@ const RecipeReport = () => {
                     <div className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[0_12px_30px_var(--shadow)] p-6 space-y-4">
                         <div className="flex items-start justify-between">
                             <h3 className="text-lg font-semibold text-[color:var(--text)]">레시피 요약</h3>
-                        </div>
-
-                        <div className="rounded-xl border border-[color:var(--border)] bg-[color:var(--surface-muted)] p-4">
-                            <p className="text-sm font-semibold text-[color:var(--text)] mb-2">요약</p>
-                            <p className="text-sm text-[color:var(--text-muted)] whitespace-pre-line">
-                                {recipe.summary || '요약 결과가 없습니다.'}
-                            </p>
                         </div>
 
                         <div className="rounded-xl border border-[color:var(--border)] bg-[color:var(--surface-muted)] p-4 space-y-3">

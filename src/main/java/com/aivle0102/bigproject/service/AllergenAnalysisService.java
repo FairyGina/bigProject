@@ -57,12 +57,43 @@ public class AllergenAnalysisService {
     private String openAiModel;
 
     private final ObjectMapper objectMapper = new ObjectMapper();
+    private String normalizeCountryCode(String raw) {
+        if (raw == null || raw.isBlank()) return "";
+        String trimmed = raw.trim();
+        String upper = trimmed.toUpperCase(Locale.ROOT);
+        switch (upper) {
+            case "US": return "US";
+            case "JP": return "JP";
+            case "CN": return "CN";
+            case "FR": return "FR";
+            case "DE": return "DE";
+            case "PL": return "PL";
+            case "IN": return "IN";
+            case "VN": return "VN";
+            case "TH": return "TH";
+            default:
+                break;
+        }
+        switch (trimmed) {
+            case "미국": return "US";
+            case "일본": return "JP";
+            case "중국": return "CN";
+            case "프랑스": return "FR";
+            case "독일": return "DE";
+            case "폴란드": return "PL";
+            case "인도": return "IN";
+            case "베트남": return "VN";
+            case "태국": return "TH";
+            default:
+                return upper;
+        }
+    }
     private final RestTemplate restTemplate = new RestTemplate();
 
     public AllergenAnalysisResponse analyze(ReportRequest request) {
         // 입력 레시피에서 재료를 추출하고 국가별 의무 알레르기 목록 로드
         String recipe = request.getRecipe();
-        String targetCountry = (request.getTargetCountry() == null) ? "" : request.getTargetCountry().toUpperCase(Locale.ROOT);
+        String targetCountry = normalizeCountryCode(request.getTargetCountry());
 
         List<String> obligation = allergenCatalogLoader.getCountryToAllergens().getOrDefault(targetCountry, List.of());
         List<String> ingredients = RecipeIngredientExtractor.extractIngredients(recipe);
@@ -174,6 +205,14 @@ public class AllergenAnalysisService {
                 .finalMatchedAllergens(new ArrayList<>(finalAllergens))
                 .note(buildAllergenNote(targetCountry, directMatched, evidences))
                 .build();
+    }
+
+    public AllergenAnalysisResponse analyzeIngredients(List<String> ingredients, String targetCountry) {
+        String recipe = (ingredients == null || ingredients.isEmpty()) ? "" : String.join(", ", ingredients);
+        ReportRequest req = new ReportRequest();
+        req.setRecipe(recipe);
+        req.setTargetCountry(targetCountry);
+        return analyze(req);
     }
 
     private IngredientEvidence analyzeIngredientViaHaccp(String ingredient, List<String> obligation) {
@@ -311,6 +350,7 @@ public class AllergenAnalysisService {
         for (String query : queries) {
             if (query == null || query.isBlank()) continue;
             JsonNode root = haccpClient.searchByPrdkind(query, 1, PRDKIND_NUM_OF_ROWS);
+            logHaccpMeta("prdkind", query, root);
             for (JsonNode item : extractItems(root)) {
                 String reportNo = text(item, "prdlstReportNo");
                 if (reportNo != null && !reportNo.isBlank()) {
@@ -331,6 +371,7 @@ public class AllergenAnalysisService {
         for (String query : queries) {
             if (query == null || query.isBlank()) continue;
             JsonNode root = haccpClient.searchByPrdlstNm(query, 1, 20);
+            logHaccpMeta("prdlstNm", query, root);
             for (JsonNode item : extractItems(root)) {
                 String reportNo = text(item, "prdlstReportNo");
                 if (reportNo != null && !reportNo.isBlank()) {
@@ -394,6 +435,23 @@ public class AllergenAnalysisService {
         }
 
         return candidates;
+    }
+
+    private void logHaccpMeta(String type, String query, JsonNode root) {
+        if (root == null) return;
+        List<String> rootKeys = new ArrayList<>();
+        root.fieldNames().forEachRemaining(rootKeys::add);
+        JsonNode header = root.path("response").path("header");
+        String resultCode = header.path("resultCode").asText("");
+        String resultMsg = header.path("resultMsg").asText("");
+        JsonNode body = root.path("response").path("body");
+        String totalCount = body.path("totalCount").asText("");
+        LOGGER.info(() -> "HACCP_META type=" + type
+                + " query=" + query
+                + " resultCode=" + resultCode
+                + " resultMsg=" + resultMsg
+                + " totalCount=" + totalCount
+                + " rootKeys=" + rootKeys);
     }
 
     private String text(JsonNode node, String field) {

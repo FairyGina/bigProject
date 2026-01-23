@@ -50,10 +50,13 @@ public class RawProduceCatalogLoader {
             if (root == null || !root.isArray()) return;
 
             for (JsonNode node : root) {
-                String type = normalizeKey(text(node, "데이터구분명"));
-                if (!"원재료성 식품".equals(type)) continue;
+                String type = normalizeKey(text(node, "식품기원명"));
+                if (type.isEmpty()) continue;
+                if (!type.contains("식물성") && !type.contains("동물성") && !type.contains("원재료성")) {
+                    continue;
+                }
 
-                addIfNotBlank(text(node, "식품명"));
+                addIfNotBlank(text(node, "식품대분류명"));
                 addIfNotBlank(text(node, "대표식품명"));
                 addIfNotBlank(text(node, "식품중분류명"));
                 addIfNotBlank(text(node, "식품소분류명"));

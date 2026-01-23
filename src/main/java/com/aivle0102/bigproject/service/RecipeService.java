@@ -24,6 +24,7 @@ public class RecipeService {
     private final RecipeRepository recipeRepository;
     private final UserInfoRepository userInfoRepository;
     private final AiReportService aiReportService;
+    private final AllergenAnalysisService allergenAnalysisService;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     @Transactional
@@ -32,18 +33,25 @@ public class RecipeService {
                 .map(UserInfo::getUserName)
                 .orElse(authorId);
 
+        String targetCountry = defaultIfBlank(request.getTargetCountry(), "미국");
+        String targetPersona = defaultIfBlank(request.getTargetPersona(), "20~30대 바쁜 직장인");
+        String priceRange = defaultIfBlank(request.getPriceRange(), "USD 6~9");
+
         ReportRequest reportRequest = new ReportRequest();
         reportRequest.setRecipe(buildReportRecipe(request));
-        reportRequest.setTargetCountry(defaultIfBlank(request.getTargetCountry(), "미국"));
-        reportRequest.setTargetPersona(defaultIfBlank(request.getTargetPersona(), "20~30대 바쁜 직장인"));
-        reportRequest.setPriceRange(defaultIfBlank(request.getPriceRange(), "USD 6~9"));
+        reportRequest.setTargetCountry(targetCountry);
+        reportRequest.setTargetPersona(targetPersona);
+        reportRequest.setPriceRange(priceRange);
 
         String reportJson;
         String summary;
+        String allergenJson;
         try {
             var report = aiReportService.generateReport(reportRequest);
             reportJson = writeJsonMap(report);
             summary = aiReportService.generateSummary(reportJson);
+            var allergen = allergenAnalysisService.analyzeIngredients(request.getIngredients(), targetCountry);
+            allergenJson = writeJsonMap(allergen);
         } catch (Exception e) {
             throw new IllegalStateException("Failed to generate report for recipe", e);
         }
@@ -54,6 +62,7 @@ public class RecipeService {
                 .ingredientsJson(writeJson(request.getIngredients()))
                 .stepsJson(writeJson(request.getSteps()))
                 .reportJson(reportJson)
+                .allergenJson(allergenJson)
                 .summary(summary)
                 .imageBase64(request.getImageBase64())
                 .status(request.isDraft() ? "DRAFT" : "PUBLISHED")
@@ -142,6 +151,7 @@ public class RecipeService {
                 readJson(recipe.getStepsJson()),
                 recipe.getImageBase64(),
                 readJsonMap(recipe.getReportJson()),
+                readJsonMap(recipe.getAllergenJson()),
                 recipe.getSummary(),
                 recipe.getStatus(),
                 recipe.getAuthorId(),

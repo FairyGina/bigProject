@@ -17,6 +17,7 @@ public class RecipeResponse {
     private List<String> steps;
     private String imageBase64;
     private Map<String, Object> report;
+    private Map<String, Object> allergen;
     private String summary;
     private String status;
     private String authorId;

@@ -249,6 +249,11 @@ const RecipeAnalysis = () => {
   </div>
 
   <div class="section">
+    <h2>알레르기 성분 노트</h2>
+    <p>${escapeHtml(recipe?.allergen?.note || '알레르기 성분 요약이 없습니다.')}</p>
+  </div>
+
+  <div class="section">
     <h2>SWOT</h2>
     <h3>Strengths</h3>
     ${listHtml(swot.strengths)}
@@ -543,6 +548,13 @@ const RecipeAnalysis = () => {
                             </div>
                             <p className="mt-4 text-sm text-[color:var(--text-muted)] whitespace-pre-line">
                                 {recipe.summary || '요약 결과가 없습니다.'}
+                            </p>
+                        </div>
+
+                        <div className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[0_12px_30px_var(--shadow)] p-6">
+                            <h3 className="text-lg font-semibold text-[color:var(--text)] mb-3">알레르기 성분 노트</h3>
+                            <p className="text-sm text-[color:var(--text-muted)] whitespace-pre-line">
+                                {recipe.allergen?.note || '알레르기 성분 요약이 없습니다.'}
                             </p>
                         </div>
 
