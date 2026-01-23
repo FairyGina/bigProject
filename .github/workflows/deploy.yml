@@ -17,6 +17,15 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Create .env file
+        run: |
+          echo "VITE_API_URL=${{ secrets.VITE_API_URL }}" > ./frontend/.env
+
+      - name: Build and Push Docker Images
+        run: |
+          docker-compose build
+          docker-compose push
+
       - name: Deploy to Azure VM
         uses: appleboy/ssh-action@v1.0.3
         with:
