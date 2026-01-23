@@ -1,19 +1,11 @@
-<<<<<<< HEAD
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-=======
-﻿import React, { useState, useEffect } from 'react';
-import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
->>>>>>> upstream/UI3
 import GlassCard from '../components/common/GlassCard';
 import axiosInstance from '../axiosConfig';
 
 const UserProfilePage = () => {
-<<<<<<< HEAD
-=======
     const navigate = useNavigate();
->>>>>>> upstream/UI3
     const [formData, setFormData] = useState({
         userName: '',
         birthDate: '',
@@ -23,19 +15,6 @@ const UserProfilePage = () => {
         confirmNewPassword: ''
     });
     const [loading, setLoading] = useState(false);
-<<<<<<< HEAD
-
-    useEffect(() => {
-        const mockUser = {
-            userName: localStorage.getItem('userName') || '홍길동',
-            userId: 'user@example.com',
-            birthDate: '1990-01-01'
-        };
-        setFormData(prev => ({
-            ...prev,
-            ...mockUser
-        }));
-=======
     const [isSocialAccount, setIsSocialAccount] = useState(false);
 
     const hasSequentialDigits = (value, length = 3) => {
@@ -189,7 +168,6 @@ const UserProfilePage = () => {
         };
 
         loadProfile();
->>>>>>> upstream/UI3
     }, []);
 
     const handleChange = (e) => {
@@ -201,20 +179,6 @@ const UserProfilePage = () => {
     };
 
     const handleSubmit = async () => {
-<<<<<<< HEAD
-        if (formData.newPassword && formData.newPassword !== formData.confirmNewPassword) {
-            alert('새 비밀번호가 일치하지 않습니다.');
-            return;
-        }
-
-        setLoading(true);
-        try {
-            // await axiosInstance.put('/api/user/me', formData);
-            alert('정보가 수정되었습니다.');
-        } catch (error) {
-            console.error(error);
-            alert('정보 수정에 실패했습니다.');
-=======
         if (!formData.birthDate && !formData.newPassword && !formData.confirmNewPassword) {
             alert('변경할 값을 입력해주세요.');
             return;
@@ -269,14 +233,11 @@ const UserProfilePage = () => {
                 message = `${message}\n- 영문, 숫자, 특수문자 포함\n- 8자 이상`;
             }
             alert(message);
->>>>>>> upstream/UI3
         } finally {
             setLoading(false);
         }
     };
 
-<<<<<<< HEAD
-=======
     const handleKeyDown = (event) => {
         if (event.key === 'Enter') {
             event.preventDefault();
@@ -284,7 +245,6 @@ const UserProfilePage = () => {
         }
     };
 
->>>>>>> upstream/UI3
     return (
         <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -299,11 +259,7 @@ const UserProfilePage = () => {
                         <h3 className="text-xl font-bold border-b border-[color:var(--border)] pb-2">기본 정보</h3>
 
                         <div>
-<<<<<<< HEAD
-                            <label className="block text-[color:var(--text-muted)] text-sm mb-2">아이디 (이메일)</label>
-=======
                             <label className="block text-[color:var(--text-muted)] text-sm mb-2">아이디(이메일)</label>
->>>>>>> upstream/UI3
                             <input
                                 type="text"
                                 value={formData.userId}
@@ -329,10 +285,7 @@ const UserProfilePage = () => {
                                 name="birthDate"
                                 value={formData.birthDate}
                                 onChange={handleChange}
-<<<<<<< HEAD
-=======
                                 onKeyDown={handleKeyDown}
->>>>>>> upstream/UI3
                                 className="w-full p-4 rounded-xl bg-[color:var(--surface-muted)] border border-[color:var(--border)] text-[color:var(--text)] focus:outline-none focus:ring-2 focus:ring-[color:var(--accent)]"
                             />
                         </div>
@@ -348,15 +301,10 @@ const UserProfilePage = () => {
                                 name="currentPassword"
                                 value={formData.currentPassword}
                                 onChange={handleChange}
-<<<<<<< HEAD
-                                placeholder="정보 수정을 위해 입력해주세요"
-                                className="w-full p-4 rounded-xl bg-[color:var(--surface-muted)] border border-[color:var(--border)] text-[color:var(--text)] placeholder:text-[color:var(--text-soft)] focus:outline-none focus:ring-2 focus:ring-[color:var(--accent)]"
-=======
                                 onKeyDown={handleKeyDown}
                                 placeholder={isSocialAccount ? 'SNS 계정은 변경할 수 없습니다.' : '정보 수정을 위해 입력해주세요'}
                                 disabled={isSocialAccount}
                                 className="w-full p-4 rounded-xl bg-[color:var(--surface-muted)] border border-[color:var(--border)] text-[color:var(--text)] placeholder:text-[color:var(--text-soft)] focus:outline-none focus:ring-2 focus:ring-[color:var(--accent)] disabled:opacity-60"
->>>>>>> upstream/UI3
                             />
                         </div>
 
@@ -367,15 +315,10 @@ const UserProfilePage = () => {
                                 name="newPassword"
                                 value={formData.newPassword}
                                 onChange={handleChange}
-<<<<<<< HEAD
-                                placeholder="변경할 경우에만 입력"
-                                className="w-full p-4 rounded-xl bg-[color:var(--surface-muted)] border border-[color:var(--border)] text-[color:var(--text)] placeholder:text-[color:var(--text-soft)] focus:outline-none focus:ring-2 focus:ring-[color:var(--accent)]"
-=======
                                 onKeyDown={handleKeyDown}
                                 placeholder={isSocialAccount ? 'SNS 계정은 변경할 수 없습니다.' : '변경할 경우에만 입력'}
                                 disabled={isSocialAccount}
                                 className="w-full p-4 rounded-xl bg-[color:var(--surface-muted)] border border-[color:var(--border)] text-[color:var(--text)] placeholder:text-[color:var(--text-soft)] focus:outline-none focus:ring-2 focus:ring-[color:var(--accent)] disabled:opacity-60"
->>>>>>> upstream/UI3
                             />
                         </div>
 
@@ -386,29 +329,20 @@ const UserProfilePage = () => {
                                 name="confirmNewPassword"
                                 value={formData.confirmNewPassword}
                                 onChange={handleChange}
-<<<<<<< HEAD
-                                placeholder="변경할 경우에만 입력"
-                                className={`w-full p-4 rounded-xl bg-[color:var(--surface-muted)] border ${formData.newPassword && formData.confirmNewPassword && formData.newPassword !== formData.confirmNewPassword ? 'border-red-500' : 'border-[color:var(--border)]'} text-[color:var(--text)] placeholder:text-[color:var(--text-soft)] focus:outline-none focus:ring-2 focus:ring-[color:var(--accent)]`}
-=======
                                 onKeyDown={handleKeyDown}
                                 placeholder={isSocialAccount ? 'SNS 계정은 변경할 수 없습니다.' : '변경할 경우에만 입력'}
                                 disabled={isSocialAccount}
                                 className={`w-full p-4 rounded-xl bg-[color:var(--surface-muted)] border ${formData.newPassword && formData.confirmNewPassword && formData.newPassword !== formData.confirmNewPassword ? 'border-red-500' : 'border-[color:var(--border)]'} text-[color:var(--text)] placeholder:text-[color:var(--text-soft)] focus:outline-none focus:ring-2 focus:ring-[color:var(--accent)] disabled:opacity-60`}
->>>>>>> upstream/UI3
                             />
                         </div>
                     </div>
                 </div>
 
                 <div className="mt-12 flex justify-end gap-4">
-<<<<<<< HEAD
-                    <button className="px-8 py-3 rounded-xl hover:bg-[color:var(--surface-muted)] transition text-[color:var(--text-muted)]">
-=======
                     <button
                         onClick={() => navigate('/mainboard')}
                         className="px-8 py-3 rounded-xl hover:bg-[color:var(--surface-muted)] transition text-[color:var(--text-muted)]"
                     >
->>>>>>> upstream/UI3
                         취소
                     </button>
                     <button
@@ -416,11 +350,7 @@ const UserProfilePage = () => {
                         disabled={loading}
                         className="px-8 py-3 rounded-xl bg-[color:var(--accent)] hover:bg-[color:var(--accent-strong)] text-[color:var(--accent-contrast)] font-bold shadow-[0_10px_30px_var(--shadow)] transition disabled:opacity-50"
                     >
-<<<<<<< HEAD
-                        {loading ? '처리중...' : '수정 완료'}
-=======
                         {loading ? '처리중..' : '수정 완료'}
->>>>>>> upstream/UI3
                     </button>
                 </div>
             </GlassCard>

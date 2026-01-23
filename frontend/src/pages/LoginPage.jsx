@@ -4,10 +4,7 @@ import { Mail, Lock, X } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import GlassCard from '../components/common/GlassCard';
 import ThemeToggle from '../components/common/ThemeToggle';
-<<<<<<< HEAD
-=======
 import Footer from '../components/common/Footer';
->>>>>>> upstream/UI3
 import { useAuth } from '../context/AuthContext';
 import axiosInstance from '../axiosConfig';
 
@@ -24,15 +21,9 @@ const LoginPage = () => {
     const handleSocialLogin = (provider) => {
         sessionStorage.setItem('oauthFlow', 'login');
         localStorage.setItem('oauthFlow', 'login');
-<<<<<<< HEAD
-        window.location.href = `/oauth2/authorization/${provider}`;
-    };
-
-
-    const handleLogin = async () => {
-        setError('');
-=======
-        window.location.href = `http://localhost:8080/oauth2/authorization/${provider}`;
+        // Nginx 프록시를 통해 백엔드로 전달되도록 상대 경로 사용
+        const baseUrl = (import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080').replace(/\/$/, '');
+        window.location.assign(`${baseUrl}/oauth2/authorization/${provider}`);
     };
 
     const handleLogin = async () => {
@@ -40,7 +31,6 @@ const LoginPage = () => {
         setShowResetModal(false);
         setShowWarningModal(false);
         setWarningCount(null);
->>>>>>> upstream/UI3
         const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
         if (!userId) {
             setError('아이디(이메일)를 입력해주세요.');
@@ -55,10 +45,7 @@ const LoginPage = () => {
             return;
         }
         try {
-<<<<<<< HEAD
-=======
             await axiosInstance.get('/api/csrf');
->>>>>>> upstream/UI3
             const response = await axiosInstance.post('/api/auth/login', { userId, password });
             const data = response.data;
 
@@ -67,8 +54,6 @@ const LoginPage = () => {
                 if (data.userName) {
                     localStorage.setItem('userName', data.userName);
                 }
-<<<<<<< HEAD
-=======
                 if (data.userId) {
                     localStorage.setItem('userId', data.userId);
                 } else {
@@ -89,7 +74,6 @@ const LoginPage = () => {
                 localStorage.setItem('passwordChangePrompt', 'true');
             } else {
                 localStorage.removeItem('passwordChangePrompt');
->>>>>>> upstream/UI3
             }
 
             navigate('/mainboard');
@@ -97,11 +81,7 @@ const LoginPage = () => {
             console.error('Login error:', err);
             const errorCode = err.response?.data?.errorCode;
             const backendMessage = err.response?.data?.message;
-<<<<<<< HEAD
-            if (errorCode === 'PASSWORD_RESET_REQUIRED' || err.response?.status === 403) {
-=======
             if (errorCode === 'PASSWORD_RESET_REQUIRED') {
->>>>>>> upstream/UI3
                 setShowResetModal(true);
                 return;
             }
@@ -111,13 +91,10 @@ const LoginPage = () => {
                 setShowWarningModal(true);
                 return;
             }
-<<<<<<< HEAD
-=======
             if (err.response?.status === 403) {
                 setError('보안 토큰이 만료되었거나 권한이 없습니다. 새로고침 후 다시 시도해주세요.');
                 return;
             }
->>>>>>> upstream/UI3
             if (err.response && err.response.data) {
                 if (errorCode === 'INVALID_PASSWORD') {
                     setError('비밀번호를 다시 확인해주세요.');
@@ -142,11 +119,7 @@ const LoginPage = () => {
         <motion.div
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
-<<<<<<< HEAD
-            className="min-h-screen flex items-center justify-center p-6 text-[color:var(--text)]"
-=======
             className="min-h-screen flex flex-col items-center justify-center p-6 text-[color:var(--text)]"
->>>>>>> upstream/UI3
             style={{ background: 'linear-gradient(135deg, var(--bg-1), var(--bg-2), var(--bg-3))' }}
         >
             {showResetModal && (
@@ -304,18 +277,11 @@ const LoginPage = () => {
                     </button>
                 </p>
             </GlassCard>
-<<<<<<< HEAD
-=======
             <div className="w-full max-w-4xl mt-6">
                 <Footer />
             </div>
->>>>>>> upstream/UI3
         </motion.div>
     );
 };
 
 export default LoginPage;
-<<<<<<< HEAD
-=======
-
->>>>>>> upstream/UI3

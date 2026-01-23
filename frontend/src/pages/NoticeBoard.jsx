@@ -226,19 +226,13 @@ const NoticeBoard = () => {
             setSelectedId(fallbackNotice.id);
             setSelectedNotice(fallbackNotice);
             setShowDetail(true);
-<<<<<<< HEAD
-=======
             setComments([]);
             setDetailError('');
->>>>>>> upstream/UI3
             setTitle('');
             setContent('');
             setShowForm(false);
             setPage(1);
-<<<<<<< HEAD
-=======
             loadNoticeDetail(fallbackNotice.id);
->>>>>>> upstream/UI3
         } catch (error) {
             console.error(error);
         } finally {

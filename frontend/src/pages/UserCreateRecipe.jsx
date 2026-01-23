@@ -31,11 +31,7 @@ const labels = {
     ingredientAdd: '재료 추가',
     ingredientPlaceholder: '재료명 / 용량',
     guideTitle: '레시피 생성 안내',
-<<<<<<< HEAD
-    guideBody: '생성까지 1~2분정도 소요됩니다.',
-=======
     guideBody: '생성까지 2~3분정도 소요됩니다.',
->>>>>>> upstream/UI3
     createLabel: '레시피 생성',
     updateLabel: '레시피 수정',
     creatingLabel: '생성 중...',
@@ -276,8 +272,6 @@ const UserCreateRecipe = () => {
         }
     };
 
-<<<<<<< HEAD
-=======
     const safeCacheRemove = (key) => {
         try {
             localStorage.removeItem(key);
@@ -330,7 +324,6 @@ const UserCreateRecipe = () => {
         safeCacheRemove(influencerMetaKey(recipeId));
     };
 
->>>>>>> upstream/UI3
     const generateInfluencerAssets = async (recipe) => {
         const cachedInfluencers =
             sessionStorage.getItem(`recipeInfluencers:${recipe.id}`) ||
@@ -338,13 +331,10 @@ const UserCreateRecipe = () => {
         const cachedImage =
             sessionStorage.getItem(`recipeInfluencerImage:${recipe.id}`) ||
             localStorage.getItem(`recipeInfluencerImage:${recipe.id}`);
-<<<<<<< HEAD
-=======
         const cachedMeta = readInfluencerMeta(recipe.id);
         if (cachedMeta && !isInfluencerMetaMatch(cachedMeta, recipe)) {
             clearInfluencerCache(recipe.id);
         }
->>>>>>> upstream/UI3
         if (cachedInfluencers && cachedImage) {
             try {
                 const parsed = JSON.parse(cachedInfluencers);
@@ -374,12 +364,9 @@ const UserCreateRecipe = () => {
             const influencersJson = JSON.stringify(recs);
             safeSessionSet(`recipeInfluencers:${recipe.id}`, influencersJson);
             safeCacheSet(`recipeInfluencers:${recipe.id}`, influencersJson);
-<<<<<<< HEAD
-=======
             const metaJson = JSON.stringify(buildInfluencerMeta(recipe));
             safeSessionSet(influencerMetaKey(recipe.id), metaJson);
             safeCacheSet(influencerMetaKey(recipe.id), metaJson);
->>>>>>> upstream/UI3
 
             const top = recs[0];
             if (top?.name && top?.imageUrl) {
@@ -421,11 +408,8 @@ const UserCreateRecipe = () => {
         }
         const recipeId = id || initialRecipe?.id || createdRecipe?.id;
         const isUpdate = Boolean(recipeId);
-<<<<<<< HEAD
-=======
         const isCreateFlow = !id;
         const shouldRegenerate = isCreateFlow && (isDirty || !createdRecipe);
->>>>>>> upstream/UI3
         const payload = {
             title: title.trim(),
             description: description.trim(),
@@ -436,11 +420,6 @@ const UserCreateRecipe = () => {
             targetPersona: labels.targetPersona,
             priceRange: 'USD 6~9',
             draft: true,
-<<<<<<< HEAD
-        };
-        setLoading(true);
-        try {
-=======
             regenerateReport: shouldRegenerate,
         };
         setLoading(true);
@@ -450,7 +429,6 @@ const UserCreateRecipe = () => {
                 setCreatedInfluencers([]);
                 setCreatedInfluencerImage('');
             }
->>>>>>> upstream/UI3
             const res = isUpdate
                 ? await axiosInstance.put(`/api/recipes/${recipeId}`, payload)
                 : await axiosInstance.post('/api/recipes', payload);
@@ -459,22 +437,14 @@ const UserCreateRecipe = () => {
             shouldBlockRef.current = false;
             sessionStorage.removeItem('recipeEditDirty');
 
-<<<<<<< HEAD
-            if (!isUpdate) {
-=======
             if (isCreateFlow && shouldRegenerate) {
->>>>>>> upstream/UI3
                 const influencerOk = await generateInfluencerAssets(created);
                 if (!influencerOk) {
                     return;
                 }
             }
 
-<<<<<<< HEAD
-            if (!id) {
-=======
             if (isCreateFlow) {
->>>>>>> upstream/UI3
                 setCreatedRecipe(created);
                 setShowReview(true);
                 setError('');
@@ -599,10 +569,7 @@ const UserCreateRecipe = () => {
                                             onClick={() =>
                                                 navigate(`/mainboard/recipes/${createdRecipe.id}/report`, {
                                                     state: {
-<<<<<<< HEAD
-=======
                                                         fromReview: true,
->>>>>>> upstream/UI3
                                                         influencers: createdInfluencers,
                                                         influencerImageBase64: createdInfluencerImage,
                                                     },
@@ -631,24 +598,24 @@ const UserCreateRecipe = () => {
                                     <div className="space-y-3">
                                         <input
                                             type="text"
-                                    placeholder={labels.titlePlaceholder}
-                                    value={title}
-                                    onChange={(e) => {
-                                        setHasUserEdits(true);
-                                        setTitle(e.target.value);
-                                    }}
-                                    className="w-full p-3 rounded-xl bg-[color:var(--surface-muted)] border border-[color:var(--border)] text-[color:var(--text)] placeholder:text-[color:var(--text-soft)] focus:outline-none focus:ring-2 focus:ring-[color:var(--accent)]"
-                                />
-                                <textarea
-                                    rows="4"
-                                    placeholder={labels.descriptionPlaceholder}
-                                    value={description}
-                                    onChange={(e) => {
-                                        setHasUserEdits(true);
-                                        setDescription(e.target.value);
-                                    }}
-                                    className="w-full p-3 rounded-xl bg-[color:var(--surface-muted)] border border-[color:var(--border)] text-[color:var(--text)] placeholder:text-[color:var(--text-soft)] focus:outline-none focus:ring-2 focus:ring-[color:var(--accent)]"
-                                />
+                                            placeholder={labels.titlePlaceholder}
+                                            value={title}
+                                            onChange={(e) => {
+                                                setHasUserEdits(true);
+                                                setTitle(e.target.value);
+                                            }}
+                                            className="w-full p-3 rounded-xl bg-[color:var(--surface-muted)] border border-[color:var(--border)] text-[color:var(--text)] placeholder:text-[color:var(--text-soft)] focus:outline-none focus:ring-2 focus:ring-[color:var(--accent)]"
+                                        />
+                                        <textarea
+                                            rows="4"
+                                            placeholder={labels.descriptionPlaceholder}
+                                            value={description}
+                                            onChange={(e) => {
+                                                setHasUserEdits(true);
+                                                setDescription(e.target.value);
+                                            }}
+                                            className="w-full p-3 rounded-xl bg-[color:var(--surface-muted)] border border-[color:var(--border)] text-[color:var(--text)] placeholder:text-[color:var(--text-soft)] focus:outline-none focus:ring-2 focus:ring-[color:var(--accent)]"
+                                        />
                                     </div>
                                 </div>
 

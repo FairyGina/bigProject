@@ -1,18 +1,11 @@
 import React, { useState } from 'react';
-<<<<<<< HEAD
-import axiosInstance from '../axiosConfig';
-=======
->>>>>>> upstream/UI3
 import { motion } from 'framer-motion';
 import { X } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import GlassCard from '../components/common/GlassCard';
 import ThemeToggle from '../components/common/ThemeToggle';
-<<<<<<< HEAD
-=======
 import Footer from '../components/common/Footer';
 import axiosInstance from '../axiosConfig';
->>>>>>> upstream/UI3
 
 const SignUpPage = () => {
     const navigate = useNavigate();
@@ -23,10 +16,6 @@ const SignUpPage = () => {
         password: '',
         confirmPassword: ''
     });
-<<<<<<< HEAD
-    const [error, setError] = useState('');
-
-=======
     const [consents, setConsents] = useState({
         terms: false,
         privacy: false,
@@ -40,7 +29,6 @@ const SignUpPage = () => {
         alert(message);
     };
 
->>>>>>> upstream/UI3
     const handleChange = (e) => {
         setFormData({
             ...formData,
@@ -48,13 +36,6 @@ const SignUpPage = () => {
         });
     };
 
-<<<<<<< HEAD
-    const handleSignup = async () => {
-        setError('');
-
-        if (formData.password !== formData.confirmPassword) {
-            setError('비밀번호가 일치하지 않습니다.');
-=======
     const hasSequentialDigits = (value, length = 3) => {
         if (!value) return false;
         const s = value;
@@ -160,56 +141,27 @@ const SignUpPage = () => {
 
         if (formData.password !== formData.confirmPassword) {
             showError('비밀번호가 일치하지 않습니다.');
->>>>>>> upstream/UI3
             return;
         }
 
         const passwordPattern = /^(?=.*[A-Za-z])(?=.*\d)(?=.*[@$!%*#?&])[A-Za-z\d@$!%*#?&]{8,}$/;
         if (!passwordPattern.test(formData.password)) {
-<<<<<<< HEAD
-            setError('비밀번호는 8자 이상, 영문+숫자+특수문자를 포함해야 합니다.');
-=======
             showError('비밀번호는 8자 이상, 영문+숫자+특수문자를 포함해야 합니다.');
             return;
         }
 
         if (isGuessablePassword(formData.password, formData.userId, formData.birthDate)) {
             showError('연속된 문자열이나 아이디/생년월일 등 추측 가능한 정보를 비밀번호에 사용할 수 없습니다.');
->>>>>>> upstream/UI3
             return;
         }
 
         if (!formData.birthDate) {
-<<<<<<< HEAD
-            setError('생년월일을 입력해주세요.');
-=======
             showError('생년월일을 입력해주세요.');
->>>>>>> upstream/UI3
             return;
         }
 
         try {
             const response = await axiosInstance.post('/api/auth/join', formData);
-<<<<<<< HEAD
-
-            if (response.status === 200 || response.status === 201) {
-                alert('회원가입이 완료되었습니다. 로그인해주세요.');
-                navigate('/login');
-            }
-        } catch (err) {
-            console.error(err);
-            const message = err.response?.data?.message || '회원가입에 실패했습니다.';
-            setError(message);
-        }
-    };
-
-    const handleSocialSignup = (provider) => {
-        sessionStorage.setItem('oauthFlow', 'signup');
-        localStorage.setItem('oauthFlow', 'signup');
-        window.location.href = `/oauth2/authorization/${provider}`;
-    };
-
-=======
             if (response.status >= 200 && response.status < 300) {
                 alert('회원가입이 완료되었습니다. 로그인해주세요.');
                 navigate('/login');
@@ -245,17 +197,12 @@ const SignUpPage = () => {
         const baseUrl = (import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080').replace(/\/$/, '');
         window.location.assign(`${baseUrl}/oauth2/authorization/${provider}`);
     };
->>>>>>> upstream/UI3
 
     return (
         <motion.div
             initial={{ opacity: 0, x: 20 }}
             animate={{ opacity: 1, x: 0 }}
-<<<<<<< HEAD
-            className="min-h-screen flex items-center justify-center p-6 text-[color:var(--text)]"
-=======
             className="min-h-screen flex flex-col items-center justify-center p-6 text-[color:var(--text)]"
->>>>>>> upstream/UI3
             style={{ background: 'linear-gradient(135deg, var(--bg-1), var(--bg-2), var(--bg-3))' }}
         >
             <ThemeToggle className="fixed top-6 right-6 z-50" />
@@ -270,11 +217,7 @@ const SignUpPage = () => {
                 <div className="flex justify-between items-start mb-10 pr-8">
                     <div>
                         <h2 className="text-3xl font-bold mb-2">계정 생성</h2>
-<<<<<<< HEAD
-                        <p className="text-[color:var(--text-muted)]">필수 정보를 입력하여 가입해주세요.</p>
-=======
                         <p className="text-[color:var(--text-muted)]">필수 정보를 입력해 주세요.</p>
->>>>>>> upstream/UI3
                     </div>
                 </div>
 
@@ -294,11 +237,7 @@ const SignUpPage = () => {
                     <input
                         type="text"
                         name="userName"
-<<<<<<< HEAD
-                        placeholder="이름 (실명)"
-=======
                         placeholder="이름 (닉네임)"
->>>>>>> upstream/UI3
                         value={formData.userName}
                         onChange={handleChange}
                         className="w-full p-4 rounded-2xl bg-[color:var(--surface-muted)] border border-[color:var(--border)] text-[color:var(--text)] placeholder:text-[color:var(--text-soft)] focus:outline-none focus:ring-2 focus:ring-[color:var(--accent)]"
@@ -340,8 +279,6 @@ const SignUpPage = () => {
                         className={`w-full p-4 rounded-2xl bg-[color:var(--surface-muted)] border ${formData.password && formData.confirmPassword && formData.password !== formData.confirmPassword ? 'border-red-500' : 'border-[color:var(--border)]'} text-[color:var(--text)] placeholder:text-[color:var(--text-soft)] focus:outline-none focus:ring-2 focus:ring-[color:var(--accent)] transition`}
                     />
 
-<<<<<<< HEAD
-=======
                     <div className="mt-4 space-y-3">
                         <div className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface-muted)]/40 p-4">
                             <label className="flex items-start gap-3 cursor-pointer">
@@ -430,7 +367,6 @@ const SignUpPage = () => {
                         </div>
                     </div>
 
->>>>>>> upstream/UI3
                     <button
                         type="submit"
                         className="w-full py-4 mt-8 bg-[color:var(--accent)] text-[color:var(--accent-contrast)] rounded-2xl font-bold hover:bg-[color:var(--accent-strong)] transition shadow-[0_10px_30px_var(--shadow)]"
@@ -461,12 +397,9 @@ const SignUpPage = () => {
                     </button>
                 </div>
             </GlassCard>
-<<<<<<< HEAD
-=======
             <div className="w-full max-w-4xl mt-6">
                 <Footer />
             </div>
->>>>>>> upstream/UI3
         </motion.div>
     );
 };

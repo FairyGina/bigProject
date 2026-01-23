@@ -1,8 +1,4 @@
-<<<<<<< HEAD
 import React, { useState } from 'react';
-=======
-﻿import React, { useState } from 'react';
->>>>>>> upstream/UI3
 import { motion } from 'framer-motion';
 import { KeyRound, Mail, User, X } from 'lucide-react';
 import { useLocation, useNavigate } from 'react-router-dom';
@@ -21,8 +17,6 @@ const ResetPasswordPage = () => {
     const [confirmPassword, setConfirmPassword] = useState('');
     const [error, setError] = useState('');
 
-<<<<<<< HEAD
-=======
     const hasSequentialDigits = (value, length = 3) => {
         if (!value) return false;
         const s = value;
@@ -107,16 +101,11 @@ const ResetPasswordPage = () => {
         );
     };
 
->>>>>>> upstream/UI3
     const handleFindPassword = async () => {
         setError('');
         const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
         if (!name || !email) {
-<<<<<<< HEAD
-            setError('이름과 아이디를 입력해 주세요.');
-=======
             setError('이름과 아이디를 입력해주세요.');
->>>>>>> upstream/UI3
             return;
         }
         if (!emailPattern.test(email)) {
@@ -127,13 +116,10 @@ const ResetPasswordPage = () => {
             setError('새 비밀번호가 일치하지 않습니다.');
             return;
         }
-<<<<<<< HEAD
-=======
         if (isGuessablePassword(newPassword, email)) {
             setError('연속된 문자열이나 아이디 등 추측 가능한 정보를 비밀번호에 사용할 수 없습니다.');
             return;
         }
->>>>>>> upstream/UI3
         try {
             await axiosInstance.post('/api/auth/reset-password', {
                 userId: email,
@@ -198,11 +184,7 @@ const ResetPasswordPage = () => {
                         <Mail className="absolute left-4 top-4 text-[color:var(--text-soft)]" size={20} />
                         <input
                             type="email"
-<<<<<<< HEAD
-                            placeholder="아이디(이메일)"
-=======
-                            placeholder="이메일"
->>>>>>> upstream/UI3
+                            placeholder="이메일 (아이디)"
                             value={email}
                             onChange={(e) => setEmail(e.target.value)}
                             className="w-full pl-12 p-4 rounded-2xl bg-[color:var(--surface-muted)] border border-[color:var(--border)] text-[color:var(--text)] placeholder:text-[color:var(--text-soft)] focus:outline-none focus:ring-2 focus:ring-[color:var(--accent)] transition"

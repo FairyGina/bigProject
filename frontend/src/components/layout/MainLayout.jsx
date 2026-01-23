@@ -1,10 +1,3 @@
-<<<<<<< HEAD
-import React from 'react';
-import Sidebar from './Sidebar';
-import ThemeToggle from '../common/ThemeToggle';
-
-const MainLayout = ({ children }) => {
-=======
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
@@ -30,7 +23,6 @@ const MainLayout = ({ children }) => {
         }
     }, []);
 
->>>>>>> upstream/UI3
     return (
         <div
             className="min-h-screen text-[color:var(--text)] flex flex-col md:flex-row"
@@ -40,14 +32,6 @@ const MainLayout = ({ children }) => {
             <Sidebar />
 
             {/* 메인 콘텐츠 영역 */}
-<<<<<<< HEAD
-            <div className="flex-1 p-6 md:p-10">
-                <div className="flex justify-end mb-6">
-                    <ThemeToggle />
-                </div>
-                {children}
-            </div>
-=======
             <div className="flex-1 p-6 md:p-10 flex flex-col">
                 <div className="flex justify-end mb-6">
                     <ThemeToggle />
@@ -99,7 +83,6 @@ const MainLayout = ({ children }) => {
                     </motion.div>
                 </div>
             )}
->>>>>>> upstream/UI3
         </div>
     );
 };

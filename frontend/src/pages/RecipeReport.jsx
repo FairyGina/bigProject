@@ -49,12 +49,6 @@ const RecipeReport = () => {
         };
     }, [recipe]);
 
-<<<<<<< HEAD
-    const getCachedInfluencers = (recipeId) => {
-        const cached =
-            sessionStorage.getItem(`recipeInfluencers:${recipeId}`) ||
-            localStorage.getItem(`recipeInfluencers:${recipeId}`);
-=======
     const influencerMetaKey = (recipeId) => `recipeInfluencerMeta:${recipeId}`;
     const getCachedInfluencers = (currentRecipe) => {
         if (Array.isArray(currentRecipe?.influencers) && currentRecipe.influencers.length) {
@@ -85,7 +79,6 @@ const RecipeReport = () => {
         const cached =
             sessionStorage.getItem(`recipeInfluencers:${currentRecipe?.id}`) ||
             localStorage.getItem(`recipeInfluencers:${currentRecipe?.id}`);
->>>>>>> upstream/UI3
         if (!cached) {
             return [];
         }
@@ -97,16 +90,10 @@ const RecipeReport = () => {
         }
     };
 
-<<<<<<< HEAD
-    const getCachedInfluencerImage = (recipeId) =>
-        sessionStorage.getItem(`recipeInfluencerImage:${recipeId}`) ||
-        localStorage.getItem(`recipeInfluencerImage:${recipeId}`) ||
-=======
     const getCachedInfluencerImage = (currentRecipe) =>
         currentRecipe?.influencerImageBase64 ||
         sessionStorage.getItem(`recipeInfluencerImage:${currentRecipe?.id}`) ||
         localStorage.getItem(`recipeInfluencerImage:${currentRecipe?.id}`) ||
->>>>>>> upstream/UI3
         '';
 
 
@@ -240,16 +227,10 @@ const RecipeReport = () => {
                                         if (recipe?.id) {
                                             navigate(`/mainboard/recipes/${recipe.id}/report`, {
                                                 state: {
-<<<<<<< HEAD
-                                                    reportInput,
-                                                    influencers: getCachedInfluencers(recipe.id),
-                                                    influencerImageBase64: getCachedInfluencerImage(recipe.id),
-=======
                                                     fromReview: false,
                                                     reportInput,
                                                     influencers: getCachedInfluencers(recipe),
                                                     influencerImageBase64: getCachedInfluencerImage(recipe),
->>>>>>> upstream/UI3
                                                 },
                                             });
                                         }
