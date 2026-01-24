@@ -17,7 +17,7 @@ const MainBoard = () => {
         const fetchRecipes = async () => {
             try {
                 setLoading(true);
-                const res = await axiosInstance.get('/api/recipes');
+                const res = await axiosInstance.get('/recipes');
                 setRecipes(res.data || []);
             } catch (err) {
                 console.error('Failed to fetch recipes', err);

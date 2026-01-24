@@ -59,7 +59,7 @@ const FindPasswordPage = () => {
         }
         setLoading(true);
         try {
-            await axiosInstance.post('/api/auth/password-reset/request', {
+            await axiosInstance.post('/auth/password-reset/request', {
                 userId: email,
                 userName: name,
             });
@@ -86,7 +86,7 @@ const FindPasswordPage = () => {
         }
         setLoading(true);
         try {
-            await axiosInstance.post('/api/auth/password-reset/verify', {
+            await axiosInstance.post('/auth/password-reset/verify', {
                 userId: email,
                 code,
             });
