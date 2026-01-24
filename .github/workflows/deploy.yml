@@ -36,10 +36,6 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Create frontend .env file
-        run: |
-          echo "VITE_API_URL=http://20.197.14.81/api" > ./frontend/.env
-
       - name: Deploy to Azure VM
         uses: appleboy/ssh-action@v1.0.3
         with:
@@ -50,6 +46,8 @@ jobs:
           script: |
             cd ${{ secrets.DEPLOY_PATH }}
             git pull origin main
+            # Ensure frontend .env exists on server for build
+            echo "VITE_API_URL=http://20.197.14.81/api" > ./frontend/.env
             docker compose down
             docker compose up -d --build
 
