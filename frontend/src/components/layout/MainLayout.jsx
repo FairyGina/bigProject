@@ -72,7 +72,7 @@ const MainLayout = ({ children }) => {
                                         localStorage.removeItem('passwordChangeDeferredUntil');
                                         localStorage.removeItem('passwordChangePrompt');
                                         setShowExpiryModal(false);
-                                        navigate('/mainboard/user-hub/profile');
+                                        navigate('/mainboard/user-hub/password-check');
                                     }}
                                     className="flex-1 py-3 rounded-2xl bg-[color:var(--accent)] text-[color:var(--accent-contrast)] font-semibold hover:bg-[color:var(--accent-strong)] transition"
                                 >
