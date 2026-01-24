@@ -135,7 +135,7 @@ const RecipeAnalysis = () => {
                     targetPersona: '20~30대 직장인, 간편식 선호',
                     priceRange: 'USD 6~9',
                 };
-                const influencerRes = await axiosInstance.post('/api/influencers/recommend', payload);
+                const influencerRes = await axiosInstance.post('/influencers/recommend', payload);
                 const recs = influencerRes.data?.recommendations ?? [];
                 setInfluencers(recs);
                 if (recs.length) {
@@ -160,7 +160,7 @@ const RecipeAnalysis = () => {
 
                 const top = recs[0];
                 if (top?.name && top?.imageUrl) {
-                    const imageRes = await axiosInstance.post('/api/images/generate', {
+                    const imageRes = await axiosInstance.post('/images/generate', {
                         recipe: recipe.title,
                         influencerName: top.name,
                         influencerImageUrl: top.imageUrl,

@@ -17,7 +17,7 @@ const UserBoard = () => {
         const fetchRecipes = async () => {
             try {
                 setLoading(true);
-                const res = await axiosInstance.get('/api/recipes/me');
+                const res = await axiosInstance.get('/recipes/me');
                 setRecipes(res.data || []);
             } catch (err) {
                 console.error('Failed to fetch user recipes', err);

@@ -354,7 +354,7 @@ const UserCreateRecipe = () => {
                 targetPersona: labels.targetPersona,
                 priceRange: 'USD 6~9',
             };
-            const influencerRes = await axiosInstance.post('/api/influencers/recommend', payload);
+            const influencerRes = await axiosInstance.post('/influencers/recommend', payload);
             const recs = influencerRes.data?.recommendations ?? [];
             if (!recs.length) {
                 setError(labels.influencerError);
@@ -370,7 +370,7 @@ const UserCreateRecipe = () => {
 
             const top = recs[0];
             if (top?.name && top?.imageUrl) {
-                const imageRes = await axiosInstance.post('/api/images/generate', {
+                const imageRes = await axiosInstance.post('/images/generate', {
                     recipe: recipe.title,
                     influencerName: top.name,
                     influencerImageUrl: top.imageUrl,
@@ -431,7 +431,7 @@ const UserCreateRecipe = () => {
             }
             const res = isUpdate
                 ? await axiosInstance.put(`/api/recipes/${recipeId}`, payload)
-                : await axiosInstance.post('/api/recipes', payload);
+                : await axiosInstance.post('/recipes', payload);
             const created = res.data;
             initialSnapshotRef.current = buildSnapshot(created || payload);
             shouldBlockRef.current = false;

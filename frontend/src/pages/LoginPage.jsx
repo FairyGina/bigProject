@@ -45,8 +45,8 @@ const LoginPage = () => {
             return;
         }
         try {
-            await axiosInstance.get('/api/csrf');
-            const response = await axiosInstance.post('/api/auth/login', { userId, password });
+            await axiosInstance.get('/csrf');
+            const response = await axiosInstance.post('/auth/login', { userId, password });
             const data = response.data;
 
             if (data.accessToken) {

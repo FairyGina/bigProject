@@ -141,7 +141,7 @@ const NoticeBoard = () => {
         setLoadingNotices(true);
         setNoticeError('');
         try {
-            const response = await axiosInstance.get('/api/notices');
+            const response = await axiosInstance.get('/notices');
             const data = Array.isArray(response.data) ? response.data : response.data?.data ?? [];
             const normalized = data.map(normalizeNotice);
             if (normalized.length) {
@@ -209,7 +209,7 @@ const NoticeBoard = () => {
         }
         setIsSubmittingNotice(true);
         try {
-            const response = await axiosInstance.post('/api/notices', {
+            const response = await axiosInstance.post('/notices', {
                 title: title.trim(),
                 content: content.trim(),
             });
