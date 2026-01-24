@@ -1,5 +1,6 @@
 # Build stage
-FROM gradle:9.2-jdk21 AS builder
+# Build stage
+FROM gradle:9.2-jdk17 AS builder
 
 WORKDIR /app
 
@@ -21,7 +22,7 @@ COPY src src
 RUN ./gradlew bootJar --no-daemon
 
 # Runtime stage
-FROM eclipse-temurin:21-jre-alpine
+FROM eclipse-temurin:17-jre-alpine
 
 WORKDIR /app
 
