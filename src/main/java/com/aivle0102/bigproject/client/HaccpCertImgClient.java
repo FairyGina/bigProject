@@ -36,7 +36,6 @@ public class HaccpCertImgClient {
                 .queryParam("numOfRows", numOfRows)
                 .queryParam("prdkind", prdkindKeyword)
                 .queryParam("ServiceKey", serviceKey)
-                .encode(StandardCharsets.UTF_8)
                 .build()
                 .toUriString();
 
@@ -64,7 +63,6 @@ public class HaccpCertImgClient {
                 .queryParam("numOfRows", numOfRows)
                 .queryParam("prdlstNm", prdlstNmKeyword)
                 .queryParam("ServiceKey", serviceKey)
-                .encode(StandardCharsets.UTF_8)
                 .build()
                 .toUriString();
 

@@ -195,7 +195,9 @@ public class AllergenMatcher {
         for (String token : tokens) {
             queries.add(token);
             List<String> synonyms = QUERY_SYNONYMS.get(token);
-            if (synonyms != null) queries.addAll(synonyms);
+            if (synonyms != null) {
+                queries.addAll(synonyms);
+            }
 
         }
 

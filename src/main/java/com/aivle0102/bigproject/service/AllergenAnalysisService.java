@@ -406,6 +406,21 @@ public class AllergenAnalysisService {
             LOGGER.info(() -> "STEP3 prdlstNm exact matches=" + exact.size());
             return exact;
         }
+        List<JsonNode> contains = new ArrayList<>();
+        for (JsonNode item : items) {
+            String name = text(item, "prdlstNm");
+            if (name == null) continue;
+            for (String query : querySet) {
+                if (name.contains(query)) {
+                    contains.add(item);
+                    break;
+                }
+            }
+        }
+        if (!contains.isEmpty()) {
+            LOGGER.info(() -> "STEP3 prdlstNm contains matches=" + contains.size());
+            return contains;
+        }
         return requireExact ? List.of() : items;
     }
 
@@ -413,9 +428,7 @@ public class AllergenAnalysisService {
         // HACCP 응답에서 items 배열/객체를 안전하게 추출
         List<JsonNode> candidates = new ArrayList<>();
 
-        JsonNode body = root.path("response").isMissingNode()
-                ? root.path("body")
-                : root.path("response").path("body");
+        JsonNode body = resolveResponseNode(root).path("body");
 
         if (body.isMissingNode() || body.isNull()) {
             return candidates;
@@ -441,10 +454,11 @@ public class AllergenAnalysisService {
         if (root == null) return;
         List<String> rootKeys = new ArrayList<>();
         root.fieldNames().forEachRemaining(rootKeys::add);
-        JsonNode header = root.path("response").path("header");
+        JsonNode responseNode = resolveResponseNode(root);
+        JsonNode header = responseNode.path("header");
         String resultCode = header.path("resultCode").asText("");
         String resultMsg = header.path("resultMsg").asText("");
-        JsonNode body = root.path("response").path("body");
+        JsonNode body = responseNode.path("body");
         String totalCount = body.path("totalCount").asText("");
         LOGGER.info(() -> "HACCP_META type=" + type
                 + " query=" + query
@@ -452,6 +466,15 @@ public class AllergenAnalysisService {
                 + " resultMsg=" + resultMsg
                 + " totalCount=" + totalCount
                 + " rootKeys=" + rootKeys);
+    }
+
+    private JsonNode resolveResponseNode(JsonNode root) {
+        if (root == null) return root;
+        JsonNode responseNode = root.path("response");
+        if (!responseNode.isMissingNode() && !responseNode.isNull()) {
+            return responseNode;
+        }
+        return root;
     }
 
     private String text(JsonNode node, String field) {
