@@ -185,6 +185,13 @@ const RecipeReport = () => {
                             <h3 className="text-lg font-semibold text-[color:var(--text)]">레시피 요약</h3>
                         </div>
 
+                        <div className="rounded-xl border border-[color:var(--border)] bg-[color:var(--surface-muted)] p-4">
+                            <p className="text-sm font-semibold text-[color:var(--text)] mb-2">요약</p>
+                            <p className="text-sm text-[color:var(--text-muted)] whitespace-pre-line">
+                                {recipe.summary || '요약 결과가 없습니다.'}
+                            </p>
+                        </div>
+
                         <div className="rounded-xl border border-[color:var(--border)] bg-[color:var(--surface-muted)] p-4 space-y-3">
                             <div className="flex gap-2">
                                 <button
