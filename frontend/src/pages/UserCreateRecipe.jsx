@@ -100,7 +100,7 @@ const UserCreateRecipe = () => {
             }
             try {
                 setInitializing(true);
-                const res = await axiosInstance.get(`/api/recipes/${id}`);
+                const res = await axiosInstance.get(`/recipes/${id}`);
                 applyInitialState(res.data || {});
             } catch (err) {
                 console.error('Failed to load recipe', err);
@@ -120,7 +120,7 @@ const UserCreateRecipe = () => {
             const fetchReviewRecipe = async () => {
                 try {
                     setInitializing(true);
-                    const res = await axiosInstance.get(`/api/recipes/${reviewRecipeId}`);
+                    const res = await axiosInstance.get(`/recipes/${reviewRecipeId}`);
                     setCreatedRecipe(res.data);
                     setCreatedInfluencers(location.state?.influencers || []);
                     setCreatedInfluencerImage(location.state?.influencerImageBase64 || '');
@@ -430,7 +430,7 @@ const UserCreateRecipe = () => {
                 setCreatedInfluencerImage('');
             }
             const res = isUpdate
-                ? await axiosInstance.put(`/api/recipes/${recipeId}`, payload)
+                ? await axiosInstance.put(`/recipes/${recipeId}`, payload)
                 : await axiosInstance.post('/recipes', payload);
             const created = res.data;
             initialSnapshotRef.current = buildSnapshot(created || payload);

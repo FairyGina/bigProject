@@ -169,7 +169,7 @@ const NoticeBoard = () => {
         setDetailError('');
         setComments([]);
         try {
-            const response = await axiosInstance.get(`/api/notices/${noticeId}`);
+            const response = await axiosInstance.get(`/notices/${noticeId}`);
             const detail = normalizeNotice(response.data?.data ?? response.data);
             setSelectedNotice(detail);
         } catch (error) {
@@ -177,7 +177,7 @@ const NoticeBoard = () => {
             setDetailError('공지사항을 불러오지 못했습니다.');
         }
         try {
-            const response = await axiosInstance.get(`/api/notices/${noticeId}/comments`);
+            const response = await axiosInstance.get(`/notices/${noticeId}/comments`);
             const data = Array.isArray(response.data) ? response.data : response.data?.data ?? [];
             setComments(data.map(normalizeComment));
         } catch (error) {
@@ -255,7 +255,7 @@ const NoticeBoard = () => {
         }
         setIsSavingNotice(true);
         try {
-            const response = await axiosInstance.put(`/api/notices/${selectedNotice.id}`, {
+            const response = await axiosInstance.put(`/notices/${selectedNotice.id}`, {
                 title: editTitle.trim(),
                 content: editContent.trim(),
             });
@@ -286,7 +286,7 @@ const NoticeBoard = () => {
         }
         setIsSavingNotice(true);
         try {
-            await axiosInstance.delete(`/api/notices/${selectedNotice.id}`);
+            await axiosInstance.delete(`/notices/${selectedNotice.id}`);
             setNotices((prev) => prev.filter((notice) => notice.id !== selectedNotice.id));
             setShowDetail(false);
             setSelectedNotice(null);
@@ -304,7 +304,7 @@ const NoticeBoard = () => {
         }
         setIsSavingComment(true);
         try {
-            const response = await axiosInstance.post(`/api/notices/${selectedNotice.id}/comments`, {
+            const response = await axiosInstance.post(`/notices/${selectedNotice.id}/comments`, {
                 content: commentInput.trim(),
             });
             const created = normalizeComment(response.data?.data ?? response.data);
@@ -336,7 +336,7 @@ const NoticeBoard = () => {
         }
         setIsSavingComment(true);
         try {
-            const response = await axiosInstance.put(`/api/notices/${selectedNotice.id}/comments/${comment.id}`, {
+            const response = await axiosInstance.put(`/notices/${selectedNotice.id}/comments/${comment.id}`, {
                 content: commentEditingText.trim(),
             });
             const updated = normalizeComment(response.data?.data ?? response.data);
@@ -365,7 +365,7 @@ const NoticeBoard = () => {
         }
         setIsSavingComment(true);
         try {
-            await axiosInstance.delete(`/api/notices/${selectedNotice.id}/comments/${comment.id}`);
+            await axiosInstance.delete(`/notices/${selectedNotice.id}/comments/${comment.id}`);
             setComments((prev) => prev.filter((item) => item.id !== comment.id));
         } catch (error) {
             console.error(error);

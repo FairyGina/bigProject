@@ -20,7 +20,7 @@ const RecipeReport = () => {
         const fetchRecipe = async () => {
             try {
                 setLoading(true);
-                const res = await axiosInstance.get(`/api/recipes/${id}`);
+                const res = await axiosInstance.get(`/recipes/${id}`);
                 setRecipe(res.data);
             } catch (err) {
                 console.error('Failed to fetch recipe', err);
@@ -107,7 +107,7 @@ const RecipeReport = () => {
         }
         setDeleteLoading(true);
         try {
-            await axiosInstance.delete(`/api/recipes/${recipe.id}`);
+            await axiosInstance.delete(`/recipes/${recipe.id}`);
             navigate('/mainboard');
         } catch (err) {
             console.error('Failed to delete recipe', err);

@@ -42,7 +42,7 @@ const RecipeAnalysis = () => {
         const fetchRecipe = async () => {
             try {
                 setLoading(true);
-                const res = await axiosInstance.get(`/api/recipes/${id}`);
+                const res = await axiosInstance.get(`/recipes/${id}`);
                 setRecipe(res.data);
             } catch (err) {
                 console.error('Failed to fetch recipe', err);
@@ -200,7 +200,7 @@ const RecipeAnalysis = () => {
         }
         setPublishLoading(true);
         try {
-            const res = await axiosInstance.put(`/api/recipes/${recipe.id}/publish`, {
+            const res = await axiosInstance.put(`/recipes/${recipe.id}/publish`, {
                 influencers,
                 influencerImageBase64: imageBase64,
             });

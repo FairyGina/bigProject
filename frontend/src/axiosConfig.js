@@ -35,7 +35,7 @@ axiosInstance.interceptors.request.use(
 // Response interceptor: handle 401
 axiosInstance.interceptors.response.use(
     (response) => {
-        if (response.config?.url?.includes('/api/csrf') && response.data?.token) {
+        if (response.config?.url?.includes('/csrf') && response.data?.token) {
             localStorage.setItem('csrfToken', response.data.token);
         }
         return response;
@@ -43,8 +43,8 @@ axiosInstance.interceptors.response.use(
     (error) => {
         if (error.response && error.response.status === 401) {
             const requestUrl = error.config?.url || '';
-            const isPasswordCheck = requestUrl.includes('/api/user/verify-password');
-            const isProfileUpdate = requestUrl.includes('/api/user/me');
+            const isPasswordCheck = requestUrl.includes('/user/verify-password');
+            const isProfileUpdate = requestUrl.includes('/user/me');
             const errorCode = error.response?.data?.errorCode;
             const isPasswordMismatch = errorCode === 'PASSWORD_MISMATCH';
             if (!isPasswordCheck && !isProfileUpdate && !isPasswordMismatch) {
