@@ -57,7 +57,7 @@ public class RecipeService {
                 .reportJson(reportJson)
                 .summary(summary)
                 .imageBase64(request.getImageBase64())
-                .status(request.isDraft() ? "DRAFT" : "PUBLISHED")
+                .status("PUBLISHED")
                 .authorId(authorId)
                 .authorName(authorName)
                 .createdAt(LocalDateTime.now())
