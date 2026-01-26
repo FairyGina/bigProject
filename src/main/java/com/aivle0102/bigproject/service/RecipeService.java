@@ -3,6 +3,7 @@ package com.aivle0102.bigproject.service;
 import com.aivle0102.bigproject.domain.Recipe;
 import com.aivle0102.bigproject.domain.UserInfo;
 import com.aivle0102.bigproject.dto.RecipeCreateRequest;
+import com.aivle0102.bigproject.dto.RecipePublishRequest;
 import com.aivle0102.bigproject.dto.RecipeResponse;
 import com.aivle0102.bigproject.dto.ReportRequest;
 import com.aivle0102.bigproject.repository.RecipeRepository;
@@ -33,15 +34,11 @@ public class RecipeService {
                 .map(UserInfo::getUserName)
                 .orElse(authorId);
 
-        String targetCountry = defaultIfBlank(request.getTargetCountry(), "미국");
-        String targetPersona = defaultIfBlank(request.getTargetPersona(), "20~30대 바쁜 직장인");
-        String priceRange = defaultIfBlank(request.getPriceRange(), "USD 6~9");
-
         ReportRequest reportRequest = new ReportRequest();
         reportRequest.setRecipe(buildReportRecipe(request));
-        reportRequest.setTargetCountry(targetCountry);
-        reportRequest.setTargetPersona(targetPersona);
-        reportRequest.setPriceRange(priceRange);
+        reportRequest.setTargetCountry(defaultIfBlank(request.getTargetCountry(), "미국"));
+        reportRequest.setTargetPersona(defaultIfBlank(request.getTargetPersona(), "20~30대 바쁜 직장인"));
+        reportRequest.setPriceRange(defaultIfBlank(request.getPriceRange(), "USD 6~9"));
 
         String reportJson;
         String summary;
@@ -50,7 +47,7 @@ public class RecipeService {
             var report = aiReportService.generateReport(reportRequest);
             reportJson = writeJsonMap(report);
             summary = aiReportService.generateSummary(reportJson);
-            var allergen = allergenAnalysisService.analyzeIngredients(request.getIngredients(), targetCountry);
+            var allergen = allergenAnalysisService.analyzeIngredients(request.getIngredients(), reportRequest.getTargetCountry());
             allergenJson = writeJsonMap(allergen);
         } catch (Exception e) {
             throw new IllegalStateException("Failed to generate report for recipe", e);
@@ -88,6 +85,22 @@ public class RecipeService {
         recipe.setIngredientsJson(writeJson(request.getIngredients()));
         recipe.setStepsJson(writeJson(request.getSteps()));
         recipe.setImageBase64(request.getImageBase64());
+        if (request.isRegenerateReport()) {
+            ReportRequest reportRequest = new ReportRequest();
+            reportRequest.setRecipe(buildReportRecipe(request));
+            reportRequest.setTargetCountry(defaultIfBlank(request.getTargetCountry(), "미국"));
+            reportRequest.setTargetPersona(defaultIfBlank(request.getTargetPersona(), "20~30대 바쁜 직장인"));
+            reportRequest.setPriceRange(defaultIfBlank(request.getPriceRange(), "USD 6~9"));
+            try {
+                var report = aiReportService.generateReport(reportRequest);
+                recipe.setReportJson(writeJsonMap(report));
+                recipe.setSummary(aiReportService.generateSummary(recipe.getReportJson()));
+                var allergen = allergenAnalysisService.analyzeIngredients(request.getIngredients(), reportRequest.getTargetCountry());
+                recipe.setAllergenJson(writeJsonMap(allergen));
+            } catch (Exception e) {
+                throw new IllegalStateException("Failed to generate report for recipe", e);
+            }
+        }
 
         Recipe saved = recipeRepository.save(recipe);
         return toResponse(saved);
@@ -121,11 +134,19 @@ public class RecipeService {
     }
 
     @Transactional
-    public RecipeResponse publish(Long id, String requesterId) {
+    public RecipeResponse publish(Long id, String requesterId, RecipePublishRequest request) {
         Recipe recipe = recipeRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Recipe not found"));
         if (!recipe.getAuthorId().equals(requesterId)) {
             throw new IllegalArgumentException("Recipe not found");
+        }
+        if (request != null) {
+            if (request.getInfluencers() != null) {
+                recipe.setInfluencerJson(writeJsonMapList(request.getInfluencers()));
+            }
+            if (request.getInfluencerImageBase64() != null) {
+                recipe.setInfluencerImageBase64(request.getInfluencerImageBase64());
+            }
         }
         recipe.setStatus("PUBLISHED");
         Recipe saved = recipeRepository.save(recipe);
@@ -153,6 +174,8 @@ public class RecipeService {
                 readJsonMap(recipe.getReportJson()),
                 readJsonMap(recipe.getAllergenJson()),
                 recipe.getSummary(),
+                readJsonMapList(recipe.getInfluencerJson()),
+                recipe.getInfluencerImageBase64(),
                 recipe.getStatus(),
                 recipe.getAuthorId(),
                 recipe.getAuthorName(),
@@ -165,6 +188,14 @@ public class RecipeService {
             return objectMapper.writeValueAsString(values == null ? Collections.emptyList() : values);
         } catch (Exception e) {
             throw new IllegalStateException("Failed to serialize recipe data", e);
+        }
+    }
+
+    private String writeJsonMapList(List<java.util.Map<String, Object>> value) {
+        try {
+            return objectMapper.writeValueAsString(value == null ? Collections.emptyList() : value);
+        } catch (Exception e) {
+            throw new IllegalStateException("Failed to serialize influencer data", e);
         }
     }
 
@@ -184,6 +215,17 @@ public class RecipeService {
             return objectMapper.writeValueAsString(value);
         } catch (Exception e) {
             throw new IllegalStateException("Failed to serialize report", e);
+        }
+    }
+
+    private List<java.util.Map<String, Object>> readJsonMapList(String value) {
+        if (value == null || value.isBlank()) {
+            return Collections.emptyList();
+        }
+        try {
+            return objectMapper.readValue(value, new TypeReference<>() {});
+        } catch (Exception e) {
+            return Collections.emptyList();
         }
     }
 
@@ -209,7 +251,7 @@ public class RecipeService {
                 stepsText
         );
     }
-    
+
     private String defaultIfBlank(String value, String fallback) {
         if (value == null || value.isBlank()) {
             return fallback;
