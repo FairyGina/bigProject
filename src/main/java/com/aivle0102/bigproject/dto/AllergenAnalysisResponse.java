@@ -1,3 +1,5 @@
+// 알레르기 성분 분석 API 응답 DTO.
+// 추출 재료, 매칭 결과, 근거(evidence), 주의 문구를 포함한다.
 package com.aivle0102.bigproject.dto;
 
 import lombok.Builder;

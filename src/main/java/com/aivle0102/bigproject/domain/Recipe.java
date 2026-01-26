@@ -42,6 +42,9 @@ public class Recipe {
     @Column(name = "report_json", columnDefinition = "TEXT")
     private String reportJson;
 
+    @Column(name = "allergen_json", columnDefinition = "TEXT")
+    private String allergenJson;
+
     @Column(name = "summary", columnDefinition = "TEXT")
     private String summary;
 

@@ -1,3 +1,5 @@
+// 재료별 HACCP 근거 정보를 담는 DTO.
+// 검색 전략, 매칭 알레르기, 상세 증거 목록을 포함한다.
 package com.aivle0102.bigproject.dto;
 
 import lombok.Builder;
