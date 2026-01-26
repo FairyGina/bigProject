@@ -3,6 +3,7 @@ package com.aivle0102.bigproject.service;
 import com.aivle0102.bigproject.domain.Recipe;
 import com.aivle0102.bigproject.domain.UserInfo;
 import com.aivle0102.bigproject.dto.RecipeCreateRequest;
+import com.aivle0102.bigproject.dto.RecipePublishRequest;
 import com.aivle0102.bigproject.dto.RecipeResponse;
 import com.aivle0102.bigproject.dto.ReportRequest;
 import com.aivle0102.bigproject.repository.RecipeRepository;
@@ -16,6 +17,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDateTime;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 
 @Service
 @RequiredArgsConstructor
@@ -121,11 +123,18 @@ public class RecipeService {
     }
 
     @Transactional
-    public RecipeResponse publish(Long id, String requesterId) {
+    public RecipeResponse publish(Long id, String requesterId, RecipePublishRequest request) {
         Recipe recipe = recipeRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Recipe not found"));
         if (!recipe.getAuthorId().equals(requesterId)) {
             throw new IllegalArgumentException("Recipe not found");
+        }
+        if (request != null) {
+            List<Map<String, Object>> influencers = request.getInfluencers() == null
+                    ? Collections.emptyList()
+                    : request.getInfluencers();
+            recipe.setInfluencerJson(writeJsonMap(influencers));
+            recipe.setInfluencerImageBase64(request.getInfluencerImageBase64());
         }
         recipe.setStatus("PUBLISHED");
         Recipe saved = recipeRepository.save(recipe);
@@ -153,6 +162,8 @@ public class RecipeService {
                 readJsonMap(recipe.getReportJson()),
                 readJsonMap(recipe.getAllergenJson()),
                 recipe.getSummary(),
+                readJsonListMap(recipe.getInfluencerJson()),
+                recipe.getInfluencerImageBase64(),
                 recipe.getStatus(),
                 recipe.getAuthorId(),
                 recipe.getAuthorName(),
@@ -195,6 +206,17 @@ public class RecipeService {
             return objectMapper.readValue(value, new TypeReference<>() {});
         } catch (Exception e) {
             return Collections.emptyMap();
+        }
+    }
+
+    private List<Map<String, Object>> readJsonListMap(String value) {
+        if (value == null || value.isBlank()) {
+            return Collections.emptyList();
+        }
+        try {
+            return objectMapper.readValue(value, new TypeReference<>() {});
+        } catch (Exception e) {
+            return Collections.emptyList();
         }
     }
 
