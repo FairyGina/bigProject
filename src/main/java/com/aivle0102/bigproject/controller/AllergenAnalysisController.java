@@ -1,3 +1,5 @@
+// 알레르기 성분 분석 요청을 수신하는 REST 컨트롤러.
+// 분석 서비스 호출 후 결과 DTO를 반환한다.
 package com.aivle0102.bigproject.controller;
 
 import com.aivle0102.bigproject.dto.AllergenAnalysisResponse;

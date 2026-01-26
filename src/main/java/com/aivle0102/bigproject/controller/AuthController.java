@@ -1,4 +1,4 @@
-﻿package com.aivle0102.bigproject.controller;
+package com.aivle0102.bigproject.controller;
 
 import java.security.Principal;
 import java.util.Map;

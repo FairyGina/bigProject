@@ -1,4 +1,21 @@
 {
+  "gluten_cereals": [
+    {
+      "name": "Wheat"
+    },
+    {
+      "name": "Barley"
+    },
+    {
+      "name": "Rye"
+    },
+    {
+      "name": "Oats"
+    },
+    {
+      "name": "Kamut"
+    }
+  ],
   "US": {
     "country_name": "United States",
     "allergens": [
@@ -414,12 +431,6 @@
         "group": "soy",
         "legal_basis": "FSSAI Labelling & Display Regulations",
         "notes": "Allergen declaration"
-      },
-      {
-        "name": "Sulphites",
-        "group": "additive",
-        "legal_basis": "FSSAI Labelling & Display Regulations",
-        "notes": "≥10mg/kg"
       }
     ]
   },
@@ -465,12 +476,6 @@
       {
         "name": "Milk",
         "group": "dairy",
-        "legal_basis": "USDA GAIN Vietnam Guide",
-        "notes": "Allergen labeling required"
-      },
-      {
-        "name": "Tree nuts",
-        "group": "nuts",
         "legal_basis": "USDA GAIN Vietnam Guide",
         "notes": "Allergen labeling required"
       }
@@ -524,6 +529,12 @@
       {
         "name": "Tree nuts",
         "group": "nuts",
+        "legal_basis": "USDA GAIN Thailand Guide",
+        "notes": "Allergen labeling required"
+        },
+      {
+        "name": "Sulphur dioxide and sulphites",
+        "group": "additive",
         "legal_basis": "USDA GAIN Thailand Guide",
         "notes": "Allergen labeling required"
       }

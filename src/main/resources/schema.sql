@@ -56,6 +56,7 @@ CREATE TABLE IF NOT EXISTS recipe (
     ingredients_json TEXT,
     steps_json TEXT,
     report_json TEXT,
+    allergen_json TEXT,
     summary TEXT,
     image_base64 TEXT,
     influencer_json TEXT,
