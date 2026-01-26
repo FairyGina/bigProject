@@ -21,9 +21,9 @@ const LoginPage = () => {
     const handleSocialLogin = (provider) => {
         sessionStorage.setItem('oauthFlow', 'login');
         localStorage.setItem('oauthFlow', 'login');
-        // Nginx 프록시를 통해 백엔드로 전달되도록 상대 경로 사용
-        const baseUrl = (import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080').replace(/\/$/, '');
-        window.location.assign(`${baseUrl}/oauth2/authorization/${provider}`);
+        // 상대 경로를 사용하여 현재 도메인(http://20.197.14.81)을 자동으로 따르도록 설정
+        // Nginx의 location /oauth2/ 설정이 백엔드로 프록시 해줍니다.
+        window.location.assign(`/oauth2/authorization/${provider}`);
     };
 
     const handleLogin = async () => {
