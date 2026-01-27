@@ -29,7 +29,11 @@ const labels = {
     stepPlaceholderPrefix: '단계',
     ingredientsLabel: '재료',
     ingredientAdd: '재료 추가',
+    ingredientAutoAdd: '자동 추가',
+    ingredientAutoLoading: '추출 중...',
     ingredientPlaceholder: '재료명 / 용량',
+    ingredientAutoEmpty: '조리 단계를 먼저 입력해주세요.',
+    ingredientAutoFail: '재료 자동 추출에 실패했습니다.',
     guideTitle: '레시피 생성 안내',
     guideBody: '생성까지 2~3분정도 소요됩니다.',
     createLabel: '레시피 생성',
@@ -40,6 +44,8 @@ const labels = {
     confirmLeave: '작성 중인 내용이 사라집니다. 이동할까요?',
     targetCountry: '미국',
     targetPersona: '20~30대 직장인, 간편식 선호',
+    ingredientAutoHelpLabel: '자동 추가 안내',
+    ingredientAutoHelpDesc: '입력한 조리법에서 재료를 자동으로 추출하여 추가시켜줍니다.',
 };
 
 const UserCreateRecipe = () => {
@@ -65,13 +71,12 @@ const UserCreateRecipe = () => {
     const [showReview, setShowReview] = useState(false);
     const [hasUserEdits, setHasUserEdits] = useState(false);
     const [loading, setLoading] = useState(false);
-    const [progress, setProgress] = useState(0);
+    const [autoIngredientLoading, setAutoIngredientLoading] = useState(false);
     const [error, setError] = useState('');
     const [initializing, setInitializing] = useState(true);
     const initialSnapshotRef = useRef('');
     const shouldBlockRef = useRef(true);
     const fileInputRef = useRef(null);
-    const progressTimerRef = useRef(null);
 
     const buildSnapshot = (data) =>
         JSON.stringify({
@@ -174,47 +179,6 @@ const UserCreateRecipe = () => {
         };
     }, []);
 
-    useEffect(() => {
-        return () => {
-            if (progressTimerRef.current) {
-                clearInterval(progressTimerRef.current);
-                progressTimerRef.current = null;
-            }
-        };
-    }, []);
-
-    const startProgress = () => {
-        setProgress(5);
-        if (progressTimerRef.current) {
-            clearInterval(progressTimerRef.current);
-        }
-        progressTimerRef.current = setInterval(() => {
-            setProgress((prev) => {
-                if (prev >= 90) {
-                    return prev;
-                }
-                return prev + 1;
-            });
-        }, 450);
-    };
-
-    const bumpProgress = (nextValue) => {
-        setProgress((prev) => Math.max(prev, nextValue));
-    };
-
-    const endProgress = (success) => {
-        if (progressTimerRef.current) {
-            clearInterval(progressTimerRef.current);
-            progressTimerRef.current = null;
-        }
-        if (success) {
-            setProgress(100);
-            setTimeout(() => setProgress(0), 500);
-            return;
-        }
-        setProgress(0);
-    };
-
     useBeforeUnload(
         React.useCallback(
             (event) => {
@@ -254,6 +218,54 @@ const UserCreateRecipe = () => {
     const removeStep = (idx) => {
         setHasUserEdits(true);
         setSteps((prev) => prev.filter((_, i) => i !== idx));
+    };
+
+    const applyAutoIngredients = (items) => {
+        const incoming = (items || []).map((v) => v.trim()).filter(Boolean);
+        if (!incoming.length) {
+            setError(labels.ingredientAutoFail);
+            return;
+        }
+        setHasUserEdits(true);
+        setIngredients((prev) => {
+            const existing = prev.map((v) => v.trim()).filter(Boolean);
+            const seen = new Set(existing.map((v) => v.toLowerCase()));
+            const merged = [...existing];
+            incoming.forEach((item) => {
+                const key = item.toLowerCase();
+                if (!seen.has(key)) {
+                    seen.add(key);
+                    merged.push(item);
+                }
+            });
+            return merged.length ? merged : [''];
+        });
+    };
+
+    const handleAutoAddIngredients = async () => {
+        setError('');
+        const stepInputs = steps.map((v) => v.trim()).filter(Boolean);
+        if (!stepInputs.length) {
+            setError(labels.ingredientAutoEmpty);
+            return;
+        }
+        setAutoIngredientLoading(true);
+        try {
+            try {
+                await axiosInstance.get('/api/csrf');
+            } catch (err) {
+                // ignore csrf refresh failures
+            }
+            const res = await axiosInstance.post('/api/ingredients/extract', {
+                steps: stepInputs,
+            });
+            applyAutoIngredients(res.data?.ingredients || []);
+        } catch (err) {
+            console.error('Failed to auto extract ingredients', err);
+            setError(labels.ingredientAutoFail);
+        } finally {
+            setAutoIngredientLoading(false);
+        }
     };
 
     const handleImageChange = (event) => {
@@ -297,6 +309,18 @@ const UserCreateRecipe = () => {
         }
     };
 
+    const HelpTooltip = ({ label, description }) => (
+        <span className="relative inline-flex items-center group ml-2 align-middle">
+            <span className="inline-flex h-5 w-5 items-center justify-center rounded-full border border-[color:var(--border)] text-[10px] font-semibold text-[color:var(--text-muted)] bg-[color:var(--surface)]">
+                ?
+            </span>
+            <span className="sr-only">{label}</span>
+            <span className="pointer-events-none absolute left-1/2 top-full z-10 mt-2 w-64 -translate-x-1/2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 py-2 text-xs text-[color:var(--text)] opacity-0 shadow-[0_12px_30px_var(--shadow)] transition group-hover:opacity-100">
+                {description}
+            </span>
+        </span>
+    );
+
     const safeCacheSet = (key, value) => {
         try {
             localStorage.setItem(key, value);
@@ -337,6 +361,7 @@ const UserCreateRecipe = () => {
         id: recipe?.id ?? null,
         title: recipe?.title ?? '',
         summary: recipe?.summary ?? '',
+        createdAt: recipe?.createdAt ?? '',
     });
 
     const readInfluencerMeta = (recipeId) => {
@@ -356,7 +381,8 @@ const UserCreateRecipe = () => {
     const isInfluencerMetaMatch = (meta, recipe) =>
         Boolean(meta) &&
         meta.title === (recipe?.title ?? '') &&
-        meta.summary === (recipe?.summary ?? '');
+        meta.summary === (recipe?.summary ?? '') &&
+        meta.createdAt === (recipe?.createdAt ?? '');
 
     const clearInfluencerCache = (recipeId) => {
         safeSessionRemove(`recipeInfluencers:${recipeId}`);
@@ -401,7 +427,7 @@ const UserCreateRecipe = () => {
             const recs = influencerRes.data?.recommendations ?? [];
             if (!recs.length) {
                 setError(labels.influencerError);
-                return false;
+                return true;
             }
             setCreatedInfluencers(recs);
             const influencersJson = JSON.stringify(recs);
@@ -425,17 +451,17 @@ const UserCreateRecipe = () => {
                     safeCacheSet(`recipeInfluencerImage:${recipe.id}`, imageRes.data.imageBase64);
                 } else {
                     setError(labels.influencerError);
-                    return false;
+                    return true;
                 }
             } else {
                 setError(labels.influencerError);
-                return false;
+                return true;
             }
             return true;
         } catch (err) {
             console.error('Influencer generation failed', err);
             setError(labels.influencerError);
-            return false;
+            return true;
         }
     };
 
@@ -466,9 +492,12 @@ const UserCreateRecipe = () => {
             regenerateReport: shouldRegenerate,
         };
         setLoading(true);
-        startProgress();
-        let success = false;
         try {
+            try {
+                await axiosInstance.get('/api/csrf');
+            } catch (err) {
+                // ignore csrf refresh failures
+            }
             if (shouldRegenerate && recipeId) {
                 clearInfluencerCache(recipeId);
                 setCreatedInfluencers([]);
@@ -478,29 +507,24 @@ const UserCreateRecipe = () => {
                 ? await axiosInstance.put(`/api/recipes/${recipeId}`, payload)
                 : await axiosInstance.post('/api/recipes', payload);
             const created = res.data;
-            bumpProgress(isUpdate ? 60 : 55);
             initialSnapshotRef.current = buildSnapshot(created || payload);
             shouldBlockRef.current = false;
             sessionStorage.removeItem('recipeEditDirty');
 
             if (isCreateFlow && shouldRegenerate) {
-                bumpProgress(70);
                 const influencerOk = await generateInfluencerAssets(created);
                 if (!influencerOk) {
                     return;
                 }
-                bumpProgress(85);
             }
 
             if (isCreateFlow) {
                 setCreatedRecipe(created);
                 setShowReview(true);
                 setError('');
-                success = true;
                 return;
             }
 
-            success = true;
             navigate(`/mainboard/recipes/${created.id}`);
         } catch (err) {
             console.error('Failed to create recipe', err);
@@ -510,7 +534,6 @@ const UserCreateRecipe = () => {
                 setError(err.response?.data?.message || labels.createError);
             }
         } finally {
-            endProgress(success);
             setLoading(false);
         }
     };
@@ -744,14 +767,28 @@ const UserCreateRecipe = () => {
                             <div className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[0_12px_30px_var(--shadow)] p-6 space-y-5">
                                 <div className="flex items-center justify-between">
                                     <h3 className="text-lg font-semibold text-[color:var(--text)]">{labels.ingredientsLabel}</h3>
-                                    <button
-                                        type="button"
-                                        onClick={addIngredient}
-                                        className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[color:var(--surface-muted)] border border-[color:var(--border)] text-xs text-[color:var(--text)]"
-                                    >
-                                        <Plus size={14} />
-                                        {labels.ingredientAdd}
-                                    </button>
+                                    <div className="flex items-center gap-2">
+                                        <button
+                                            type="button"
+                                            onClick={handleAutoAddIngredients}
+                                            disabled={autoIngredientLoading}
+                                            className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[color:var(--surface-muted)] border border-[color:var(--border)] text-xs text-[color:var(--text)] disabled:opacity-60"
+                                        >
+                                            {autoIngredientLoading ? labels.ingredientAutoLoading : labels.ingredientAutoAdd}
+                                        </button>
+                                        <HelpTooltip
+                                            label={labels.ingredientAutoHelpLabel}
+                                            description={labels.ingredientAutoHelpDesc}
+                                        />
+                                        <button
+                                            type="button"
+                                            onClick={addIngredient}
+                                            className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[color:var(--surface-muted)] border border-[color:var(--border)] text-xs text-[color:var(--text)]"
+                                        >
+                                            <Plus size={14} />
+                                            {labels.ingredientAdd}
+                                        </button>
+                                    </div>
                                 </div>
 
                                 <div className="space-y-3">
@@ -784,22 +821,14 @@ const UserCreateRecipe = () => {
                                     </div>
                                 )}
 
-                                <div className="flex items-center gap-3">
-                                    <button
-                                        type="button"
-                                        onClick={handleSubmit}
-                                        disabled={loading}
-                                        className="flex-1 py-3 rounded-xl bg-[color:var(--accent)] text-[color:var(--accent-contrast)] font-semibold hover:bg-[color:var(--accent-strong)] transition shadow-[0_10px_30px_var(--shadow)] disabled:opacity-60"
-                                    >
-                                        {loading ? (isEditingMode ? labels.updatingLabel : labels.creatingLabel) : isEditingMode ? labels.updateLabel : labels.createLabel}
-                                    </button>
-                                    {loading && (
-                                        <div className="flex items-center gap-2 text-xs text-[color:var(--text-muted)]">
-                                            <span className="h-4 w-4 rounded-full border-2 border-[color:var(--border)] border-t-[color:var(--accent)] animate-spin" />
-                                            <span>{progress}%</span>
-                                        </div>
-                                    )}
-                                </div>
+                                <button
+                                    type="button"
+                                    onClick={handleSubmit}
+                                    disabled={loading}
+                                    className="w-full py-3 rounded-xl bg-[color:var(--accent)] text-[color:var(--accent-contrast)] font-semibold hover:bg-[color:var(--accent-strong)] transition shadow-[0_10px_30px_var(--shadow)] disabled:opacity-60"
+                                >
+                                    {loading ? (isEditingMode ? labels.updatingLabel : labels.creatingLabel) : isEditingMode ? labels.updateLabel : labels.createLabel}
+                                </button>
                                 {isEdit && (
                                     <button
                                         type="button"

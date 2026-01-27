@@ -35,7 +35,15 @@ public class InfluencerImageGenerationService {
     }
 
     public ImageGenerateResponse generate(ImageGenerateRequest req) {
-        byte[] baseImage = downloadAndValidateImage(req.getInfluencerImageUrl());
+        byte[] baseImage;
+        try {
+            baseImage = downloadAndValidateImage(req.getInfluencerImageUrl());
+        } catch (RuntimeException e) {
+            return new ImageGenerateResponse(
+                    "",
+                    "Base image download/validation failed: " + e.getMessage()
+            );
+        }
 
         MultiValueMap<String, Object> form = new LinkedMultiValueMap<>();
         form.add("model", imageModel);
@@ -69,11 +77,27 @@ public class InfluencerImageGenerationService {
                     .block();
         } catch (WebClientResponseException e) {
             String body = e.getResponseBodyAsString();
-            throw new RuntimeException("OpenAI images/edits failed: " + e.getStatusCode() + " body=" + body, e);
+            return new ImageGenerateResponse(
+                    "",
+                    "OpenAI images/edits failed: " + e.getStatusCode() + " body=" + body
+            );
+        } catch (RuntimeException e) {
+            return new ImageGenerateResponse(
+                    "",
+                    "OpenAI images/edits failed: " + e.getMessage()
+            );
         }
 
         // OpenAI Images 응답: { data: [ { b64_json: "..." } ], ... } :contentReference[oaicite:7]{index=7}
-        String b64 = extractB64(res);
+        String b64;
+        try {
+            b64 = extractB64(res);
+        } catch (RuntimeException e) {
+            return new ImageGenerateResponse(
+                    "",
+                    "OpenAI response invalid: " + e.getMessage()
+            );
+        }
         return new ImageGenerateResponse(
                 b64,
                 "참고용 이미지입니다. 실제 인플루언서 초상권, 저작권 및 상업적 사용 가능 여부는 별도 검증이 필요합니다."
@@ -124,7 +148,7 @@ public class InfluencerImageGenerationService {
     private byte[] downloadAndValidateImage(String url) {
         byte[] bytes = downloadImage(url);
 
-        if (bytes == null || bytes.length < 2000) {
+        if (bytes == null || bytes.length < 16) {
             throw new RuntimeException("Downloaded image is too small or empty. len=" + (bytes == null ? 0 : bytes.length));
         }
 

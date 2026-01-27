@@ -49,14 +49,14 @@ public class RecipeController {
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<RecipeResponse> getOne(@PathVariable("id") Long id, Principal principal) {
+    public ResponseEntity<RecipeResponse> getOne(@PathVariable Long id, Principal principal) {
         String requester = principal == null ? null : principal.getName();
         return ResponseEntity.ok(recipeService.getOne(id, requester));
     }
 
     @PutMapping("/{id}/publish")
     public ResponseEntity<RecipeResponse> publish(
-            @PathVariable("id") Long id,
+            @PathVariable Long id,
             @RequestBody(required = false) RecipePublishRequest request,
             Principal principal
     ) {
@@ -67,7 +67,7 @@ public class RecipeController {
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<RecipeResponse> update(@PathVariable("id") Long id, @RequestBody RecipeCreateRequest request, Principal principal) {
+    public ResponseEntity<RecipeResponse> update(@PathVariable Long id, @RequestBody RecipeCreateRequest request, Principal principal) {
         if (principal == null) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
         }
@@ -75,7 +75,7 @@ public class RecipeController {
     }
 
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> delete(@PathVariable("id") Long id, Principal principal) {
+    public ResponseEntity<Void> delete(@PathVariable Long id, Principal principal) {
         if (principal == null) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
         }

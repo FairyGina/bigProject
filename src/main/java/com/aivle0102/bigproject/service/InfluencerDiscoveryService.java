@@ -1,26 +1,19 @@
 package com.aivle0102.bigproject.service;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
-
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.stereotype.Service;
-
 import com.aivle0102.bigproject.client.OpenAiClient;
 import com.aivle0102.bigproject.client.SerpApiClient;
 import com.aivle0102.bigproject.dto.InfluencerProfile;
 import com.aivle0102.bigproject.dto.InfluencerRecommendRequest;
+import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Service;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
-import lombok.RequiredArgsConstructor;
+import java.util.*;
 
 @Service
 @RequiredArgsConstructor
@@ -123,19 +116,10 @@ public class InfluencerDiscoveryService {
                 아래 후보들은 SerpApi(구글) 검색 결과에서 추출한 링크/요약이다.
 
                 목표:
-                너는 실제 요리/레시피 인플루언서를 엄격히 선별하는 평가자다.
-                아래 데이터는 SerpApi 검색 결과(title/link/snippet/thumbnail)다.
-
-                목표:
-                1) 실제 인플루언서 3~5명만 추천한다.
-                2) 레시피/요리/식음료 콘텐츠와 명확히 관련된 경우만 선택한다.
-                   - 제목/스니펫/프로필에 요리/레시피 키워드가 명시되지 않으면 제외한다.
-                   - 관련성이 애매하면 제외하고 riskNotes에 "검증 필요"를 적는다.
-                3) name/platform/profileUrl/imageUrl/rationale/riskNotes/confidenceNote/source를 채운다.
-                4) imageUrl은 프로필/채널 이미지가 명확할 때만 채운다.
-                   - 썸네일이 레시피 사진/기사 이미지/랜덤 이미지로 보이면 비워둔다.
-                5) 절대 추정하지 말고, 모르면 비우고 "검증 필요"로 표시한다.
-                6) 출력은 반드시 JSON 객체만(마크다운 금지) 반환한다.
+                1) '실존' 인플루언서를 3~5명 추천하라.
+                2) 각 추천은 name/platform/profileUrl/imageUrl(가능하면 thumbnail)/rationale/riskNotes/confidenceNote/source 를 채워라.
+                3) 외부 실데이터(팔로워 수 등)는 확정할 수 없으니 "검증 필요"로 표기하고, 과장하지 마라.
+                4) 출력은 반드시 JSON 객체로 반환하라. (마크다운 금지)
                    예시:
                    {
                      "recommendations": [

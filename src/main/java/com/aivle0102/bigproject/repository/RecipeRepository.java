@@ -9,6 +9,6 @@ public interface RecipeRepository extends JpaRepository<Recipe, Long> {
     List<Recipe> findAllByOrderByCreatedAtDesc();
     List<Recipe> findByStatusOrderByCreatedAtDesc(String status);
 
-    List<Recipe> findByAuthorIdOrderByCreatedAtDesc(String authorId);
-    List<Recipe> findByAuthorIdAndStatusOrderByCreatedAtDesc(String authorId, String status);
+    List<Recipe> findByUserIdOrderByCreatedAtDesc(String userId);
+    List<Recipe> findByUserIdAndStatusOrderByCreatedAtDesc(String userId, String status);
 }

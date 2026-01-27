@@ -1,4 +1,4 @@
-﻿import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import axiosInstance from '../axiosConfig';
@@ -19,13 +19,6 @@ const RecipeAnalysis = () => {
     const [imageBase64, setImageBase64] = useState('');
     const [influencerLoading, setInfluencerLoading] = useState(false);
     const [publishLoading, setPublishLoading] = useState(false);
-    const [mapError, setMapError] = useState('');
-    const [mapReady, setMapReady] = useState(false);
-    const mapRef = useRef(null);
-    const mapInstanceRef = useRef(null);
-    const mapMarkersRef = useRef([]);
-    const personaRunRef = useRef(null);
-    const [evaluationResults, setEvaluationResults] = useState([]);
 
     const influencerMetaKey = (recipeId) => `recipeInfluencerMeta:${recipeId}`;
     const readInfluencerMeta = (recipeId) => {
@@ -86,71 +79,6 @@ const RecipeAnalysis = () => {
             setImageBase64(recipe.influencerImageBase64);
         }
     }, [recipe]);
-
-    useEffect(() => {
-        const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
-        if (!apiKey) {
-            setMapError('Google Maps API key is missing.');
-            return;
-        }
-
-        const initMap = (retry = 0) => {
-            if (!mapRef.current) {
-                if (retry < 10) {
-                    setTimeout(() => initMap(retry + 1), 100);
-                } else {
-                    setMapError('Failed to initialize the map.');
-                }
-                return;
-            }
-            if (!window.google?.maps) {
-                if (retry < 20) {
-                    setTimeout(() => initMap(retry + 1), 150);
-                } else {
-                    setMapError('Google Maps failed to load. Check API key and settings.');
-                }
-                return;
-            }
-            setMapError('');
-            const map = new window.google.maps.Map(mapRef.current, {
-                center: { lat: 20, lng: 0 },
-                zoom: 1,
-                minZoom: 1,
-                maxZoom: 8,
-                disableDefaultUI: false,
-                gestureHandling: 'greedy',
-                scrollwheel: true,
-                styles: [
-                    { featureType: 'administrative', elementType: 'labels', stylers: [{ visibility: 'off' }] },
-                    { featureType: 'poi', elementType: 'all', stylers: [{ visibility: 'off' }] },
-                    { featureType: 'road', elementType: 'all', stylers: [{ visibility: 'off' }] },
-                ],
-            });
-            mapInstanceRef.current = map;
-            setMapReady(true);
-        };
-
-        const existing = document.querySelector('script[data-google-maps]');
-        if (existing) {
-            if (window.google?.maps) {
-                initMap();
-            } else {
-                existing.addEventListener('load', () => initMap(), { once: true });
-                existing.addEventListener('error', () => setMapError('Google Maps script failed to load.'), { once: true });
-                initMap();
-            }
-            return;
-        }
-
-        window.__initRecipeMap = () => initMap();
-        const script = document.createElement('script');
-        script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&v=weekly&callback=__initRecipeMap`;
-        script.async = true;
-        script.defer = true;
-        script.dataset.googleMaps = 'true';
-        script.onerror = () => setMapError('Google Maps script failed to load.');
-        document.body.appendChild(script);
-    }, []);
 
     useEffect(() => {
         const fetchInfluencers = async () => {
@@ -263,146 +191,15 @@ const RecipeAnalysis = () => {
         fetchInfluencers();
     }, [imageBase64, influencers.length, recipe]);
 
-    const countryCoords = useMemo(
-        () => ({
-            '\uBBF8\uAD6D': { lat: 39.8283, lng: -98.5795 },
-            '\uD55C\uAD6D': { lat: 36.5, lng: 127.9 },
-            '\uC77C\uBCF8': { lat: 36.2048, lng: 138.2529 },
-            '\uC911\uAD6D': { lat: 35.8617, lng: 104.1954 },
-            '\uC601\uAD6D': { lat: 55.3781, lng: -3.436 },
-            '\uD504\uB791\uC2A4': { lat: 46.2276, lng: 2.2137 },
-            '\uB3C5\uC77C': { lat: 51.1657, lng: 10.4515 },
-            '\uCE90\uB098\uB2E4': { lat: 56.1304, lng: -106.3468 },
-            '\uD638\uC8FC': { lat: -25.2744, lng: 133.7751 },
-            '\uC778\uB3C4': { lat: 20.5937, lng: 78.9629 },
-            'United States': { lat: 39.8283, lng: -98.5795 },
-            'South Korea': { lat: 36.5, lng: 127.9 },
-            'Japan': { lat: 36.2048, lng: 138.2529 },
-            'China': { lat: 35.8617, lng: 104.1954 },
-            'United Kingdom': { lat: 55.3781, lng: -3.436 },
-            'France': { lat: 46.2276, lng: 2.2137 },
-            'Germany': { lat: 51.1657, lng: 10.4515 },
-            'Canada': { lat: 56.1304, lng: -106.3468 },
-            'Australia': { lat: -25.2744, lng: 133.7751 },
-            'India': { lat: 20.5937, lng: 78.9629 },
-        }),
-        []
-    );
-
-    const clearMapMarkers = () => {
-        mapMarkersRef.current.forEach((marker) => marker.setMap(null));
-        mapMarkersRef.current = [];
-    };
-
-    const normalizeCountryKey = (value) => {
-        if (!value) return '';
-        const key = String(value).trim();
-        const map = {
-            'US': '\uBBF8\uAD6D',
-            'USA': '\uBBF8\uAD6D',
-            'UK': '\uC601\uAD6D',
-            'UAE': '\uC544\uB78D\uC5D0\uBBF8\uB9AC\uD2B8',
-            'KOREA': '\uD55C\uAD6D',
-            'SOUTH KOREA': '\uD55C\uAD6D',
-            'JAPAN': '\uC77C\uBCF8',
-            'CHINA': '\uC911\uAD6D',
-            'UNITED STATES': '\uBBF8\uAD6D',
-            'UNITED KINGDOM': '\uC601\uAD6D',
-            'FRANCE': '\uD504\uB791\uC2A4',
-            'GERMANY': '\uB3C5\uC77C',
-            'CANADA': '\uCE90\uB098\uB2E4',
-            'AUSTRALIA': '\uD638\uC8FC',
-            'INDIA': '\uC778\uB3C4',
-        };
-        const upper = key.toUpperCase();
-        return map[upper] || key;
-    };
-
-    const plotEvaluations = (evaluations) => {
-        const map = mapInstanceRef.current;
-        if (!map || !Array.isArray(evaluations)) {
-            return;
-        }
-        clearMapMarkers();
-        evaluations.forEach((item) => {
-            const coord = countryCoords[normalizeCountryKey(item.country)];
-            if (!coord) {
-                return;
-            }
-            const marker = new window.google.maps.Marker({
-                map,
-                position: coord,
-                label: {
-                    text: String(item.totalScore ?? ''),
-                    color: '#f8fafc',
-                    fontSize: '12px',
-                    fontWeight: '700',
-                },
-                icon: {
-                    path: window.google.maps.SymbolPath.CIRCLE,
-                    scale: 10,
-                    fillColor: '#f97316',
-                    fillOpacity: 0.9,
-                    strokeColor: '#0f172a',
-                    strokeWeight: 2,
-                },
-            });
-            mapMarkersRef.current.push(marker);
-        });
-    };
-
-    useEffect(() => {
-        console.log('mapReady', mapReady, 'evaluationResults.length', evaluationResults.length);
-        if (!mapReady || evaluationResults.length === 0) {
-            return;
-        }
-        console.log('evaluationResults', evaluationResults);
-        plotEvaluations(evaluationResults);
-    }, [mapReady, evaluationResults]);
-
-    useEffect(() => {
-        const runPersonaEvaluation = async () => {
-            if (!recipe || !report || !mapReady) {
-                return;
-            }
-            if (personaRunRef.current === recipe.id) {
-                return;
-            }
-            personaRunRef.current = recipe.id;
-            try {
-                console.log('persona flow start', { recipeId: recipe?.id, hasReport: Boolean(report) });
-                const countries = Object.keys(countryCoords)
-                    .filter((c) => /[\uAC00-\uD7A3]/.test(c))
-                    .slice(0, 10);
-                const ageRes = await axiosInstance.post('/api/persona/age-group', {
-                    recipe: `${recipe.title || ''} ${recipe.description || ''}`.trim(),
-                    countries,
-                });
-                console.log('age-group ok', ageRes.data);
-                const targets = ageRes.data || [];
-                const personaRes = await axiosInstance.post('/api/persona/batch', {
-                    recipeSummary: recipe.summary || JSON.stringify(report || {}),
-                    targets,
-                });
-                console.log('persona batch ok', personaRes.data);
-                const personas = personaRes.data || [];
-                const evalRes = await axiosInstance.post('/api/evaluation', {
-                    personas,
-                    report: JSON.stringify(report || {}),
-                });
-                console.log('evaluation ok', evalRes.data);
-                setEvaluationResults(evalRes.data || []);
-            } catch (err) {
-                console.error('Persona evaluation flow failed', err);
-            }
-        };
-
-        runPersonaEvaluation();
-    }, [recipe, report, mapReady, countryCoords]);
-
     const isOwner =
-        (userId && recipe?.authorId === userId) ||
-        (!userId && recipe?.authorName && recipe.authorName === rawName);
+        (userId &&
+            (recipe?.user_id === userId ||
+                recipe?.userId === userId ||
+                recipe?.authorId === userId)) ||
+        (!userId &&
+            (recipe?.user_name === rawName ||
+                recipe?.userName === rawName ||
+                recipe?.authorName === rawName));
 
     const handlePublish = async () => {
         if (!recipe || recipe.status !== 'DRAFT') {
@@ -654,6 +451,18 @@ const RecipeAnalysis = () => {
             </ul>
         );
     };
+    const HelpTooltip = ({ label, description }) => (
+        <span className="relative inline-flex items-center group ml-2 align-middle">
+            <span className="inline-flex h-5 w-5 items-center justify-center rounded-full border border-[color:var(--border)] text-[10px] font-semibold text-[color:var(--text-muted)] bg-[color:var(--surface)]">
+                ?
+            </span>
+            <span className="sr-only">{label}</span>
+            <span className="pointer-events-none absolute left-1/2 top-full z-10 mt-2 w-56 -translate-x-1/2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 py-2 text-xs text-[color:var(--text)] opacity-0 shadow-[0_12px_30px_var(--shadow)] transition group-hover:opacity-100">
+                {description}
+            </span>
+        </span>
+    );
+
 
     if (loading) {
         return (
@@ -700,21 +509,6 @@ const RecipeAnalysis = () => {
                 )}
 
                 <div className="mt-8 grid grid-cols-1 lg:grid-cols-[1.3fr_1fr] gap-6">
-                    <div className="lg:col-span-2 rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[0_12px_30px_var(--shadow)] p-6">
-                        <div className="flex items-center justify-between mb-4">
-                            <h3 className="text-lg font-semibold text-[color:var(--text)]">Global Market Map</h3>
-                            <span className="text-xs text-[color:var(--text-soft)]">World View</span>
-                        </div>
-                        <div className="h-[260px] rounded-xl border border-[color:var(--border)] bg-[color:var(--surface-muted)] overflow-hidden">
-                            {mapError ? (
-                                <div className="h-full flex items-center justify-center text-sm text-[color:var(--text-muted)]">
-                                    {mapError}
-                                </div>
-                            ) : (
-                                <div ref={mapRef} className="h-full w-full" />
-                            )}
-                        </div>
-                    </div>
                     <div className="space-y-6">
                         <div className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[0_12px_30px_var(--shadow)] p-6">
                             <div className="flex items-center justify-between">
@@ -768,7 +562,13 @@ const RecipeAnalysis = () => {
                                 {renderList(risk.mitigations)}
                             </div>
                             <div className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[0_12px_30px_var(--shadow)] p-6">
-                                <h3 className="text-lg font-semibold text-[color:var(--text)] mb-3">SWOT</h3>
+                                <h3 className="text-lg font-semibold text-[color:var(--text)] mb-3 flex items-center">
+                                SWOT
+                                <HelpTooltip
+                                    label="SWOT"
+                                    description="강점 Strength, 약점 Weakenesses, 기회 Opportunities, 위협 Threats을 정리해서 상황을 분석하는 방법입니다."
+                                />
+                            </h3>
                                 <p className="text-sm font-semibold text-[color:var(--text)] mb-2">Strengths</p>
                                 {renderList(swot.strengths)}
                                 <p className="mt-3 text-sm font-semibold text-[color:var(--text)] mb-2">Weaknesses</p>
@@ -799,7 +599,13 @@ const RecipeAnalysis = () => {
                         </div>
 
                         <div className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[0_12px_30px_var(--shadow)] p-6">
-                            <h3 className="text-lg font-semibold text-[color:var(--text)] mb-4">KPI 제안</h3>
+                            <h3 className="text-lg font-semibold text-[color:var(--text)] mb-4 flex items-center">
+                                KPI 제안
+                                <HelpTooltip
+                                    label="KPI"
+                                    description="핵심 성과 지표로, 목표가 얼마나 달성됐는지 숫자로 확인하는 기준입니다."
+                                />
+                            </h3>
                             <div className="space-y-3">
                                 {kpis.length === 0 && (
                                     <p className="text-sm text-[color:var(--text-muted)]">내용이 없습니다.</p>
@@ -925,11 +731,3 @@ const RecipeAnalysis = () => {
 };
 
 export default RecipeAnalysis;
-
-
-
-
-
-
-
-

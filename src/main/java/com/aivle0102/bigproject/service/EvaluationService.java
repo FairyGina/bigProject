@@ -1,4 +1,4 @@
-﻿package com.aivle0102.bigproject.service;
+package com.aivle0102.bigproject.service;
 
 import com.aivle0102.bigproject.client.OpenAiClient;
 import com.aivle0102.bigproject.dto.AiPersona;

@@ -6,7 +6,6 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
-import jakarta.persistence.Transient;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
@@ -30,47 +29,35 @@ public class Recipe {
     private Long id;
 
     @Column(name = "recipe_name", nullable = false, length = 200)
-    private String title;
+    private String recipeName;
 
     @Column(columnDefinition = "TEXT")
     private String description;
 
-    @Transient
-    private String ingredientsJson;
-
     @Column(name = "steps", columnDefinition = "TEXT")
-    private String stepsJson;
-
-    @Transient
-    private String reportJson;
-
-    @Transient
-    private String allergenJson;
-
-    @Transient
-    private String summary;
+    private String steps;
 
     @Column(name = "image_base64", columnDefinition = "TEXT")
     private String imageBase64;
-
-    @Transient
-    private String influencerJson;
-
-    @Transient
-    private String influencerImageBase64;
 
     @Column(name = "status", nullable = false, length = 20)
     private String status;
 
     @Column(name = "user_id", nullable = false, length = 50)
-    private String authorId;
+    private String userId;
 
-    @Transient
-    private String authorName;
+    @Column(name = "company_id")
+    private Long companyId;
+
+    @Column(name = "base_recipe_id")
+    private Long baseRecipeId;
+
+    @Column(name = "target_country", length = 50)
+    private String targetCountry;
 
     @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt;
 
-    @Column(name = "updated_at")
+    @Column(name = "updated_at", nullable = false)
     private LocalDateTime updatedAt;
 }
