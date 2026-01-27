@@ -90,7 +90,7 @@ const FindPasswordPage = () => {
                 userId: email,
                 code,
             });
-            navigate('/reset-password', { state: { userId: email, userName: name } });
+            navigate('/reset-password', { state: { userId: email, userName: name, verified: true } });
         } catch (err) {
             if (err.response && err.response.data) {
                 setError(err.response.data.message || '인증번호 확인에 실패했습니다.');

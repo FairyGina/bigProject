@@ -30,6 +30,7 @@ const OAuthCallbackPage = () => {
         const token = params.get('token');
         const userId = params.get('userId');
         const errorParam = params.get('error');
+        const isNewUser = params.get('isNewUser') === 'true';
 
         if (errorParam) {
             setError(
@@ -78,7 +79,7 @@ const OAuthCallbackPage = () => {
         if (userId) {
             localStorage.setItem('userId', userId);
         }
-        if (flowValue === 'signup') {
+        if (flowValue === 'signup' || isNewUser) {
             alert('회원가입이 완료되었습니다.');
         }
         window.location.replace('/mainboard');

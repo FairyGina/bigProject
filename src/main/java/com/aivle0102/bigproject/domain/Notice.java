@@ -23,6 +23,7 @@ public class Notice {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Column(name = "notice_id")
     private Long id;
 
     @Column(nullable = false, length = 200)
@@ -31,10 +32,10 @@ public class Notice {
     @Column(nullable = false, columnDefinition = "TEXT")
     private String content;
 
-    @Column(nullable = false, length = 50)
+    @Column(name = "user_id", nullable = false, length = 50)
     private String authorId;
 
-    @Column(nullable = false, length = 50)
+    @Transient
     private String authorName;
 
     @CreationTimestamp
@@ -51,5 +52,9 @@ public class Notice {
     public void update(String title, String content) {
         this.title = title;
         this.content = content;
+    }
+
+    public void setAuthorName(String authorName) {
+        this.authorName = authorName;
     }
 }

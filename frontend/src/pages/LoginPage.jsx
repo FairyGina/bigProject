@@ -140,7 +140,7 @@ const LoginPage = () => {
                                     닫기
                                 </button>
                                 <button
-                                    onClick={() => navigate('/reset-password')}
+                                    onClick={() => navigate('/find-password')}
                                     className="flex-1 py-3 rounded-2xl bg-[color:var(--accent)] text-[color:var(--accent-contrast)] font-semibold hover:bg-[color:var(--accent-strong)] transition"
                                 >
                                     비밀번호 재설정
