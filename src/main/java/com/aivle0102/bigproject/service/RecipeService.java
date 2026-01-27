@@ -126,13 +126,17 @@ public class RecipeService {
 
         Recipe saved = recipeRepository.save(recipe);
 
-        List<RecipeIngredient> ingredients = ingredientsChanged
-                ? replaceIngredients(saved, request.getIngredients())
-                : recipeIngredientRepository.findByRecipe_IdOrderByIdAsc(saved.getId());
-
-        List<String> ingredientsForAnalysis = ingredientsChanged
-                ? request.getIngredients()
-                : ingredients.stream().map(RecipeIngredient::getIngredientName).toList();
+        List<RecipeIngredient> ingredients;
+        List<String> ingredientsForAnalysis;
+        if (ingredientsChanged) {
+            // Delete existing allergen rows before removing ingredients to avoid dangling references.
+            recipeAllergenRepository.deleteByRecipe_Id(saved.getId());
+            ingredients = replaceIngredients(saved, request.getIngredients());
+            ingredientsForAnalysis = request.getIngredients();
+        } else {
+            ingredients = recipeIngredientRepository.findByRecipe_IdOrderByIdAsc(saved.getId());
+            ingredientsForAnalysis = ingredients.stream().map(RecipeIngredient::getIngredientName).toList();
+        }
         String targetCountry = rawTargetCountry;
 
         if (request.isRegenerateReport()) {
@@ -168,7 +172,6 @@ public class RecipeService {
                     ingredientsForAnalysis,
                     normalizedTargetCountry
             );
-            recipeAllergenRepository.deleteByRecipe_Id(saved.getId());
             saveAllergens(saved, ingredients, allergenResponse);
         }
 
@@ -263,7 +266,7 @@ public class RecipeService {
         List<String> ingredientNames = ingredients == null ? List.of()
                 : ingredients.stream().map(RecipeIngredient::getIngredientName).toList();
         Map<String, Object> reportMap = report == null ? Collections.emptyMap() : readJsonMap(report.getContent());
-        Map<String, Object> allergenMap = buildAllergenResponse(recipe.getId());
+        Map<String, Object> allergenMap = buildAllergenResponse(recipe);
         List<Map<String, Object>> influencers = readInfluencers(report);
         String influencerImage = influencers.isEmpty() ? null : readInfluencerImage(report);
         if (STATUS_DRAFT.equalsIgnoreCase(recipe.getStatus())) {
@@ -310,19 +313,42 @@ public class RecipeService {
                 .toList();
     }
 
-    private Map<String, Object> buildAllergenResponse(Long recipeId) {
-        List<RecipeAllergen> items = recipeAllergenRepository.findByRecipe_IdOrderByIdAsc(recipeId);
+    private Map<String, Object> buildAllergenResponse(Recipe recipe) {
+        String targetCountry = normalizeCountryCode(recipe.getTargetCountry());
+        List<RecipeAllergen> items = (targetCountry == null || targetCountry.isBlank())
+                ? recipeAllergenRepository.findByRecipe_IdOrderByIdAsc(recipe.getId())
+                : recipeAllergenRepository.findByRecipe_IdAndTargetCountryOrderByIdAsc(recipe.getId(), targetCountry);
+
         Set<String> matched = items.stream()
                 .map(RecipeAllergen::getMatchedAllergen)
                 .collect(Collectors.toCollection(LinkedHashSet::new));
+
+        Map<String, Set<String>> ingredientToAllergens = new LinkedHashMap<>();
+        boolean usedHaccp = false;
+        boolean usedAi = false;
+        for (RecipeAllergen item : items) {
+            if (item.getIngredient() == null || item.getIngredient().getIngredientName() == null) {
+                continue;
+            }
+            String ingredient = item.getIngredient().getIngredientName();
+            ingredientToAllergens
+                    .computeIfAbsent(ingredient, k -> new LinkedHashSet<>())
+                    .add(item.getMatchedAllergen());
+            String analysisRef = item.getAnalysisRef();
+            if (analysisRef != null) {
+                if (analysisRef.contains("HACCP")) usedHaccp = true;
+                if (analysisRef.contains("AI_AGENT_USED") || analysisRef.startsWith("AI_")) usedAi = true;
+            }
+        }
+
         Map<String, Object> out = new LinkedHashMap<>();
         out.put("matchedAllergens", matched);
-        if (matched.isEmpty()) {
-            out.put("note", "알레르기 성분 요약이 없습니다.");
-        } else {
-            String list = String.join(", ", matched);
-            out.put("note", "알레르기 성분 요약: " + list);
-        }
+        out.put("note", allergenAnalysisService.buildAllergenNoteFromDetected(
+                targetCountry,
+                ingredientToAllergens,
+                usedHaccp,
+                usedAi
+        ));
         return out;
     }
 
