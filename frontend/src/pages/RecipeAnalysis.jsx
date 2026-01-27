@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import axiosInstance from '../axiosConfig';
@@ -19,6 +19,13 @@ const RecipeAnalysis = () => {
     const [imageBase64, setImageBase64] = useState('');
     const [influencerLoading, setInfluencerLoading] = useState(false);
     const [publishLoading, setPublishLoading] = useState(false);
+    const [mapError, setMapError] = useState('');
+    const [mapReady, setMapReady] = useState(false);
+    const mapRef = useRef(null);
+    const mapInstanceRef = useRef(null);
+    const mapMarkersRef = useRef([]);
+    const personaRunRef = useRef(null);
+    const [evaluationResults, setEvaluationResults] = useState([]);
 
     const influencerMetaKey = (recipeId) => `recipeInfluencerMeta:${recipeId}`;
     const readInfluencerMeta = (recipeId) => {
@@ -70,6 +77,71 @@ const RecipeAnalysis = () => {
     }, [location.state]);
 
     const report = recipe?.report || null;
+
+    useEffect(() => {
+        const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
+        if (!apiKey) {
+            setMapError('Google Maps API key is missing.');
+            return;
+        }
+
+        const initMap = (retry = 0) => {
+            if (!mapRef.current) {
+                if (retry < 10) {
+                    setTimeout(() => initMap(retry + 1), 100);
+                } else {
+                    setMapError('Failed to initialize the map.');
+                }
+                return;
+            }
+            if (!window.google?.maps) {
+                if (retry < 20) {
+                    setTimeout(() => initMap(retry + 1), 150);
+                } else {
+                    setMapError('Google Maps failed to load. Check API key and settings.');
+                }
+                return;
+            }
+            setMapError('');
+            const map = new window.google.maps.Map(mapRef.current, {
+                center: { lat: 20, lng: 0 },
+                zoom: 1,
+                minZoom: 1,
+                maxZoom: 8,
+                disableDefaultUI: false,
+                gestureHandling: 'greedy',
+                scrollwheel: true,
+                styles: [
+                    { featureType: 'administrative', elementType: 'labels', stylers: [{ visibility: 'off' }] },
+                    { featureType: 'poi', elementType: 'all', stylers: [{ visibility: 'off' }] },
+                    { featureType: 'road', elementType: 'all', stylers: [{ visibility: 'off' }] },
+                ],
+            });
+            mapInstanceRef.current = map;
+            setMapReady(true);
+        };
+
+        const existing = document.querySelector('script[data-google-maps]');
+        if (existing) {
+            if (window.google?.maps) {
+                initMap();
+            } else {
+                existing.addEventListener('load', () => initMap(), { once: true });
+                existing.addEventListener('error', () => setMapError('Google Maps script failed to load.'), { once: true });
+                initMap();
+            }
+            return;
+        }
+
+        window.__initRecipeMap = () => initMap();
+        const script = document.createElement('script');
+        script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&v=weekly&callback=__initRecipeMap`;
+        script.async = true;
+        script.defer = true;
+        script.dataset.googleMaps = 'true';
+        script.onerror = () => setMapError('Google Maps script failed to load.');
+        document.body.appendChild(script);
+    }, []);
 
     useEffect(() => {
         if (Array.isArray(recipe?.influencers) && recipe.influencers.length) {
@@ -190,6 +262,137 @@ const RecipeAnalysis = () => {
 
         fetchInfluencers();
     }, [imageBase64, influencers.length, recipe]);
+
+    const countryCoords = useMemo(
+        () => ({
+            '미국': { lat: 39.8283, lng: -98.5795 },
+            '한국': { lat: 36.5, lng: 127.9 },
+            '일본': { lat: 36.2048, lng: 138.2529 },
+            '중국': { lat: 35.8617, lng: 104.1954 },
+            '영국': { lat: 55.3781, lng: -3.436 },
+            '프랑스': { lat: 46.2276, lng: 2.2137 },
+            '독일': { lat: 51.1657, lng: 10.4515 },
+            '캐나다': { lat: 56.1304, lng: -106.3468 },
+            '호주': { lat: -25.2744, lng: 133.7751 },
+            '인도': { lat: 20.5937, lng: 78.9629 },
+            'United States': { lat: 39.8283, lng: -98.5795 },
+            'South Korea': { lat: 36.5, lng: 127.9 },
+            'Japan': { lat: 36.2048, lng: 138.2529 },
+            'China': { lat: 35.8617, lng: 104.1954 },
+            'United Kingdom': { lat: 55.3781, lng: -3.436 },
+            'France': { lat: 46.2276, lng: 2.2137 },
+            'Germany': { lat: 51.1657, lng: 10.4515 },
+            'Canada': { lat: 56.1304, lng: -106.3468 },
+            'Australia': { lat: -25.2744, lng: 133.7751 },
+            'India': { lat: 20.5937, lng: 78.9629 },
+        }),
+        []
+    );
+
+    const clearMapMarkers = () => {
+        mapMarkersRef.current.forEach((marker) => marker.setMap(null));
+        mapMarkersRef.current = [];
+    };
+
+    const normalizeCountryKey = (value) => {
+        if (!value) return '';
+        const key = String(value).trim();
+        const map = {
+            'US': '미국',
+            'USA': '미국',
+            'UK': '영국',
+            'UAE': '아랍에미리트',
+            'KOREA': '한국',
+            'SOUTH KOREA': '한국',
+            'JAPAN': '일본',
+            'CHINA': '중국',
+            'UNITED STATES': '미국',
+            'UNITED KINGDOM': '영국',
+            'FRANCE': '프랑스',
+            'GERMANY': '독일',
+            'CANADA': '캐나다',
+            'AUSTRALIA': '호주',
+            'INDIA': '인도',
+        };
+        const upper = key.toUpperCase();
+        return map[upper] || key;
+    };
+
+    const plotEvaluations = (evaluations) => {
+        const map = mapInstanceRef.current;
+        if (!map || !Array.isArray(evaluations)) {
+            return;
+        }
+        clearMapMarkers();
+        evaluations.forEach((item) => {
+            const coord = countryCoords[normalizeCountryKey(item.country)];
+            if (!coord) {
+                return;
+            }
+            const marker = new window.google.maps.Marker({
+                map,
+                position: coord,
+                label: {
+                    text: String(item.totalScore ?? ''),
+                    color: '#f8fafc',
+                    fontSize: '12px',
+                    fontWeight: '700',
+                },
+                icon: {
+                    path: window.google.maps.SymbolPath.CIRCLE,
+                    scale: 10,
+                    fillColor: '#f97316',
+                    fillOpacity: 0.9,
+                    strokeColor: '#0f172a',
+                    strokeWeight: 2,
+                },
+            });
+            mapMarkersRef.current.push(marker);
+        });
+    };
+
+    useEffect(() => {
+        if (!mapReady || evaluationResults.length === 0) {
+            return;
+        }
+        plotEvaluations(evaluationResults);
+    }, [mapReady, evaluationResults]);
+
+    useEffect(() => {
+        const runPersonaEvaluation = async () => {
+            if (!recipe || !report || !mapReady) {
+                return;
+            }
+            if (personaRunRef.current === recipe.id) {
+                return;
+            }
+            personaRunRef.current = recipe.id;
+            try {
+                const countries = Object.keys(countryCoords)
+                    .filter((c) => /[가-힣]/.test(c))
+                    .slice(0, 10);
+                const ageRes = await axiosInstance.post('/api/persona/age-group', {
+                    recipe: `${recipe.title || ''} ${recipe.description || ''}`.trim(),
+                    countries,
+                });
+                const targets = ageRes.data || [];
+                const personaRes = await axiosInstance.post('/api/persona/batch', {
+                    recipeSummary: recipe.summary || JSON.stringify(report || {}),
+                    targets,
+                });
+                const personas = personaRes.data || [];
+                const evalRes = await axiosInstance.post('/api/evaluation', {
+                    personas,
+                    report: JSON.stringify(report || {}),
+                });
+                setEvaluationResults(evalRes.data || []);
+            } catch (err) {
+                console.error('Persona evaluation flow failed', err);
+            }
+        };
+
+        runPersonaEvaluation();
+    }, [recipe, report, mapReady, countryCoords]);
 
     const isOwner =
         (userId &&
@@ -509,6 +712,21 @@ const RecipeAnalysis = () => {
                 )}
 
                 <div className="mt-8 grid grid-cols-1 lg:grid-cols-[1.3fr_1fr] gap-6">
+                    <div className="lg:col-span-2 rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[0_12px_30px_var(--shadow)] p-6">
+                        <div className="flex items-center justify-between mb-4">
+                            <h3 className="text-lg font-semibold text-[color:var(--text)]">Global Market Map</h3>
+                            <span className="text-xs text-[color:var(--text-soft)]">World View</span>
+                        </div>
+                        <div className="h-[260px] rounded-xl border border-[color:var(--border)] bg-[color:var(--surface-muted)] overflow-hidden">
+                            {mapError ? (
+                                <div className="h-full flex items-center justify-center text-sm text-[color:var(--text-muted)]">
+                                    {mapError}
+                                </div>
+                            ) : (
+                                <div ref={mapRef} className="h-full w-full" />
+                            )}
+                        </div>
+                    </div>
                     <div className="space-y-6">
                         <div className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[0_12px_30px_var(--shadow)] p-6">
                             <div className="flex items-center justify-between">
