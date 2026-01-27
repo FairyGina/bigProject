@@ -27,7 +27,6 @@ public class RecipeService {
     private final AiReportService aiReportService;
     private final AllergenAnalysisService allergenAnalysisService;
     private final ObjectMapper objectMapper = new ObjectMapper();
-
     @Transactional
     public RecipeResponse create(String authorId, RecipeCreateRequest request) {
         String authorName = userInfoRepository.findByUserIdAndUserState(authorId, "1")
