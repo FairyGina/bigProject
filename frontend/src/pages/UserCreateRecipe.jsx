@@ -71,12 +71,14 @@ const UserCreateRecipe = () => {
     const [showReview, setShowReview] = useState(false);
     const [hasUserEdits, setHasUserEdits] = useState(false);
     const [loading, setLoading] = useState(false);
+    const [progress, setProgress] = useState(0);
     const [autoIngredientLoading, setAutoIngredientLoading] = useState(false);
     const [error, setError] = useState('');
     const [initializing, setInitializing] = useState(true);
     const initialSnapshotRef = useRef('');
     const shouldBlockRef = useRef(true);
     const fileInputRef = useRef(null);
+    const progressTimerRef = useRef(null);
 
     const buildSnapshot = (data) =>
         JSON.stringify({
@@ -178,6 +180,47 @@ const UserCreateRecipe = () => {
             sessionStorage.removeItem('recipeEditDirty');
         };
     }, []);
+
+    useEffect(() => {
+        return () => {
+            if (progressTimerRef.current) {
+                clearInterval(progressTimerRef.current);
+                progressTimerRef.current = null;
+            }
+        };
+    }, []);
+
+    const startProgress = () => {
+        setProgress(5);
+        if (progressTimerRef.current) {
+            clearInterval(progressTimerRef.current);
+        }
+        progressTimerRef.current = setInterval(() => {
+            setProgress((prev) => {
+                if (prev >= 90) {
+                    return prev;
+                }
+                return prev + 1;
+            });
+        }, 450);
+    };
+
+    const bumpProgress = (nextValue) => {
+        setProgress((prev) => Math.max(prev, nextValue));
+    };
+
+    const endProgress = (success) => {
+        if (progressTimerRef.current) {
+            clearInterval(progressTimerRef.current);
+            progressTimerRef.current = null;
+        }
+        if (success) {
+            setProgress(100);
+            setTimeout(() => setProgress(0), 500);
+            return;
+        }
+        setProgress(0);
+    };
 
     useBeforeUnload(
         React.useCallback(
@@ -492,6 +535,8 @@ const UserCreateRecipe = () => {
             regenerateReport: shouldRegenerate,
         };
         setLoading(true);
+        startProgress();
+        let success = false;
         try {
             try {
                 await axiosInstance.get('/api/csrf');
@@ -507,24 +552,29 @@ const UserCreateRecipe = () => {
                 ? await axiosInstance.put(`/api/recipes/${recipeId}`, payload)
                 : await axiosInstance.post('/api/recipes', payload);
             const created = res.data;
+            bumpProgress(isUpdate ? 60 : 55);
             initialSnapshotRef.current = buildSnapshot(created || payload);
             shouldBlockRef.current = false;
             sessionStorage.removeItem('recipeEditDirty');
 
             if (isCreateFlow && shouldRegenerate) {
+                bumpProgress(70);
                 const influencerOk = await generateInfluencerAssets(created);
                 if (!influencerOk) {
                     return;
                 }
+                bumpProgress(85);
             }
 
             if (isCreateFlow) {
                 setCreatedRecipe(created);
                 setShowReview(true);
                 setError('');
+                success = true;
                 return;
             }
 
+            success = true;
             navigate(`/mainboard/recipes/${created.id}`);
         } catch (err) {
             console.error('Failed to create recipe', err);
@@ -534,6 +584,7 @@ const UserCreateRecipe = () => {
                 setError(err.response?.data?.message || labels.createError);
             }
         } finally {
+            endProgress(success);
             setLoading(false);
         }
     };
@@ -821,14 +872,22 @@ const UserCreateRecipe = () => {
                                     </div>
                                 )}
 
-                                <button
-                                    type="button"
-                                    onClick={handleSubmit}
-                                    disabled={loading}
-                                    className="w-full py-3 rounded-xl bg-[color:var(--accent)] text-[color:var(--accent-contrast)] font-semibold hover:bg-[color:var(--accent-strong)] transition shadow-[0_10px_30px_var(--shadow)] disabled:opacity-60"
-                                >
-                                    {loading ? (isEditingMode ? labels.updatingLabel : labels.creatingLabel) : isEditingMode ? labels.updateLabel : labels.createLabel}
-                                </button>
+                                <div className="flex items-center gap-3">
+                                    <button
+                                        type="button"
+                                        onClick={handleSubmit}
+                                        disabled={loading}
+                                        className="flex-1 py-3 rounded-xl bg-[color:var(--accent)] text-[color:var(--accent-contrast)] font-semibold hover:bg-[color:var(--accent-strong)] transition shadow-[0_10px_30px_var(--shadow)] disabled:opacity-60"
+                                    >
+                                        {loading ? (isEditingMode ? labels.updatingLabel : labels.creatingLabel) : isEditingMode ? labels.updateLabel : labels.createLabel}
+                                    </button>
+                                    {loading && (
+                                        <div className="flex items-center gap-2 text-xs text-[color:var(--text-muted)]">
+                                            <span className="h-4 w-4 rounded-full border-2 border-[color:var(--border)] border-t-[color:var(--accent)] animate-spin" />
+                                            <span>{progress}%</span>
+                                        </div>
+                                    )}
+                                </div>
                                 {isEdit && (
                                     <button
                                         type="button"
