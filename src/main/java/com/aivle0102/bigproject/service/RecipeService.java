@@ -71,6 +71,7 @@ public class RecipeService {
                 .authorId(authorId)
                 .authorName(authorName)
                 .createdAt(LocalDateTime.now())
+                .updatedAt(LocalDateTime.now())
                 .build();
 
         Recipe saved = recipeRepository.save(recipe);
@@ -90,6 +91,7 @@ public class RecipeService {
         recipe.setIngredientsJson(writeJson(request.getIngredients()));
         recipe.setStepsJson(writeJson(request.getSteps()));
         recipe.setImageBase64(request.getImageBase64());
+        recipe.setUpdatedAt(LocalDateTime.now());
 
         Recipe saved = recipeRepository.save(recipe);
         return toResponse(saved);
@@ -152,6 +154,7 @@ public class RecipeService {
     }
 
     private RecipeResponse toResponse(Recipe recipe) {
+        String authorName = defaultIfBlank(recipe.getAuthorName(), resolveUserName(recipe.getAuthorId()));
         return new RecipeResponse(
                 recipe.getId(),
                 recipe.getTitle(),
@@ -166,7 +169,7 @@ public class RecipeService {
                 recipe.getInfluencerImageBase64(),
                 recipe.getStatus(),
                 recipe.getAuthorId(),
-                recipe.getAuthorName(),
+                authorName,
                 recipe.getCreatedAt()
         );
     }
@@ -237,5 +240,11 @@ public class RecipeService {
             return fallback;
         }
         return value;
+    }
+
+    private String resolveUserName(String userId) {
+        return userInfoRepository.findByUserIdAndUserState(userId, "1")
+                .map(UserInfo::getUserName)
+                .orElse(userId);
     }
 }

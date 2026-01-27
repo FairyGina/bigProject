@@ -1,4 +1,4 @@
-package com.aivle0102.bigproject.service;
+﻿package com.aivle0102.bigproject.service;
 
 import com.aivle0102.bigproject.client.OpenAiClient;
 import com.aivle0102.bigproject.dto.AiPersona;
@@ -94,6 +94,8 @@ public class EvaluationService {
         - 과장 금지
         - 점수는 0~100 사이 정수
         - 보고서에 근거한 평가만 작성
+        - IMPORTANT: Do NOT return identical totalScore for all countries.
+        - Use country/ageGroup differences to vary scores (at least 5~15 points when plausible).
         """
 
         .formatted(

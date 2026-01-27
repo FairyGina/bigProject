@@ -32,14 +32,16 @@ public class CustomOAuth2UserService extends DefaultOAuth2UserService {
         String provider = registrationId.toLowerCase(Locale.ROOT);
         OAuth2UserProfile profile = extractProfile(provider, attributes);
 
-        UserInfo userInfo = userInfoRepository.findByProviderAndProviderId(provider, profile.providerId())
-                .orElseGet(() -> createUser(provider, profile));
+        var existingUser = userInfoRepository.findByProviderAndProviderId(provider, profile.providerId());
+        boolean isNewUser = existingUser.isEmpty();
+        UserInfo userInfo = existingUser.orElseGet(() -> createUser(provider, profile));
 
         Map<String, Object> mapped = new HashMap<>(attributes);
         mapped.put("userId", userInfo.getUserId());
         mapped.put("userName", userInfo.getUserName());
         mapped.put("provider", provider);
         mapped.put("providerId", profile.providerId());
+        mapped.put("isNewUser", isNewUser);
 
         return new DefaultOAuth2User(
                 Collections.singleton(new SimpleGrantedAuthority("ROLE_USER")),
@@ -72,13 +74,10 @@ public class CustomOAuth2UserService extends DefaultOAuth2UserService {
         String userId = provider + "_" + profile.providerId();
         String randomPassword = UUID.randomUUID().toString();
         String hashedPassword = passwordEncoder.encode(randomPassword);
-        String salt = hashedPassword.substring(0, 29);
 
         UserInfo userInfo = UserInfo.builder()
                 .userId(userId)
                 .userPw(hashedPassword)
-                .userPwHash(hashedPassword)
-                .salt(salt)
                 .userName(profile.displayName())
                 .userState("1")
                 .joinDate(LocalDateTime.now())

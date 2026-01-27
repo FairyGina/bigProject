@@ -11,6 +11,7 @@ const ResetPasswordPage = () => {
     const location = useLocation();
     const initialName = location.state?.userName ?? '';
     const initialEmail = location.state?.userId ?? '';
+    const isVerified = location.state?.verified === true;
     const [name, setName] = useState(initialName);
     const [email, setEmail] = useState(initialEmail);
     const [newPassword, setNewPassword] = useState('');
@@ -108,6 +109,10 @@ const ResetPasswordPage = () => {
             setError('이름과 아이디를 입력해주세요.');
             return;
         }
+        if (!isVerified) {
+            setError('인증이 필요합니다. 비밀번호 찾기에서 인증번호를 확인해주세요.');
+            return;
+        }
         if (!emailPattern.test(email)) {
             setError('아이디를 이메일 형식으로 입력해주세요.');
             return;
@@ -156,6 +161,19 @@ const ResetPasswordPage = () => {
 
                 <h2 className="text-3xl font-bold mb-2">비밀번호 재설정</h2>
                 <p className="text-[color:var(--text-muted)] mb-10">이름과 아이디를 입력한 뒤 새 비밀번호를 설정하세요.</p>
+
+                {!isVerified && (
+                    <div className="mb-4 p-3 bg-[color:var(--surface-muted)] border border-[color:var(--border)] rounded-lg text-[color:var(--text-muted)] text-sm text-center">
+                        인증번호 확인이 필요합니다. 비밀번호 찾기에서 인증을 완료해주세요.
+                        <button
+                            type="button"
+                            onClick={() => navigate('/find-password')}
+                            className="ml-2 text-[color:var(--accent)] hover:underline"
+                        >
+                            비밀번호 찾기 이동
+                        </button>
+                    </div>
+                )}
 
                 {error && (
                     <div className="mb-4 p-3 bg-[color:var(--danger-bg)] border border-[color:var(--danger)]/30 rounded-lg text-[color:var(--danger)] text-sm text-center">
@@ -212,6 +230,7 @@ const ResetPasswordPage = () => {
                     </div>
                     <button
                         type="submit"
+                        disabled={!isVerified}
                         className="w-full py-4 bg-[color:var(--accent)] text-[color:var(--accent-contrast)] rounded-2xl font-bold hover:bg-[color:var(--accent-strong)] transition mt-2 shadow-[0_10px_30px_var(--shadow)]"
                     >
                         비밀번호 변경

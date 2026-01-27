@@ -6,6 +6,7 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
+import jakarta.persistence.Transient;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
@@ -25,47 +26,51 @@ public class Recipe {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Column(name = "recipe_id")
     private Long id;
 
-    @Column(nullable = false, length = 200)
+    @Column(name = "recipe_name", nullable = false, length = 200)
     private String title;
 
     @Column(columnDefinition = "TEXT")
     private String description;
 
-    @Column(name = "ingredients_json", columnDefinition = "TEXT")
+    @Transient
     private String ingredientsJson;
 
-    @Column(name = "steps_json", columnDefinition = "TEXT")
+    @Column(name = "steps", columnDefinition = "TEXT")
     private String stepsJson;
 
-    @Column(name = "report_json", columnDefinition = "TEXT")
+    @Transient
     private String reportJson;
 
-    @Column(name = "allergen_json", columnDefinition = "TEXT")
+    @Transient
     private String allergenJson;
 
-    @Column(name = "summary", columnDefinition = "TEXT")
+    @Transient
     private String summary;
 
     @Column(name = "image_base64", columnDefinition = "TEXT")
     private String imageBase64;
 
-    @Column(name = "influencer_json", columnDefinition = "TEXT")
+    @Transient
     private String influencerJson;
 
-    @Column(name = "influencer_image_base64", columnDefinition = "TEXT")
+    @Transient
     private String influencerImageBase64;
 
     @Column(name = "status", nullable = false, length = 20)
     private String status;
 
-    @Column(name = "author_id", nullable = false, length = 50)
+    @Column(name = "user_id", nullable = false, length = 50)
     private String authorId;
 
-    @Column(name = "author_name", length = 50)
+    @Transient
     private String authorName;
 
     @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt;
+
+    @Column(name = "updated_at")
+    private LocalDateTime updatedAt;
 }
