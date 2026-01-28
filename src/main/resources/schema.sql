@@ -142,6 +142,7 @@ CREATE TABLE IF NOT EXISTS influencer (
 --virtual_consumer 가상 소비자(AI 페르소나 심사위원) 테이블
 CREATE TABLE IF NOT EXISTS virtual_consumer (
     consumerId BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    report_id BIGINT NOT NULL REFERENCES market_report (report_id) ON DELETE CASCADE,
     personaName VARCHAR(100) NOT NULL,
     country VARCHAR(50) NOT NULL,
     ageGroup VARCHAR(20) NOT NULL,
@@ -151,12 +152,22 @@ CREATE TABLE IF NOT EXISTS virtual_consumer (
     purchaseCriteria JSONB,
     attitudeToKFood TEXT,
     evaluationPerspective TEXT
-);
+ );
+    
+-- 중복 방지 유니크 인덱스
+CREATE UNIQUE INDEX IF NOT EXISTS ux_virtual_consumer_report_persona
+ON virtual_consumer (report_id, personaName, country, ageGroup);
+
+-- 조회 성능용 인덱스
+CREATE INDEX IF NOT EXISTS ix_virtual_consumer_report
+ON virtual_consumer (report_id);
+
+
 
 -- consumer_feedback (AI 심사위원 피드백) 테이블
 CREATE TABLE IF NOT EXISTS consumer_feedback (
     feedbackId BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    recipeId BIGINT NOT NULL,
+    report_id BIGINT NOT NULL REFERENCES market_report (report_id) ON DELETE CASCADE,
     consumerId BIGINT NOT NULL,
 
     totalScore INT NOT NULL,
@@ -167,10 +178,15 @@ CREATE TABLE IF NOT EXISTS consumer_feedback (
     negativeFeedback TEXT,
     purchaseIntent VARCHAR(10),  
     createdAt TIMESTAMP NOT NULL DEFAULT NOW(),
-
-    CONSTRAINT fk_consumer_feedback_recipe
-        FOREIGN KEY (recipeId) REFERENCES recipe (recipe_id),
-
+ 
     CONSTRAINT fk_consumer_feedback_consumer
-        FOREIGN KEY (consumerId) REFERENCES virtual_consumer (consumerId)
-);
+        FOREIGN KEY (consumerId) REFERENCES virtual_consumer (consumerid) ON DELETE CASCADE
+); 
+
+-- report_id + consumerId 중복 방지
+CREATE UNIQUE INDEX IF NOT EXISTS ux_consumer_feedback_report_consumer
+ON consumer_feedback (report_id, consumerId);
+
+-- 리포트별 조회 성능
+CREATE INDEX IF NOT EXISTS ix_consumer_feedback_report
+ON consumer_feedback (report_id);
