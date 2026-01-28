@@ -27,6 +27,20 @@ const RecipeAnalysis = () => {
     const mapInfoWindowRef = useRef(null);
     const personaRunRef = useRef(null);
     const [evaluationResults, setEvaluationResults] = useState([]);
+    const targetMetaKey = (recipeId) => `recipeTargetMeta:${recipeId}`;
+    const readTargetMeta = (recipeId) => {
+        const cached =
+            sessionStorage.getItem(targetMetaKey(recipeId)) ||
+            localStorage.getItem(targetMetaKey(recipeId));
+        if (!cached) {
+            return null;
+        }
+        try {
+            return JSON.parse(cached);
+        } catch (err) {
+            return null;
+        }
+    };
 
     const influencerMetaKey = (recipeId) => `recipeInfluencerMeta:${recipeId}`;
     const readInfluencerMeta = (recipeId) => {
@@ -206,11 +220,12 @@ const RecipeAnalysis = () => {
             }
             setInfluencerLoading(true);
             try {
+                const targetMeta = readTargetMeta(recipe.id) || {};
                 const payload = {
                     recipe: recipe.title,
-                    targetCountry: '미국',
-                    targetPersona: '20~30대 직장인, 간편식 선호',
-                    priceRange: 'USD 6~9',
+                    targetCountry: targetMeta.targetCountry || 'US',
+                    targetPersona: targetMeta.targetPersona || '20~30대 직장인, 간편식 선호',
+                    priceRange: targetMeta.priceRange || 'USD 6~9',
                 };
                 const influencerRes = await axiosInstance.post('/api/influencers/recommend', payload);
                 const recs = influencerRes.data?.recommendations ?? [];
