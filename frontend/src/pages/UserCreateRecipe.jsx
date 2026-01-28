@@ -46,7 +46,42 @@ const labels = {
     targetPersona: '20~30대 직장인, 간편식 선호',
     ingredientAutoHelpLabel: '자동 추가 안내',
     ingredientAutoHelpDesc: '입력한 조리법에서 재료를 자동으로 추출하여 추가시켜줍니다.',
+    targetSectionLabel: '리포트 타겟 설정',
+    targetCountryLabel: '국가',
+    targetPersonaLabel: '페르소나',
+    priceRangeLabel: '가격대',
+    targetRecommendLabel: 'AI 추천',
+    targetRecommendLoading: '추천 중...',
+    targetRecommendError: '타겟 추천에 실패했습니다.',
 };
+
+const TARGET_COUNTRY_OPTIONS = [
+    { value: 'US', label: '미국' },
+    { value: 'JP', label: '일본' },
+    { value: 'CN', label: '중국' },
+    { value: 'FR', label: '프랑스' },
+    { value: 'DE', label: '독일' },
+    { value: 'PL', label: '폴란드' },
+    { value: 'IN', label: '인도' },
+    { value: 'VN', label: '베트남' },
+    { value: 'TH', label: '태국' },
+];
+
+const TARGET_PERSONA_OPTIONS = [
+    '20~30대 직장인, 간편식 선호',
+    '30~40대 맞벌이 가정, 건강 중시',
+    '10대/20대 학생, 트렌디한 맛 선호',
+    '40~50대 가족, 가성비 중시',
+    '해외 한식 입문자, 한국 맛 경험',
+    '건강/피트니스 관심층, 고단백/저당',
+];
+
+const PRICE_RANGE_OPTIONS = [
+    'USD 3~5',
+    'USD 6~9',
+    'USD 10~15',
+    'USD 15~20',
+];
 
 const UserCreateRecipe = () => {
     const { user } = useAuth();
@@ -70,6 +105,10 @@ const UserCreateRecipe = () => {
     const [createdInfluencerImage, setCreatedInfluencerImage] = useState('');
     const [showReview, setShowReview] = useState(false);
     const [hasUserEdits, setHasUserEdits] = useState(false);
+    const [targetCountry, setTargetCountry] = useState(TARGET_COUNTRY_OPTIONS[0].value);
+    const [targetPersona, setTargetPersona] = useState(TARGET_PERSONA_OPTIONS[0]);
+    const [priceRange, setPriceRange] = useState(PRICE_RANGE_OPTIONS[1]);
+    const [targetRecommendLoading, setTargetRecommendLoading] = useState(false);
     const [loading, setLoading] = useState(false);
     const [progress, setProgress] = useState(0);
     const [autoIngredientLoading, setAutoIngredientLoading] = useState(false);
@@ -102,6 +141,40 @@ const UserCreateRecipe = () => {
         setInitializing(false);
     };
 
+    const targetMetaKey = (recipeId) => `recipeTargetMeta:${recipeId}`;
+
+    const readTargetMeta = (recipeId) => {
+        const cached =
+            sessionStorage.getItem(targetMetaKey(recipeId)) ||
+            localStorage.getItem(targetMetaKey(recipeId));
+        if (!cached) {
+            return null;
+        }
+        try {
+            return JSON.parse(cached);
+        } catch (err) {
+            return null;
+        }
+    };
+
+    const applyTargetMeta = (meta) => {
+        if (!meta) {
+            setTargetCountry(TARGET_COUNTRY_OPTIONS[0].value);
+            setTargetPersona(TARGET_PERSONA_OPTIONS[0]);
+            setPriceRange(PRICE_RANGE_OPTIONS[1]);
+            return;
+        }
+        if (meta.targetCountry) {
+            setTargetCountry(meta.targetCountry);
+        }
+        if (meta.targetPersona) {
+            setTargetPersona(meta.targetPersona);
+        }
+        if (meta.priceRange) {
+            setPriceRange(meta.priceRange);
+        }
+    };
+
     useEffect(() => {
         const loadRecipe = async () => {
             if (!id) {
@@ -122,8 +195,11 @@ const UserCreateRecipe = () => {
         if (isEdit) {
             if (initialRecipe && String(initialRecipe.id) === String(id)) {
                 applyInitialState(initialRecipe);
+                applyTargetMeta(readTargetMeta(initialRecipe.id));
             } else {
-                loadRecipe();
+                loadRecipe().then(() => {
+                    applyTargetMeta(readTargetMeta(id));
+                });
             }
         } else if (reviewRecipeId) {
             const fetchReviewRecipe = async () => {
@@ -131,6 +207,7 @@ const UserCreateRecipe = () => {
                     setInitializing(true);
                     const res = await axiosInstance.get(`/api/recipes/${reviewRecipeId}`);
                     setCreatedRecipe(res.data);
+                    applyTargetMeta(readTargetMeta(reviewRecipeId));
                     setCreatedInfluencers(location.state?.influencers || []);
                     setCreatedInfluencerImage(location.state?.influencerImageBase64 || '');
                     setShowReview(true);
@@ -150,6 +227,7 @@ const UserCreateRecipe = () => {
             setCreatedInfluencerImage('');
             setShowReview(false);
             applyInitialState({});
+            applyTargetMeta(null);
         }
     }, [id, initialRecipe, isEdit, reviewRecipeId, location.state]);
 
@@ -462,9 +540,9 @@ const UserCreateRecipe = () => {
         try {
             const payload = {
                 recipe: recipe.title,
-                targetCountry: labels.targetCountry,
-                targetPersona: labels.targetPersona,
-                priceRange: 'USD 6~9',
+                targetCountry,
+                targetPersona,
+                priceRange,
             };
             const influencerRes = await axiosInstance.post('/api/influencers/recommend', payload);
             const recs = influencerRes.data?.recommendations ?? [];
@@ -528,9 +606,9 @@ const UserCreateRecipe = () => {
             ingredients: ingredients.map((i) => i.trim()).filter(Boolean),
             steps: steps.map((s) => s.trim()).filter(Boolean),
             imageBase64: imageBase64 || '',
-            targetCountry: labels.targetCountry,
-            targetPersona: labels.targetPersona,
-            priceRange: 'USD 6~9',
+            targetCountry,
+            targetPersona,
+            priceRange,
             draft: true,
             regenerateReport: shouldRegenerate,
         };
@@ -568,6 +646,9 @@ const UserCreateRecipe = () => {
 
             if (isCreateFlow) {
                 setCreatedRecipe(created);
+                const metaJson = JSON.stringify({ targetCountry, targetPersona, priceRange });
+                safeSessionSet(targetMetaKey(created.id), metaJson);
+                safeCacheSet(targetMetaKey(created.id), metaJson);
                 setShowReview(true);
                 setError('');
                 success = true;
@@ -575,6 +656,11 @@ const UserCreateRecipe = () => {
             }
 
             success = true;
+            if (created?.id) {
+                const metaJson = JSON.stringify({ targetCountry, targetPersona, priceRange });
+                safeSessionSet(targetMetaKey(created.id), metaJson);
+                safeCacheSet(targetMetaKey(created.id), metaJson);
+            }
             navigate(`/mainboard/recipes/${created.id}`);
         } catch (err) {
             console.error('Failed to create recipe', err);
@@ -601,6 +687,49 @@ const UserCreateRecipe = () => {
     const isEditingMode = Boolean(id || createdRecipe?.id);
     const sectionLabel = isEdit ? '레시피 수정' : labels.sectionLabel;
     const pageTitle = isEdit ? '등록된 레시피 수정' : labels.pageTitle;
+
+    const canRecommendTargets = useMemo(() => {
+        if (!title.trim() || !description.trim()) {
+            return false;
+        }
+        if (!ingredients.length || !steps.length) {
+            return false;
+        }
+        const allIngredientsFilled = ingredients.every((item) => item.trim());
+        const allStepsFilled = steps.every((item) => item.trim());
+        return allIngredientsFilled && allStepsFilled;
+    }, [description, ingredients, steps, title]);
+
+    const handleRecommendTargets = async () => {
+        if (!canRecommendTargets || targetRecommendLoading) {
+            return;
+        }
+        setError('');
+        setTargetRecommendLoading(true);
+        try {
+            const res = await axiosInstance.post('/api/recipes/recommend-targets', {
+                title,
+                description,
+                ingredients: ingredients.map((i) => i.trim()).filter(Boolean),
+                steps: steps.map((s) => s.trim()).filter(Boolean),
+            });
+            const data = res.data || {};
+            if (data.targetCountry) {
+                setTargetCountry(data.targetCountry);
+            }
+            if (data.targetPersona) {
+                setTargetPersona(data.targetPersona);
+            }
+            if (data.priceRange) {
+                setPriceRange(data.priceRange);
+            }
+        } catch (err) {
+            console.error('Failed to recommend targets', err);
+            setError(labels.targetRecommendError);
+        } finally {
+            setTargetRecommendLoading(false);
+        }
+    };
 
     return (
         <div className="relative">
@@ -815,7 +944,81 @@ const UserCreateRecipe = () => {
                                 </div>
                             </div>
 
-                            <div className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[0_12px_30px_var(--shadow)] p-6 space-y-5">
+                            <div className="flex flex-col gap-6">
+                                <div className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[0_12px_30px_var(--shadow)] p-6 space-y-4">
+                                    <div className="flex items-center justify-between">
+                                        <h3 className="text-lg font-semibold text-[color:var(--text)]">{labels.targetSectionLabel}</h3>
+                                        <button
+                                            type="button"
+                                            onClick={handleRecommendTargets}
+                                            disabled={!canRecommendTargets || targetRecommendLoading}
+                                            className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[color:var(--surface-muted)] border border-[color:var(--border)] text-xs text-[color:var(--text)] disabled:opacity-60"
+                                        >
+                                            {targetRecommendLoading ? labels.targetRecommendLoading : labels.targetRecommendLabel}
+                                        </button>
+                                    </div>
+                                    <div className="grid grid-cols-1 gap-4">
+                                        <div>
+                                            <label className="block text-xs font-semibold text-[color:var(--text-muted)] mb-2">
+                                                {labels.targetCountryLabel}
+                                            </label>
+                                            <select
+                                                value={targetCountry}
+                                                onChange={(e) => {
+                                                    setHasUserEdits(true);
+                                                    setTargetCountry(e.target.value);
+                                                }}
+                                                className="w-full p-3 rounded-xl bg-[color:var(--surface-muted)] border border-[color:var(--border)] text-[color:var(--text)] focus:outline-none focus:ring-2 focus:ring-[color:var(--accent)]"
+                                            >
+                                                {TARGET_COUNTRY_OPTIONS.map((opt) => (
+                                                    <option key={opt.value} value={opt.value}>
+                                                        {opt.label}
+                                                    </option>
+                                                ))}
+                                            </select>
+                                        </div>
+                                        <div>
+                                            <label className="block text-xs font-semibold text-[color:var(--text-muted)] mb-2">
+                                                {labels.targetPersonaLabel}
+                                            </label>
+                                            <select
+                                                value={targetPersona}
+                                                onChange={(e) => {
+                                                    setHasUserEdits(true);
+                                                    setTargetPersona(e.target.value);
+                                                }}
+                                                className="w-full p-3 rounded-xl bg-[color:var(--surface-muted)] border border-[color:var(--border)] text-[color:var(--text)] focus:outline-none focus:ring-2 focus:ring-[color:var(--accent)]"
+                                            >
+                                                {TARGET_PERSONA_OPTIONS.map((opt) => (
+                                                    <option key={opt} value={opt}>
+                                                        {opt}
+                                                    </option>
+                                                ))}
+                                            </select>
+                                        </div>
+                                        <div>
+                                            <label className="block text-xs font-semibold text-[color:var(--text-muted)] mb-2">
+                                                {labels.priceRangeLabel}
+                                            </label>
+                                            <select
+                                                value={priceRange}
+                                                onChange={(e) => {
+                                                    setHasUserEdits(true);
+                                                    setPriceRange(e.target.value);
+                                                }}
+                                                className="w-full p-3 rounded-xl bg-[color:var(--surface-muted)] border border-[color:var(--border)] text-[color:var(--text)] focus:outline-none focus:ring-2 focus:ring-[color:var(--accent)]"
+                                            >
+                                                {PRICE_RANGE_OPTIONS.map((opt) => (
+                                                    <option key={opt} value={opt}>
+                                                        {opt}
+                                                    </option>
+                                                ))}
+                                            </select>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[0_12px_30px_var(--shadow)] p-6 space-y-5">
                                 <div className="flex items-center justify-between">
                                     <h3 className="text-lg font-semibold text-[color:var(--text)]">{labels.ingredientsLabel}</h3>
                                     <div className="flex items-center gap-2">
@@ -906,6 +1109,7 @@ const UserCreateRecipe = () => {
                                         {labels.cancelLabel}
                                     </button>
                                 )}
+                                </div>
                             </div>
                         </>
                     )}
