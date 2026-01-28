@@ -352,9 +352,11 @@ const RecipeAnalysis = () => {
     };
 
     useEffect(() => {
+        console.log('mapReady', mapReady, 'evaluationResults.length', evaluationResults.length);
         if (!mapReady || evaluationResults.length === 0) {
             return;
         }
+        console.log('evaluationResults', evaluationResults);
         plotEvaluations(evaluationResults);
     }, [mapReady, evaluationResults]);
 
@@ -368,6 +370,7 @@ const RecipeAnalysis = () => {
             }
             personaRunRef.current = recipe.id;
             try {
+                console.log('persona flow start', { recipeId: recipe?.id, hasReport: Boolean(report) });
                 const countries = Object.keys(countryCoords)
                     .filter((c) => /[가-힣]/.test(c))
                     .slice(0, 10);
@@ -375,16 +378,19 @@ const RecipeAnalysis = () => {
                     recipe: `${recipe.title || ''} ${recipe.description || ''}`.trim(),
                     countries,
                 });
+                console.log('age-group ok', ageRes.data);
                 const targets = ageRes.data || [];
                 const personaRes = await axiosInstance.post('/api/persona/batch', {
                     recipeSummary: recipe.summary || JSON.stringify(report || {}),
                     targets,
                 });
+                console.log('persona batch ok', personaRes.data);
                 const personas = personaRes.data || [];
                 const evalRes = await axiosInstance.post('/api/evaluation', {
                     personas,
                     report: JSON.stringify(report || {}),
                 });
+                console.log('evaluation ok', evalRes.data);
                 setEvaluationResults(evalRes.data || []);
             } catch (err) {
                 console.error('Persona evaluation flow failed', err);

@@ -252,6 +252,17 @@ public class RecipeService {
         if (!recipe.getUserId().equals(requesterId)) {
             throw new IllegalArgumentException("Recipe not found");
         }
+        // Delete child rows in FK-safe order to avoid constraint violations.
+        recipeAllergenRepository.deleteByRecipe_Id(id);
+        recipeIngredientRepository.deleteByRecipe_Id(id);
+
+        List<MarketReport> reports = marketReportRepository.findByRecipe_IdOrderByCreatedAtDesc(id);
+        for (MarketReport report : reports) {
+            if (report.getId() != null) {
+                influencerRepository.deleteByReport_Id(report.getId());
+            }
+        }
+        marketReportRepository.deleteAll(reports);
         recipeRepository.delete(recipe);
     }
 
