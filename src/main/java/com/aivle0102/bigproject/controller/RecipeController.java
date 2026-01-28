@@ -3,7 +3,10 @@ package com.aivle0102.bigproject.controller;
 import com.aivle0102.bigproject.dto.RecipeCreateRequest;
 import com.aivle0102.bigproject.dto.RecipePublishRequest;
 import com.aivle0102.bigproject.dto.RecipeResponse;
+import com.aivle0102.bigproject.dto.RecipeTargetRecommendRequest;
+import com.aivle0102.bigproject.dto.RecipeTargetRecommendResponse;
 import com.aivle0102.bigproject.service.RecipeService;
+import com.aivle0102.bigproject.service.RecipeTargetRecommendationService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -25,6 +28,7 @@ import java.util.List;
 public class RecipeController {
 
     private final RecipeService recipeService;
+    private final RecipeTargetRecommendationService recipeTargetRecommendationService;
 
     @PostMapping
     public ResponseEntity<RecipeResponse> create(@RequestBody RecipeCreateRequest request, Principal principal) {
@@ -81,5 +85,10 @@ public class RecipeController {
         }
         recipeService.delete(id, principal.getName());
         return ResponseEntity.noContent().build();
+    }
+
+    @PostMapping("/recommend-targets")
+    public ResponseEntity<RecipeTargetRecommendResponse> recommendTargets(@RequestBody RecipeTargetRecommendRequest request) {
+        return ResponseEntity.ok(recipeTargetRecommendationService.recommend(request));
     }
 }
