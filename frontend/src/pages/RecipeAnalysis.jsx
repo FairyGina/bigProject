@@ -24,6 +24,7 @@ const RecipeAnalysis = () => {
     const mapRef = useRef(null);
     const mapInstanceRef = useRef(null);
     const mapMarkersRef = useRef([]);
+    const mapInfoWindowRef = useRef(null);
     const personaRunRef = useRef(null);
     const [evaluationResults, setEvaluationResults] = useState([]);
 
@@ -149,6 +150,9 @@ const RecipeAnalysis = () => {
         }
         if (recipe?.influencerImageBase64) {
             setImageBase64(recipe.influencerImageBase64);
+        }
+        if (Array.isArray(recipe?.report?.evaluationResults) && recipe.report.evaluationResults.length) {
+            setEvaluationResults(aggregateEvaluations(recipe.report.evaluationResults));
         }
     }, [recipe]);
 
@@ -294,6 +298,79 @@ const RecipeAnalysis = () => {
         mapMarkersRef.current = [];
     };
 
+    const escapeMapHtml = (value) =>
+        String(value ?? '')
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
+
+    const aggregateEvaluations = (items) => {
+        if (!Array.isArray(items) || items.length === 0) {
+            return [];
+        }
+        if (items.some((item) => Array.isArray(item?.feedbacks))) {
+            return items;
+        }
+        const byCountry = new Map();
+        items.forEach((item) => {
+            const country = item?.country;
+            if (!country) {
+                return;
+            }
+            const entry = byCountry.get(country) || {
+                country,
+                totalScoreSum: 0,
+                totalScoreCount: 0,
+                feedbacks: [],
+            };
+            if (Number.isFinite(item?.totalScore)) {
+                entry.totalScoreSum += item.totalScore;
+                entry.totalScoreCount += 1;
+            }
+            if (entry.feedbacks.length < 10 && (item?.positiveFeedback || item?.negativeFeedback)) {
+                entry.feedbacks.push({
+                    personaName: item?.personaName || '심사위원',
+                    positiveFeedback: item?.positiveFeedback || '',
+                    negativeFeedback: item?.negativeFeedback || '',
+                });
+            }
+            byCountry.set(country, entry);
+        });
+        return Array.from(byCountry.values()).map((entry) => ({
+            country: entry.country,
+            totalScore:
+                entry.totalScoreCount > 0
+                    ? Math.round(entry.totalScoreSum / entry.totalScoreCount)
+                    : 0,
+            feedbacks: entry.feedbacks,
+        }));
+    };
+
+    const ensureMapInfoStyles = () => {
+        if (document.getElementById('map-info-style')) {
+            return;
+        }
+        const style = document.createElement('style');
+        style.id = 'map-info-style';
+        style.textContent = `
+            .gm-style-iw,
+            .gm-style-iw-c {
+                padding: 0 !important;
+            }
+            .gm-style-iw-d {
+                overflow: visible !important;
+                padding-top: 0 !important;
+                margin-top: 0 !important;
+            }
+            .gm-ui-hover-effect {
+                display: none !important;
+            }
+        `;
+        document.head.appendChild(style);
+    };
+
     const normalizeCountryKey = (value) => {
         if (!value) return '';
         const key = String(value).trim();
@@ -323,6 +400,9 @@ const RecipeAnalysis = () => {
         if (!map || !Array.isArray(evaluations)) {
             return;
         }
+        ensureMapInfoStyles();
+        const infoWindow = mapInfoWindowRef.current || new window.google.maps.InfoWindow();
+        mapInfoWindowRef.current = infoWindow;
         clearMapMarkers();
         evaluations.forEach((item) => {
             const coord = countryCoords[normalizeCountryKey(item.country)];
@@ -347,16 +427,51 @@ const RecipeAnalysis = () => {
                     strokeWeight: 2,
                 },
             });
+            marker.addListener('click', () => {
+                const country = escapeMapHtml(item.country || '국가');
+                const feedbacks = Array.isArray(item.feedbacks) ? item.feedbacks.slice(0, 10) : [];
+                window.__closeMapInfoWindow = () => infoWindow.close();
+                const feedbackHtml = feedbacks.length
+                    ? feedbacks
+                        .map((fb) => {
+                            const name = escapeMapHtml(fb?.personaName || '심사위원');
+                            const positive = escapeMapHtml(fb?.positiveFeedback || '내용 없음');
+                            const negative = escapeMapHtml(fb?.negativeFeedback || '내용 없음');
+                            return `
+                                <div style="margin-top:8px;color:#111827;">
+                                    <div style="font-weight:700;color:#111827;">심사위원: ${name}</div>
+                                    <div style="font-size:12px;color:#111827;"><strong>긍정:</strong> ${positive}</div>
+                                    <div style="font-size:12px;color:#111827;"><strong>부정:</strong> ${negative}</div>
+                                </div>
+                            `;
+                        })
+                        .join('')
+                    : '<div style="font-size:12px;color:#111827;">피드백 없음</div>';
+                const content = `
+                    <div style="min-width:240px;max-width:320px;color:#111827;padding:0 36px 10px 12px;margin:0;position:relative;">
+                        <button
+                            type="button"
+                            onclick="window.__closeMapInfoWindow && window.__closeMapInfoWindow()"
+                            style="position:absolute;top:-6px;right:8px;border:0;background:transparent;font-size:22px;line-height:1;color:#6b7280;cursor:pointer;padding:0 6px;"
+                            aria-label="닫기"
+                        >
+                            ×
+                        </button>
+                        <div style="font-weight:800;margin:0 0 4px 0;color:#111827;">${country}</div>
+                        <div style="font-size:12px;line-height:1.5;color:#111827;">${feedbackHtml}</div>
+                    </div>
+                `;
+                infoWindow.setContent(content);
+                infoWindow.open({ map, anchor: marker });
+            });
             mapMarkersRef.current.push(marker);
         });
     };
 
     useEffect(() => {
-        console.log('mapReady', mapReady, 'evaluationResults.length', evaluationResults.length);
         if (!mapReady || evaluationResults.length === 0) {
             return;
         }
-        console.log('evaluationResults', evaluationResults);
         plotEvaluations(evaluationResults);
     }, [mapReady, evaluationResults]);
 
@@ -365,12 +480,14 @@ const RecipeAnalysis = () => {
             if (!recipe || !report || !mapReady) {
                 return;
             }
+            if (evaluationResults.length > 0) {
+                return;
+            }
             if (personaRunRef.current === recipe.id) {
                 return;
             }
             personaRunRef.current = recipe.id;
             try {
-                console.log('persona flow start', { recipeId: recipe?.id, hasReport: Boolean(report) });
                 const countries = Object.keys(countryCoords)
                     .filter((c) => /[가-힣]/.test(c))
                     .slice(0, 10);
@@ -378,20 +495,17 @@ const RecipeAnalysis = () => {
                     recipe: `${recipe.title || ''} ${recipe.description || ''}`.trim(),
                     countries,
                 });
-                console.log('age-group ok', ageRes.data);
                 const targets = ageRes.data || [];
                 const personaRes = await axiosInstance.post('/api/persona/batch', {
                     recipeSummary: recipe.summary || JSON.stringify(report || {}),
                     targets,
                 });
-                console.log('persona batch ok', personaRes.data);
                 const personas = personaRes.data || [];
                 const evalRes = await axiosInstance.post('/api/evaluation', {
                     personas,
                     report: JSON.stringify(report || {}),
                 });
-                console.log('evaluation ok', evalRes.data);
-                setEvaluationResults(evalRes.data || []);
+                setEvaluationResults(aggregateEvaluations(evalRes.data || []));
             } catch (err) {
                 console.error('Persona evaluation flow failed', err);
             }

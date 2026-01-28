@@ -6,18 +6,23 @@ import com.aivle0102.bigproject.domain.Recipe;
 import com.aivle0102.bigproject.domain.RecipeAllergen;
 import com.aivle0102.bigproject.domain.RecipeIngredient;
 import com.aivle0102.bigproject.domain.UserInfo;
+import com.aivle0102.bigproject.domain.ConsumerFeedback;
 import com.aivle0102.bigproject.dto.AllergenAnalysisResponse;
+import com.aivle0102.bigproject.dto.AgeGroupResult;
 import com.aivle0102.bigproject.dto.IngredientEvidence;
 import com.aivle0102.bigproject.dto.RecipeCreateRequest;
 import com.aivle0102.bigproject.dto.RecipePublishRequest;
 import com.aivle0102.bigproject.dto.RecipeResponse;
 import com.aivle0102.bigproject.dto.ReportRequest;
+import com.aivle0102.bigproject.domain.VirtualConsumer;
 import com.aivle0102.bigproject.repository.InfluencerRepository;
 import com.aivle0102.bigproject.repository.MarketReportRepository;
 import com.aivle0102.bigproject.repository.RecipeAllergenRepository;
 import com.aivle0102.bigproject.repository.RecipeIngredientRepository;
 import com.aivle0102.bigproject.repository.RecipeRepository;
 import com.aivle0102.bigproject.repository.UserInfoRepository;
+import com.aivle0102.bigproject.repository.ConsumerFeedbackRepository;
+import com.aivle0102.bigproject.repository.VirtualConsumerRepository;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
@@ -32,6 +37,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.stream.Collectors;
 
 @Service
@@ -42,6 +49,9 @@ public class RecipeService {
     private static final String STATUS_PUBLISHED = "PUBLISHED";
     private static final String REPORT_TYPE_AI = "AI";
     private static final String ANALYSIS_REF_DIRECT = "DIRECT_MATCH";
+    private static final List<String> VIRTUAL_CONSUMER_COUNTRIES = List.of(
+            "미국", "한국", "일본", "중국", "영국", "프랑스", "독일", "캐나다", "호주", "인도"
+    );
 
     private final RecipeRepository recipeRepository;
     private final RecipeIngredientRepository recipeIngredientRepository;
@@ -51,6 +61,10 @@ public class RecipeService {
     private final UserInfoRepository userInfoRepository;
     private final AiReportService aiReportService;
     private final AllergenAnalysisService allergenAnalysisService;
+    private final PersonaService personaService;
+    private final VirtualConsumerRepository virtualConsumerRepository;
+    private final ConsumerFeedbackRepository consumerFeedbackRepository;
+    private final EvaluationService evaluationService;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     @Transactional
@@ -101,6 +115,8 @@ public class RecipeService {
                 .build());
 
         saveAllergens(saved, ingredients, allergenResponse);
+        List<VirtualConsumer> consumers = saveVirtualConsumers(marketReport, reportRequest.getRecipe(), summary, reportJson);
+        evaluationService.evaluateAndSave(marketReport, consumers, reportJson);
 
         return toResponse(saved, ingredients, marketReport, authorName);
     }
@@ -164,7 +180,11 @@ public class RecipeService {
             marketReportRepository.save(marketReport);
             if (marketReport.getId() != null) {
                 influencerRepository.deleteByReport_Id(marketReport.getId());
+                consumerFeedbackRepository.deleteByReport_Id(marketReport.getId());
+                virtualConsumerRepository.deleteByReport_Id(marketReport.getId());
             }
+            List<VirtualConsumer> consumers = saveVirtualConsumers(marketReport, reportRequest.getRecipe(), summary, reportJson);
+            evaluationService.evaluateAndSave(marketReport, consumers, reportJson);
         }
 
         if (ingredientsChanged) {
@@ -277,6 +297,9 @@ public class RecipeService {
         List<String> ingredientNames = ingredients == null ? List.of()
                 : ingredients.stream().map(RecipeIngredient::getIngredientName).toList();
         Map<String, Object> reportMap = report == null ? Collections.emptyMap() : readJsonMap(report.getContent());
+        if (report != null) {
+            reportMap.put("evaluationResults", readEvaluationResults(report));
+        }
         Map<String, Object> allergenMap = buildAllergenResponse(recipe);
         List<Map<String, Object>> influencers = readInfluencers(report);
         String influencerImage = influencers.isEmpty() ? null : readInfluencerImage(report);
@@ -408,6 +431,111 @@ public class RecipeService {
         return saveIngredients(recipe, ingredients);
     }
 
+    private List<VirtualConsumer> saveVirtualConsumers(MarketReport report, String recipeText, String summary, String reportJson) {
+        if (report == null || report.getId() == null) {
+            return List.of();
+        }
+        if (recipeText == null || recipeText.isBlank()) {
+            return List.of();
+        }
+        String personaSource = (summary != null && !summary.isBlank()) ? summary : reportJson;
+        if (personaSource == null || personaSource.isBlank()) {
+            return List.of();
+        }
+        try {
+            List<AgeGroupResult> targets = personaService.selectTopAgeGroups(recipeText, VIRTUAL_CONSUMER_COUNTRIES);
+            if (targets == null || targets.isEmpty()) {
+                return List.of();
+            }
+            List<VirtualConsumer> personas = personaService.generatePersonas(personaSource, targets);
+            if (personas == null || personas.isEmpty()) {
+                return List.of();
+            }
+            Map<String, String> reasonByKey = new HashMap<>();
+            for (AgeGroupResult target : targets) {
+                String key = personaKey(target.getCountry(), target.getAgeGroup());
+                reasonByKey.putIfAbsent(key, target.getReason());
+            }
+            List<VirtualConsumer> rows = new ArrayList<>();
+            for (VirtualConsumer persona : personas) {
+                if (persona == null) {
+                    continue;
+                }
+                String key = personaKey(persona.getCountry(), persona.getAgeGroup());
+                String reason = reasonByKey.getOrDefault(key, "");
+                rows.add(VirtualConsumer.builder()
+                        .report(report)
+                        .personaName(defaultIfBlank(persona.getPersonaName(), ""))
+                        .country(defaultIfBlank(persona.getCountry(), ""))
+                        .ageGroup(defaultIfBlank(persona.getAgeGroup(), ""))
+                        .reason(defaultIfBlank(reason, ""))
+                        .lifestyle(persona.getLifestyle())
+                        .foodPreference(defaultIfBlank(persona.getFoodPreference(), ""))
+                        .purchaseCriteria(persona.getPurchaseCriteria())
+                        .attitudeToKFood(persona.getAttitudeToKFood())
+                        .evaluationPerspective(persona.getEvaluationPerspective())
+                        .build());
+            }
+            if (!rows.isEmpty()) {
+                return virtualConsumerRepository.saveAll(rows);
+            }
+        } catch (Exception e) {
+            System.err.println("Failed to save virtual consumers for report " + report.getId() + ": " + e.getMessage());
+        }
+        return List.of();
+    }
+
+    private String personaKey(String country, String ageGroup) {
+        return String.format("%s|%s", country == null ? "" : country.trim(), ageGroup == null ? "" : ageGroup.trim());
+    }
+
+    private List<Map<String, Object>> readEvaluationResults(MarketReport report) {
+        if (report == null || report.getId() == null) {
+            return List.of();
+        }
+        List<ConsumerFeedback> feedbacks = consumerFeedbackRepository.findByReport_IdOrderByIdAsc(report.getId());
+        if (feedbacks == null || feedbacks.isEmpty()) {
+            return List.of();
+        }
+        Map<String, FeedbackAggregate> aggregates = new LinkedHashMap<>();
+        for (ConsumerFeedback feedback : feedbacks) {
+            String country = feedback.getCountry();
+            if (country == null || country.isBlank()) {
+                continue;
+            }
+            FeedbackAggregate agg = aggregates.computeIfAbsent(country, k -> new FeedbackAggregate());
+            if (feedback.getTotalScore() != null) {
+                agg.totalScoreSum += feedback.getTotalScore();
+                agg.totalScoreCount += 1;
+            }
+            if (agg.feedbacks.size() < 10) {
+                Map<String, Object> item = new LinkedHashMap<>();
+                item.put("personaName", feedback.getPersonaName());
+                item.put("positiveFeedback", feedback.getPositiveFeedback());
+                item.put("negativeFeedback", feedback.getNegativeFeedback());
+                agg.feedbacks.add(item);
+            }
+        }
+        return aggregates.entrySet().stream()
+                .map(entry -> {
+                    FeedbackAggregate agg = entry.getValue();
+                    int avgScore = agg.totalScoreCount == 0 ? 0
+                            : (int) Math.round((double) agg.totalScoreSum / agg.totalScoreCount);
+                    return Map.<String, Object>of(
+                            "country", entry.getKey(),
+                            "totalScore", avgScore,
+                            "feedbacks", agg.feedbacks
+                    );
+                })
+                .toList();
+    }
+
+    private static final class FeedbackAggregate {
+        private int totalScoreSum;
+        private int totalScoreCount;
+        private final List<Map<String, Object>> feedbacks = new ArrayList<>();
+    }
+
     private void saveAllergens(Recipe recipe, List<RecipeIngredient> ingredients, AllergenAnalysisResponse allergenResponse) {
         if (allergenResponse == null || ingredients == null || ingredients.isEmpty()) {
             return;
@@ -496,6 +624,7 @@ public class RecipeService {
             throw new IllegalStateException("Failed to serialize report", e);
         }
     }
+
 
     private Map<String, Object> readJsonMap(String value) {
         if (value == null || value.isBlank()) {

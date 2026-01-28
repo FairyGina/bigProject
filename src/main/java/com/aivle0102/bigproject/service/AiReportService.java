@@ -1,15 +1,17 @@
 package com.aivle0102.bigproject.service;
 
+import java.util.List;
+import java.util.Map;
+
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Service;
+
 import com.aivle0102.bigproject.client.OpenAiClient;
 import com.aivle0102.bigproject.dto.ReportRequest;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import lombok.RequiredArgsConstructor;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.stereotype.Service;
 
-import java.util.List;
-import java.util.Map;
+import lombok.RequiredArgsConstructor;
 
 @Service
 @RequiredArgsConstructor
@@ -27,7 +29,7 @@ public class AiReportService {
                 "model", model,
                 "messages", List.of(
                         Map.of("role", "system", "content",
-                                "You are a global food product strategy analyst."),
+                                "당신은 글로벌 식품 제품 전략 분석가입니다."),
                         Map.of("role", "user", "content", prompt)
                 ),
                 "temperature", 0.4
@@ -44,7 +46,7 @@ public class AiReportService {
                 "model", model,
                 "messages", List.of(
                         Map.of("role", "system", "content",
-                                "You are a global food product strategy analyst."),
+                                "당신은 글로벌 식품 제품 전략 분석가입니다."),
                         Map.of("role", "user", "content", prompt)
                 ),
                 "temperature", 0.4
@@ -68,98 +70,98 @@ public class AiReportService {
         try {
             return objectMapper.readValue(json, new TypeReference<>() {});
         } catch (Exception e) {
-            throw new IllegalStateException("Invalid report JSON from AI: " + content, e);
+            throw new IllegalStateException("AI가 반환한 리포트 JSON이 유효하지 않습니다: " + content, e);
         }
     }
 
     private String buildPrompt(ReportRequest r) {
         return """
-You are a global food product strategy analyst.
-Create a market analysis report in JSON for the recipe concept below.
-Write all text in Korean.
-Return ONLY valid JSON. No markdown, no commentary.
+        당신은 글로벌 식품 제품 전략 분석가입니다.
+        아래 레시피 콘셉트에 대한 시장 분석 리포트를 JSON으로 작성하세요.
+        모든 텍스트는 한국어로 작성하세요.
+        유효한 JSON만 반환하세요. 마크다운이나 설명은 포함하지 마세요.
 
-Recipe concept:
-%s
+        레시피 콘셉트:
+        %s
 
-Target conditions:
-- targetCountry: %s
-- targetPersona: %s
-- priceRange: %s
+        타깃 조건:
+        - targetCountry: %s
+        - targetPersona: %s
+        - priceRange: %s
 
-JSON schema (all keys required, use empty strings or empty arrays if unknown):
-{
-  "executiveSummary": {
-    "decision": "Go | No-Go | Conditional Go",
-    "marketFitScore": "0-100",
-    "keyPros": ["..."],
-    "topRisks": ["..."],
-    "successProbability": "0-100%% with brief rationale",
-    "recommendation": "..."
-  },
-  "marketSnapshot": {
-    "personaNeeds": {
-      "needs": "...",
-      "purchaseDrivers": "...",
-      "barriers": "..."
-    },
-    "trendSignals": {
-      "trendNotes": ["..."],
-      "priceRangeNotes": "...",
-      "channelSignals": "..."
-    },
-    "competition": {
-      "localCompetitors": "...",
-      "differentiation": "..."
-    }
-  },
-  "riskAssessment": {
-    "riskList": ["..."],
-    "mitigations": ["..."]
-  },
-  "swot": {
-    "strengths": ["..."],
-    "weaknesses": ["..."],
-    "opportunities": ["..."],
-    "threats": ["..."]
-  },
-  "conceptIdeas": [
-    {
-      "name": "...",
-      "scamperFocus": "...",
-      "positioning": "...",
-      "expectedEffect": "...",
-      "risks": "..."
-    }
-  ],
-  "kpis": [
-    {
-      "name": "...",
-      "target": "...",
-      "method": "...",
-      "insight": "..."
-    }
-  ],
-  "nextSteps": ["..."]
-}
-"""
-                .formatted(
-                        r.getRecipe(),
-                        r.getTargetCountry(),
-                        r.getTargetPersona(),
-                        r.getPriceRange()
-                );
+        JSON 스키마(모든 키는 필수, 모르면 빈 문자열 또는 빈 배열 사용):
+        {
+          "executiveSummary": {
+            "decision": "Go | No-Go | Conditional Go",
+            "marketFitScore": "0-100",
+            "keyPros": ["..."],
+            "topRisks": ["..."],
+            "successProbability": "0-100%% with brief rationale",
+            "recommendation": "..."
+          },
+          "marketSnapshot": {
+            "personaNeeds": {
+              "needs": "...",
+              "purchaseDrivers": "...",
+              "barriers": "..."
+            },
+            "trendSignals": {
+              "trendNotes": ["..."],
+              "priceRangeNotes": "...",
+              "channelSignals": "..."
+            },
+            "competition": {
+              "localCompetitors": "...",
+              "differentiation": "..."
+            }
+          },
+          "riskAssessment": {
+            "riskList": ["..."],
+            "mitigations": ["..."]
+          },
+          "swot": {
+            "strengths": ["..."],
+            "weaknesses": ["..."],
+            "opportunities": ["..."],
+            "threats": ["..."]
+          },
+          "conceptIdeas": [
+            {
+              "name": "...",
+              "scamperFocus": "...",
+              "positioning": "...",
+              "expectedEffect": "...",
+              "risks": "..."
+            }
+          ],
+          "kpis": [
+            {
+              "name": "...",
+              "target": "...",
+              "method": "...",
+              "insight": "..."
+            }
+          ],
+          "nextSteps": ["..."]
+        }
+        """
+        .formatted(
+                r.getRecipe(),
+                r.getTargetCountry(),
+                r.getTargetPersona(),
+                r.getPriceRange()
+        );
     }
 
     private String buildSummaryPrompt(String fullReport) {
         return """
-Summarize the following report JSON into a concise 1-page Korean executive summary.
-Focus on market opportunity, key risks, expected impact, and recommended next actions.
-Use short sentences.
+        다음 리포트 JSON을 1페이지 분량의 간결한 한국어 실행 요약으로 작성하세요.
+        시장 기회, 핵심 리스크, 기대 효과, 추천 후속 조치에 집중하세요.
+        짧은 문장을 사용하세요.
 
-Report JSON:
-%s
-"""
-                .formatted(fullReport);
+        Report JSON:
+        %s
+        """
+        .formatted(fullReport);
     }
 }

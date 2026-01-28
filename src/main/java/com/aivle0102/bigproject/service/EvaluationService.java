@@ -1,8 +1,10 @@
 package com.aivle0102.bigproject.service;
 
 import com.aivle0102.bigproject.client.OpenAiClient;
-import com.aivle0102.bigproject.dto.AiPersona;
-import com.aivle0102.bigproject.dto.PersonaEvaluation;
+import com.aivle0102.bigproject.domain.ConsumerFeedback;
+import com.aivle0102.bigproject.domain.MarketReport;
+import com.aivle0102.bigproject.domain.VirtualConsumer;
+import com.aivle0102.bigproject.repository.ConsumerFeedbackRepository;
 import tools.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -15,15 +17,17 @@ public class EvaluationService {
 
     private final OpenAiClient openAiClient;
     private final ObjectMapper objectMapper;
+    private final ConsumerFeedbackRepository consumerFeedbackRepository;
 
     // 각 AI 심사위원에게 생성한 보고서를 토대로 평가 진행
-    public List<PersonaEvaluation> evaluate(List<AiPersona> personas, String report) {
+    public List<ConsumerFeedback> evaluate(List<VirtualConsumer> personas, String report) {
 
-        List<PersonaEvaluation> results = new ArrayList<>();
+        List<ConsumerFeedback> results = new ArrayList<>();
 
-        for (AiPersona persona : personas) {
+        for (VirtualConsumer persona : personas) {
             try {
-                PersonaEvaluation evaluation = evaluateOnePersona(persona, report);
+                ConsumerFeedback evaluation = evaluateOnePersona(persona, report);
+                evaluation.setConsumer(persona);
 
                 results.add(evaluation);
 
@@ -35,8 +39,30 @@ public class EvaluationService {
         return results;
     }
 
-    // 한명의 심사의원 평가
-    private PersonaEvaluation evaluateOnePersona(AiPersona persona, String report) throws Exception {
+    // 심사의원 평가 저장
+    public List<ConsumerFeedback> evaluateAndSave(MarketReport report, List<VirtualConsumer> personas, String reportText) {
+        if (report == null || report.getId() == null || personas == null || personas.isEmpty()) {
+            return List.of();
+        }
+        List<ConsumerFeedback> results = new ArrayList<>();
+        for (VirtualConsumer persona : personas) {
+            try {
+                ConsumerFeedback evaluation = evaluateOnePersona(persona, reportText);
+                evaluation.setReport(report);
+                evaluation.setConsumer(persona);
+                results.add(evaluation);
+            } catch (Exception e) {
+                System.err.println("[에러발생] " + persona.getCountry() + " / " + persona.getPersonaName());
+            }
+        }
+        if (!results.isEmpty()) {
+            consumerFeedbackRepository.saveAll(results);
+        }
+        return results;
+    }
+
+    // 한명의 심사의원 평가 prompt
+    private ConsumerFeedback evaluateOnePersona(VirtualConsumer persona, String report) throws Exception {
 
         String prompt = buildEvaluationPrompt(persona, report);
 
@@ -51,12 +77,12 @@ public class EvaluationService {
         String raw = openAiClient.chatCompletion(body);
         String json = extractJson(raw);
 
-        return objectMapper.readValue(json, PersonaEvaluation.class);
+        return objectMapper.readValue(json, ConsumerFeedback.class);
     }
 
 
     // 생성한 보고서를 토대로 평가 진행 프롬프트
-    private String buildEvaluationPrompt(AiPersona persona, String report) {
+    private String buildEvaluationPrompt(VirtualConsumer persona, String report) {
 
         return """
         당신은 다음과 같은 소비자 AI 페르소나다.
@@ -94,8 +120,8 @@ public class EvaluationService {
         - 과장 금지
         - 점수는 0~100 사이 정수
         - 보고서에 근거한 평가만 작성
-        - IMPORTANT: Do NOT return identical totalScore for all countries.
-        - Use country/ageGroup differences to vary scores (at least 5~15 points when plausible).
+        - 중요: 모든 국가에 대해 동일한 totalScore를 반환하지 마세요.
+        - 국가/연령대 차이를 반영해 점수를 다르게 주세요(가능하면 최소 5~15점 차이).
         """
 
         .formatted(
@@ -108,7 +134,7 @@ public class EvaluationService {
     }
 
     // 페르소나 정보 -> 프롬프트화
-    private String personaToText(AiPersona p) {
+    private String personaToText(VirtualConsumer p) {
         return """
         국가: %s
         연령대: %s
@@ -123,7 +149,9 @@ public class EvaluationService {
                 p.getAgeGroup(),
                 p.getLifestyle(),
                 p.getFoodPreference(),
-                String.join(", ", p.getPurchaseCriteria()),
+                (p.getPurchaseCriteria() == null || p.getPurchaseCriteria().isEmpty())
+                        ? ""
+                        : String.join(", ", p.getPurchaseCriteria()),
                 p.getAttitudeToKFood(),
                 p.getEvaluationPerspective()
         );
