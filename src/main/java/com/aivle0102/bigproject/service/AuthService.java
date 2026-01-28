@@ -54,12 +54,9 @@ public class AuthService {
         }
 
         String hashedPassword = passwordEncoder.encode(request.getPassword());
-        String salt = hashedPassword.substring(0, 29);
         UserInfo userInfo = UserInfo.builder()
                 .userId(request.getUserId())
                 .userPw(hashedPassword)
-                .userPwHash(hashedPassword)
-                .salt(salt)
                 .userName(request.getUserName())
                 .birthDate(birthDate)
                 .userState("1")
@@ -87,7 +84,7 @@ public class AuthService {
             throw new CustomException("비밀번호 재설정이 필요합니다.", HttpStatus.FORBIDDEN, "PASSWORD_RESET_REQUIRED");
         }
 
-        if (!passwordEncoder.matches(request.getPassword(), userInfo.getUserPwHash())) {
+        if (!passwordEncoder.matches(request.getPassword(), userInfo.getUserPw())) {
             int nextFailCount = userInfo.getLoginFailCount() + 1;
             userInfo.setLoginFailCount(nextFailCount);
             userInfoRepository.save(userInfo);
@@ -126,14 +123,14 @@ public class AuthService {
             return;
         }
 
-        if (!passwordEncoder.matches(password, userInfo.getUserPwHash())) {
+        if (!passwordEncoder.matches(password, userInfo.getUserPw())) {
             throw new CustomException("비밀번호가 일치하지 않습니다.", HttpStatus.UNAUTHORIZED, "PASSWORD_MISMATCH");
         }
     }
 
     @Transactional
     public void resetPassword(ResetPasswordRequest request) {
-        log.debug("鍮꾨?踰덊샇 蹂寃?userId : {}", request.getUserId());
+        log.debug("resetPassword userId : {}", request.getUserId());
 
         passwordResetCodeService.assertVerified(request.getUserId());
 
@@ -156,15 +153,12 @@ public class AuthService {
 
 
         validatePasswordPolicy(request.getNewPassword(), userInfo.getUserId(), userInfo.getBirthDate());
-        if (passwordEncoder.matches(request.getNewPassword(), userInfo.getUserPwHash())) {
+        if (passwordEncoder.matches(request.getNewPassword(), userInfo.getUserPw())) {
             throw new CustomException("이전 비밀번호와 동일합니다.", HttpStatus.BAD_REQUEST, "PASSWORD_SAME_AS_BEFORE");
         }
 
         String hashedPassword = passwordEncoder.encode(request.getNewPassword());
-        String salt = hashedPassword.substring(0, 29);
         userInfo.setUserPw(hashedPassword);
-        userInfo.setUserPwHash(hashedPassword);
-        userInfo.setSalt(salt);
         userInfo.setPasswordChangedAt(OffsetDateTime.now());
         userInfo.setLoginFailCount(0);
         userInfoRepository.saveAndFlush(userInfo);
@@ -172,19 +166,19 @@ public class AuthService {
 
     @Transactional
     public void requestPasswordReset(PasswordResetRequest request) {
-        log.debug("鍮꾨?踰덊샇 ?ъ꽕???몄쬆 ?붿껌 userId: {}", request.getUserId());
+        log.debug("requestPasswordReset userId: {}", request.getUserId());
         passwordResetCodeService.sendResetCode(request.getUserId(), request.getUserName());
     }
 
     @Transactional
     public void verifyPasswordResetCode(PasswordResetVerifyRequest request) {
-        log.debug("鍮꾨?踰덊샇 ?ъ꽕???몄쬆 ?뺤씤 userId: {}", request.getUserId());
+        log.debug("verifyPasswordResetCode userId: {}", request.getUserId());
         passwordResetCodeService.verifyResetCode(request.getUserId(), request.getCode());
     }
 
     @Transactional
     public void withdraw(String userId) {
-        log.debug("?덊눜 ?좎? userId : {}", userId);
+        log.debug("회원탈퇴 userId : {}", userId);
         UserInfo userInfo = userInfoRepository.findByUserIdAndUserState(userId, "1")
                 .orElseThrow(() -> new CustomException("사용자를 찾을 수 없습니다.", HttpStatus.NOT_FOUND, "USER_NOT_FOUND"));
 
@@ -223,7 +217,7 @@ public class AuthService {
                 if (currentPassword == null || currentPassword.isBlank()) {
                     throw new CustomException("현재 비밀번호를 입력해주세요.", HttpStatus.BAD_REQUEST, "CURRENT_PASSWORD_REQUIRED");
                 }
-                if (!passwordEncoder.matches(currentPassword, userInfo.getUserPwHash())) {
+                if (!passwordEncoder.matches(currentPassword, userInfo.getUserPw())) {
                     throw new CustomException("비밀번호가 일치하지 않습니다.", HttpStatus.UNAUTHORIZED, "PASSWORD_MISMATCH");
                 }
             }
@@ -236,15 +230,12 @@ public class AuthService {
 
             
 
-            if (!isSocialAccount && passwordEncoder.matches(request.getNewPassword(), userInfo.getUserPwHash())) {
+            if (!isSocialAccount && passwordEncoder.matches(request.getNewPassword(), userInfo.getUserPw())) {
                 throw new CustomException("이전 비밀번호와 동일합니다.", HttpStatus.BAD_REQUEST, "PASSWORD_SAME_AS_BEFORE");
             }
 
             String hashedPassword = passwordEncoder.encode(request.getNewPassword());
-            String salt = hashedPassword.substring(0, 29);
             userInfo.setUserPw(hashedPassword);
-            userInfo.setUserPwHash(hashedPassword);
-            userInfo.setSalt(salt);
             userInfo.setPasswordChangedAt(OffsetDateTime.now());
             userInfo.setLoginFailCount(0);
         }

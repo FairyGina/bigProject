@@ -20,6 +20,7 @@ import java.time.LocalDateTime;
 public class NoticeComment {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Column(name = "notice_comment_id")
     private Long id;
 
     @ManyToOne(fetch = FetchType.LAZY)
@@ -29,10 +30,10 @@ public class NoticeComment {
     @Column(nullable = false, columnDefinition = "TEXT")
     private String content;
 
-    @Column(nullable = false, length = 50)
+    @Column(name = "user_id", nullable = false, length = 50)
     private String authorId;
 
-    @Column(nullable = false, length = 50)
+    @Transient
     private String authorName;
 
     @CreationTimestamp
@@ -45,5 +46,9 @@ public class NoticeComment {
 
     public void update(String content) {
         this.content = content;
+    }
+
+    public void setAuthorName(String authorName) {
+        this.authorName = authorName;
     }
 }

@@ -272,7 +272,7 @@ public class AllergenAnalysisService {
             if (!aiCandidates.isEmpty()) {
                 LOGGER.info(() -> "STEP3 AI fallback for ingredient=" + ingredient + " prdlstNmCandidates=" + aiCandidates);
                 items = searchItemsByPrdlstNmQueries(aiCandidates);
-                strategy = "AI_PRDLSTNM_EXPANSION";
+                strategy = "AI_PRDLSTNM_EXPANSION|AI_AGENT_USED";
                 items = filterExactPrdlstNmMatches(items, aiCandidates, true);
             }
         }
@@ -281,7 +281,7 @@ public class AllergenAnalysisService {
     }
 
     private IngredientEvidence buildEvidenceFromItems(String ingredient, List<JsonNode> items, List<String> obligation, String strategy) {
-        // HACCP 결과에서 allergy/rawmtrl 근거 기반 매칭
+        // HACCP results: allergy/rawmtrl based matching
         if (items == null || items.isEmpty()) {
             return IngredientEvidence.builder()
                     .ingredient(ingredient)
@@ -296,6 +296,7 @@ public class AllergenAnalysisService {
         Set<String> canonicalCandidates = new LinkedHashSet<>();
 
         int count = 0;
+        boolean aiAgentUsed = false;
         for (JsonNode item : items) {
             if (count >= MAX_EVIDENCE_ITEMS) break;
 
@@ -318,6 +319,7 @@ public class AllergenAnalysisService {
             if (!unknownAllergy && exactProductMatch) {
                 canonicalCandidates.addAll(allergenMatcher.extractCanonicalFromHaccpAllergyText(allergyRaw));
             } else if (rawmtrlRaw != null && !rawmtrlRaw.isBlank()) {
+                aiAgentUsed = true;
                 List<String> related = extractRelatedRawmtrlTokens(ingredient, rawmtrlRaw);
                 if (!related.isEmpty()) {
                     canonicalCandidates.addAll(allergenMatcher.extractCanonicalFromTokens(related));
@@ -333,9 +335,14 @@ public class AllergenAnalysisService {
 
         List<String> matched = allergenMatcher.filterByCountryObligation(canonicalCandidates, obligation);
 
+        String finalStrategy = strategy;
+        if (aiAgentUsed && finalStrategy != null && !finalStrategy.contains("AI_AGENT_USED")) {
+            finalStrategy = finalStrategy + "|AI_AGENT_USED";
+        }
+
         return IngredientEvidence.builder()
                 .ingredient(ingredient)
-                .searchStrategy(strategy)
+                .searchStrategy(finalStrategy)
                 .evidences(productEvidences)
                 .matchedAllergensForTargetCountry(matched)
                 .status("FOUND")
@@ -655,22 +662,10 @@ public class AllergenAnalysisService {
     }
 
     private String buildAllergenNote(String targetCountry, Map<String, String> directMatched, List<IngredientEvidence> evidences) {
-        String countryCode = (targetCountry == null) ? "" : targetCountry.toUpperCase(Locale.ROOT);
-        String countryName = allergenCatalogLoader.getCountryToName().getOrDefault(countryCode, countryCode);
-        countryName = translateCountryName(countryCode, countryName);
-        List<String> requiredAllergens = allergenCatalogLoader.getCountryToAllergens().getOrDefault(countryCode, List.of());
-        List<String> legalBasis = allergenCatalogLoader.getCountryToLegalBasis().getOrDefault(countryCode, List.of());
-
-        List<String> requiredKo = new ArrayList<>();
-        for (String a : requiredAllergens) {
-            requiredKo.add(translateAllergenName(a));
-        }
-        String requiredList = requiredKo.isEmpty() ? "해당 국가 기준 정보 없음" : String.join(", ", new LinkedHashSet<>(requiredKo));
-
         Map<String, Set<String>> ingredientToAllergens = new LinkedHashMap<>();
         if (directMatched != null) {
             for (Map.Entry<String, String> entry : directMatched.entrySet()) {
-                String allergen = translateAllergenName(entry.getKey());
+                String allergen = entry.getKey();
                 String ingredients = entry.getValue() == null ? "" : entry.getValue();
                 for (String ing : ingredients.split(",")) {
                     String trimmed = ing.trim();
@@ -682,47 +677,96 @@ public class AllergenAnalysisService {
             }
         }
 
+        boolean usedHaccp = false;
+        boolean usedAi = false;
         if (evidences != null) {
             for (IngredientEvidence ev : evidences) {
                 List<String> matched = ev.getMatchedAllergensForTargetCountry();
                 if (matched == null || matched.isEmpty()) continue;
+                String strategy = ev.getSearchStrategy();
+                if (strategy != null) {
+                    if (strategy.contains("HACCP")) usedHaccp = true;
+                    if (strategy.contains("AI_AGENT_USED") || strategy.startsWith("AI_")) usedAi = true;
+                }
                 ingredientToAllergens
                         .computeIfAbsent(ev.getIngredient(), k -> new LinkedHashSet<>())
-                        .addAll(matched.stream().map(this::translateAllergenName).toList());
+                        .addAll(matched);
             }
         }
 
+        return buildAllergenNoteFromDetected(targetCountry, ingredientToAllergens, usedHaccp, usedAi);
+    }
+
+    public String buildAllergenNoteFromDetected(
+            String targetCountry,
+            Map<String, Set<String>> ingredientToAllergens,
+            boolean usedHaccp,
+            boolean usedAi
+    ) {
+        String countryCode = (targetCountry == null) ? "" : targetCountry.toUpperCase(Locale.ROOT);
+        String countryName = allergenCatalogLoader.getCountryToName().getOrDefault(countryCode, countryCode);
+        countryName = translateCountryName(countryCode, countryName);
+        List<String> requiredAllergens = allergenCatalogLoader.getCountryToAllergens().getOrDefault(countryCode, List.of());
+        List<String> legalBasis = allergenCatalogLoader.getCountryToLegalBasis().getOrDefault(countryCode, List.of());
+
+        List<String> requiredKo = new ArrayList<>();
+        for (String a : requiredAllergens) {
+            requiredKo.add(translateAllergenName(a));
+        }
+        String requiredList = requiredKo.isEmpty()
+                ? "해당 국가 기준 알레르기 표기 의무 정보 없음"
+                : String.join(", ", new LinkedHashSet<>(requiredKo));
+
+        Map<String, Set<String>> safeMap = (ingredientToAllergens == null) ? Map.of() : ingredientToAllergens;
         List<String> parts = new ArrayList<>();
-        for (Map.Entry<String, Set<String>> entry : ingredientToAllergens.entrySet()) {
+        for (Map.Entry<String, Set<String>> entry : safeMap.entrySet()) {
             String ingredient = entry.getKey();
-            String allergens = String.join(", ", entry.getValue());
-            parts.add(ingredient + "(" + allergens + ")");
+            Set<String> allergensKo = new LinkedHashSet<>();
+            for (String allergen : entry.getValue()) {
+                allergensKo.add(translateAllergenName(allergen));
+            }
+            String allergensText = String.join(", ", allergensKo);
+            parts.add(ingredient + "(" + allergensText + ")");
         }
 
         String detectedList = parts.isEmpty() ? "" : String.join(", ", parts);
-        String basisText = legalBasis.isEmpty() ? "관련 규정 정보 없음" : String.join("; ", new LinkedHashSet<>(legalBasis));
+        String basisText = legalBasis.isEmpty()
+                ? "관련 규정 정보 없음"
+                : String.join("; ", new LinkedHashSet<>(legalBasis));
+
+        String caution;
+        if (usedHaccp && usedAi) {
+            caution = "본 결과는 HACCP 제품 검색과 AI 검색어 생성 및 분석을 사용하여 알레르기 성분을 검출하고 있으므로 검토가 필요합니다.";
+        } else if (usedHaccp) {
+            caution = "본 결과는 HACCP 제품 검색을 기반으로 알레르기 성분을 검출하고 있으므로 검토가 필요합니다.";
+        } else if (usedAi) {
+            caution = "본 결과는 AI 검색어 생성 및 분석을 사용하여 알레르기 성분을 검출하고 있으므로 검토가 필요합니다.";
+        } else {
+            caution = "본 결과는 일반적인 경우에 해당하는 재료 분석 및 알레르기 성분 검출이므로, 검토가 필요할 수 있습니다.";
+        }
+        String reference = String.format("보다 자세한 검토를 위하여 관련 규정(%s)을 참고하시기 바랍니다.", basisText);
 
         if (parts.isEmpty()) {
             return String.format(
                     "%s에서는 '%s'에 대해 필수적으로 알레르기 표기 의무 사항이 존재합니다. "
-                            + "현재 포함된 재료 중 알레르기 표기 사항이 없는 것으로 확인되었으나, "
-                            + "본 결과는 HACCP 검색과 AI 검색어 생성 및 분석을 사용하고 있으므로 검토가 필요합니다. "
-                            + "관련 규정(%s)을 참고하시기 바랍니다.",
+                            + "현재 포함된 재료 중 알레르기 표기 사항이 있을 수 있는 항목이 확인되지 않았습니다. "
+                            + "%s %s",
                     countryName,
                     requiredList,
-                    basisText
+                    caution,
+                    reference
             );
         }
 
         return String.format(
                 "%s에서는 '%s'에 대해 필수적으로 알레르기 표기 의무 사항이 존재합니다. "
                         + "현재 포함된 재료 %s에 대해 알레르기 표기 사항이 있을 수 있으므로 검토가 필요합니다. "
-                        + "본 결과는 HACCP 검색과 AI 검색어 생성 및 분석을 사용하고 있으므로 검토가 필요합니다. "
-                        + "관련 규정(%s)을 참고하시기 바랍니다.",
+                        + "%s %s",
                 countryName,
                 requiredList,
                 detectedList,
-                basisText
+                caution,
+                reference
         );
     }
 

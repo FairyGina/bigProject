@@ -35,11 +35,13 @@ public class OAuth2AuthenticationSuccessHandler implements AuthenticationSuccess
         OAuth2User oauthUser = (OAuth2User) authentication.getPrincipal();
         String userId = String.valueOf(oauthUser.getAttributes().get("userId"));
         String userName = String.valueOf(oauthUser.getAttributes().get("userName"));
+        boolean isNewUser = Boolean.TRUE.equals(oauthUser.getAttributes().get("isNewUser"));
         String token = jwtTokenProvider.createToken(userId, userName);
 
         String targetUrl = UriComponentsBuilder.fromUriString(redirectUri)
                 .queryParam("token", token)
                 .queryParam("userId", userId)
+                .queryParam("isNewUser", isNewUser)
                 .build()
                 .encode()
                 .toUriString();
