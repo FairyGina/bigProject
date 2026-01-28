@@ -99,6 +99,7 @@ public class SecurityConfig {
                                 "https://bp-frontend-app.wittymushroom-76c80f0d.centralindia.azurecontainerapps.io"));
                 configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS"));
                 configuration.setAllowedHeaders(List.of("*"));
+                configuration.setExposedHeaders(List.of("Authorization", "Content-Type", "X-XSRF-TOKEN"));
                 configuration.setAllowCredentials(true);
 
                 UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
