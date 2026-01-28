@@ -435,6 +435,8 @@ public class RecipeService {
         if (report == null || report.getId() == null) {
             return List.of();
         }
+        // Ensure unique constraint (report_id, personaName, country, ageGroup) doesn't collide
+        virtualConsumerRepository.deleteByReport_Id(report.getId());
         if (recipeText == null || recipeText.isBlank()) {
             return List.of();
         }
