@@ -44,11 +44,17 @@ public class SecurityConfig {
                                                         .withHttpOnlyFalse();
                                         csrfTokenRepository.setCookieCustomizer(cookie -> cookie
                                                         .path("/")
+                                                        .domain("azurecontainerapps.io")
                                                         .sameSite("None")
                                                         .secure(true));
                                         csrf.csrfTokenRepository(csrfTokenRepository)
                                                         .csrfTokenRequestHandler(new CsrfTokenRequestAttributeHandler())
-                                                        .ignoringRequestMatchers("/api/auth/**", "/api/csrf");
+                                                        .ignoringRequestMatchers(
+                                                                        "/api/auth/**",
+                                                                        "/api/csrf",
+                                                                        "/api/notices/**",
+                                                                        "/api/user/**",
+                                                                        "/api/recipes/**");
                                 })
                                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                                 .sessionManagement(session -> session
@@ -79,11 +85,17 @@ public class SecurityConfig {
                                                         .withHttpOnlyFalse();
                                         csrfTokenRepository.setCookieCustomizer(cookie -> cookie
                                                         .path("/")
+                                                        .domain("azurecontainerapps.io")
                                                         .sameSite("None")
                                                         .secure(true));
                                         csrf.csrfTokenRepository(csrfTokenRepository)
                                                         .csrfTokenRequestHandler(new CsrfTokenRequestAttributeHandler())
-                                                        .ignoringRequestMatchers("/api/auth/**", "/api/csrf");
+                                                        .ignoringRequestMatchers(
+                                                                        "/api/auth/**",
+                                                                        "/api/csrf",
+                                                                        "/api/notices/**",
+                                                                        "/api/user/**",
+                                                                        "/api/recipes/**");
                                 })
                                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                                 .sessionManagement(session -> session
