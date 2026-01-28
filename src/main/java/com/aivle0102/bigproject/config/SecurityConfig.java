@@ -43,6 +43,7 @@ public class SecurityConfig {
                                         CookieCsrfTokenRepository csrfTokenRepository = CookieCsrfTokenRepository
                                                         .withHttpOnlyFalse();
                                         csrfTokenRepository.setCookieCustomizer(cookie -> cookie
+                                                        .path("/")
                                                         .sameSite("None")
                                                         .secure(true));
                                         csrf.csrfTokenRepository(csrfTokenRepository)
@@ -52,8 +53,8 @@ public class SecurityConfig {
                                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                                 .sessionManagement(session -> session
                                                 .sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED))
-                                .addFilterAfter(csrfCookieFilter, CsrfFilter.class)
                                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
+                                .addFilterAfter(csrfCookieFilter, JwtAuthenticationFilter.class)
                                 .authorizeHttpRequests(auth -> auth
                                                 .requestMatchers("/api/auth/**").permitAll()
                                                 .requestMatchers("/api/health").permitAll()
@@ -77,16 +78,18 @@ public class SecurityConfig {
                                         CookieCsrfTokenRepository csrfTokenRepository = CookieCsrfTokenRepository
                                                         .withHttpOnlyFalse();
                                         csrfTokenRepository.setCookieCustomizer(cookie -> cookie
+                                                        .path("/")
                                                         .sameSite("None")
                                                         .secure(true));
                                         csrf.csrfTokenRepository(csrfTokenRepository)
+                                                        .csrfTokenRequestHandler(new CsrfTokenRequestAttributeHandler())
                                                         .ignoringRequestMatchers("/api/auth/**", "/api/csrf");
                                 })
                                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                                 .sessionManagement(session -> session
                                                 .sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-                                .addFilterAfter(csrfCookieFilter, CsrfFilter.class)
                                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
+                                .addFilterAfter(csrfCookieFilter, JwtAuthenticationFilter.class)
                                 .authorizeHttpRequests(auth -> auth
                                                 .requestMatchers("/api/auth/**").permitAll()
                                                 .requestMatchers("/api/health").permitAll()
