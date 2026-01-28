@@ -14,11 +14,15 @@ import java.time.LocalDateTime;
 @AllArgsConstructor
 @Builder
 public class RecipeNonconformingCase {
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+    @Column(name = "recipe_case_id")
+    private Long recipeCaseId;
 
+    @Column(name = "recipe_id")
     private Long recipeId;
+
     private String country;
     private String ingredient;
     private String caseId;
@@ -28,5 +32,6 @@ public class RecipeNonconformingCase {
     private String matchedIngredient;
 
     @CreationTimestamp
+    @Column(name = "created_at")
     private LocalDateTime createdAt;
 }
