@@ -7,16 +7,6 @@ export const AuthProvider = ({ children }) => {
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        // 초기 로딩 시 CSRF 토큰 발급 (상대 경로 사용으로 Nginx 프록시 활용)
-        fetch('/api/csrf', { credentials: 'include' })
-            .then((res) => (res.ok ? res.json() : null))
-            .then((data) => {
-                if (data?.token) {
-                    localStorage.setItem('csrfToken', data.token);
-                }
-            })
-            .catch(() => { });
-
         const token = localStorage.getItem('accessToken');
         if (token) {
             setUser({ token });

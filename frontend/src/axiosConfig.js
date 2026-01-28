@@ -21,10 +21,6 @@ axiosInstance.interceptors.request.use(
         if (token) {
             config.headers['Authorization'] = `Bearer ${token}`;
         }
-        const csrfToken = localStorage.getItem('csrfToken');
-        if (csrfToken && !config.headers['X-XSRF-TOKEN']) {
-            config.headers['X-XSRF-TOKEN'] = csrfToken;
-        }
         return config;
     },
     (error) => {
@@ -35,9 +31,6 @@ axiosInstance.interceptors.request.use(
 // Response interceptor: handle 401
 axiosInstance.interceptors.response.use(
     (response) => {
-        if (response.config?.url?.includes('/csrf') && response.data?.token) {
-            localStorage.setItem('csrfToken', response.data.token);
-        }
         return response;
     },
     (error) => {
