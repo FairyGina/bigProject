@@ -74,23 +74,65 @@ jobs:
           containerAppName: ${{ env.BACKEND_APP_NAME }}
           resourceGroup: ${{ env.RESOURCE_GROUP }}
 
-      # 5-1. Backend Startup & Readiness Probe 설정
+      # 5-1. Backend Startup & Readiness Probe 설정 (YAML 기반)
       - name: Configure Backend Health Probes
         run: |
+          # 현재 Container App 설정 추출
+          az containerapp show \
+            --name ${{ env.BACKEND_APP_NAME }} \
+            --resource-group ${{ env.RESOURCE_GROUP }} \
+            --output yaml > containerapp-backend.yaml
+          
+          # yq로 probes 설정 추가 (yq 설치)
+          wget -qO /usr/local/bin/yq https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64
+          chmod +x /usr/local/bin/yq
+          
+          # Startup Probe 추가
+          yq -i '.properties.template.containers[0].probes += [{
+            "type": "Startup",
+            "httpGet": {
+              "path": "/api/health",
+              "port": 8080,
+              "scheme": "HTTP"
+            },
+            "initialDelaySeconds": 90,
+            "periodSeconds": 10,
+            "failureThreshold": 3,
+            "timeoutSeconds": 5
+          }]' containerapp-backend.yaml
+          
+          # Readiness Probe 추가
+          yq -i '.properties.template.containers[0].probes += [{
+            "type": "Readiness",
+            "httpGet": {
+              "path": "/api/health",
+              "port": 8080,
+              "scheme": "HTTP"
+            },
+            "periodSeconds": 10,
+            "successThreshold": 1,
+            "failureThreshold": 3,
+            "timeoutSeconds": 5
+          }]' containerapp-backend.yaml
+          
+          # Liveness Probe 추가
+          yq -i '.properties.template.containers[0].probes += [{
+            "type": "Liveness",
+            "httpGet": {
+              "path": "/api/health",
+              "port": 8080,
+              "scheme": "HTTP"
+            },
+            "periodSeconds": 30,
+            "failureThreshold": 3,
+            "timeoutSeconds": 5
+          }]' containerapp-backend.yaml
+          
+          # YAML 적용
           az containerapp update \
             --name ${{ env.BACKEND_APP_NAME }} \
             --resource-group ${{ env.RESOURCE_GROUP }} \
-            --set-env-vars "JAVA_TOOL_OPTIONS=-XX:+UseContainerSupport -XX:MaxRAMPercentage=75.0" \
-            --container-name ${{ env.BACKEND_APP_NAME }} \
-            --startup-probe-path "/api/health" \
-            --startup-probe-port 8080 \
-            --startup-probe-initial-delay 90 \
-            --startup-probe-period 10 \
-            --startup-probe-failure-threshold 3 \
-            --readiness-probe-path "/api/health" \
-            --readiness-probe-port 8080 \
-            --readiness-probe-success-threshold 1 \
-            --readiness-probe-period 10
+            --yaml containerapp-backend.yaml
 
       # 6. Frontend Container App 업데이트
       - name: Deploy Frontend to ACA
