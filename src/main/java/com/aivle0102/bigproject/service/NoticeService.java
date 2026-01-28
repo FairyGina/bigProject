@@ -30,13 +30,17 @@ public class NoticeService {
     public List<NoticeResponse> getNotices() {
         return noticeRepository.findAllByOrderByCreatedAtDesc()
                 .stream()
-                .map(NoticeResponse::from)
+                .map(notice -> {
+                    notice.setAuthorName(resolveUserName(notice.getAuthorId()));
+                    return NoticeResponse.from(notice);
+                })
                 .toList();
     }
 
     @Transactional(readOnly = true)
     public NoticeResponse getNotice(Long noticeId) {
         Notice notice = findNotice(noticeId);
+        notice.setAuthorName(resolveUserName(notice.getAuthorId()));
         return NoticeResponse.from(notice);
     }
 
@@ -72,7 +76,10 @@ public class NoticeService {
         findNotice(noticeId);
         return noticeCommentRepository.findAllByNoticeIdOrderByCreatedAtAsc(noticeId)
                 .stream()
-                .map(NoticeCommentResponse::from)
+                .map(comment -> {
+                    comment.setAuthorName(resolveUserName(comment.getAuthorId()));
+                    return NoticeCommentResponse.from(comment);
+                })
                 .toList();
     }
 
@@ -127,5 +134,11 @@ public class NoticeService {
         if (!authorId.equals(userId)) {
             throw new CustomException("권한이 없습니다.", HttpStatus.FORBIDDEN, "FORBIDDEN");
         }
+    }
+
+    private String resolveUserName(String userId) {
+        return userInfoRepository.findByUserId(userId)
+                .map(UserInfo::getUserName)
+                .orElse(userId);
     }
 }

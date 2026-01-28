@@ -62,7 +62,8 @@ const RecipeReport = () => {
                 const meta = JSON.parse(cachedMeta);
                 if (
                     meta.title !== (currentRecipe?.title ?? '') ||
-                    meta.summary !== (currentRecipe?.summary ?? '')
+                    meta.summary !== (currentRecipe?.summary ?? '') ||
+                    meta.createdAt !== (currentRecipe?.createdAt ?? '')
                 ) {
                     sessionStorage.removeItem(`recipeInfluencers:${currentRecipe?.id}`);
                     sessionStorage.removeItem(`recipeInfluencerImage:${currentRecipe?.id}`);
@@ -134,8 +135,8 @@ const RecipeReport = () => {
     }
 
     const isOwner =
-        (userId && recipe.authorId === userId) ||
-        (!userId && recipe.authorName && recipe.authorName === rawName);
+        (userId && recipe.user_id === userId) ||
+        (!userId && recipe.user_name && recipe.user_name === rawName);
 
     return (
         <div className="relative">

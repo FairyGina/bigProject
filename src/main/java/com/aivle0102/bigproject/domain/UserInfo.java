@@ -19,19 +19,13 @@ public class UserInfo {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "userseq")
-    private Integer userSeq;
+    private Long userSeq;
 
     @Column(name = "userid", nullable = false, length = 50, unique = true)
     private String userId;
 
-    @Column(name = "userpw", nullable = false, length = 200)
+    @Column(name = "userpw", nullable = false, length = 255)
     private String userPw;
-
-    @Column(name = "userpwhash", nullable = false, length = 255)
-    private String userPwHash;
-
-    @Column(name = "salt", nullable = false, length = 60)
-    private String salt;
 
     @Column(name = "username", nullable = false, length = 50)
     private String userName;
@@ -66,13 +60,6 @@ public class UserInfo {
         this.userPw = userPw;
     }
 
-    public void setUserPwHash(String userPwHash) {
-        this.userPwHash = userPwHash;
-    }
-
-    public void setSalt(String salt) {
-        this.salt = salt;
-    }
 
     public void setLoginFailCount(int loginFailCount) {
         this.loginFailCount = loginFailCount;
