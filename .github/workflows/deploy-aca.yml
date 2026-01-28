@@ -31,20 +31,11 @@ jobs:
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
-      # 2. ACR 로그인 (Docker 로그인 방식)
-      - name: ACR Login for Backend
-        uses: azure/docker-login@v1
-        with:
-          login-server: ${{ env.BACKEND_ACR }}.azurecr.io
-          username: ${{ secrets.BACKEND_ACR_USERNAME }}
-          password: ${{ secrets.BACKEND_ACR_PASSWORD }}
-
-      - name: ACR Login for Frontend
-        uses: azure/docker-login@v1
-        with:
-          login-server: ${{ env.FRONTEND_ACR }}.azurecr.io
-          username: ${{ secrets.FRONTEND_ACR_USERNAME }}
-          password: ${{ secrets.FRONTEND_ACR_PASSWORD }}
+      # 2. ACR 로그인 (Azure CLI 방식 - 토큰 자동 획득)
+      - name: ACR Login
+        run: |
+          az acr login --name ${{ env.BACKEND_ACR }} --expose-token --output none
+          az acr login --name ${{ env.FRONTEND_ACR }} --expose-token --output none
 
       # 3. Backend 이미지 빌드 및 푸시
       - name: Build and Push Backend Image
