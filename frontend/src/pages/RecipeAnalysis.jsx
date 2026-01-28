@@ -372,7 +372,7 @@ const RecipeAnalysis = () => {
             try {
                 console.log('persona flow start', { recipeId: recipe?.id, hasReport: Boolean(report) });
                 const countries = Object.keys(countryCoords)
-                    .filter((c) => /[가-힣]/.test(c))
+                    .filter((c) => /[\uAC00-\uD7A3]/.test(c))
                     .slice(0, 10);
                 const ageRes = await axiosInstance.post('/api/persona/age-group', {
                     recipe: `${recipe.title || ''} ${recipe.description || ''}`.trim(),
