@@ -16,6 +16,21 @@ const RecipeReport = () => {
     const [error, setError] = useState('');
     const [deleteLoading, setDeleteLoading] = useState(false);
 
+    const targetMetaKey = (recipeId) => `recipeTargetMeta:${recipeId}`;
+    const readTargetMeta = (recipeId) => {
+        const cached =
+            sessionStorage.getItem(targetMetaKey(recipeId)) ||
+            localStorage.getItem(targetMetaKey(recipeId));
+        if (!cached) {
+            return null;
+        }
+        try {
+            return JSON.parse(cached);
+        } catch (err) {
+            return null;
+        }
+    };
+
     React.useEffect(() => {
         const fetchRecipe = async () => {
             try {
@@ -39,13 +54,17 @@ const RecipeReport = () => {
         if (!recipe) {
             return null;
         }
+        const targetMeta = readTargetMeta(recipe.id) || {};
+        const resolvedCountry = targetMeta.targetCountry || 'US';
+        const resolvedPersona = targetMeta.targetPersona || '20~30대 직장인, 간편식 선호';
+        const resolvedPrice = targetMeta.priceRange || 'USD 6~9';
         const ingredientsText = (recipe.ingredients || []).join(', ');
         const stepsText = (recipe.steps || []).join('\n');
         return {
             recipe: `${recipe.title}\n${recipe.description || ''}\n재료: ${ingredientsText}\n조리 단계:\n${stepsText}`,
-            targetCountry: '미국',
-            targetPersona: '20~30대 직장인, 간편식 선호',
-            priceRange: 'USD 6~9',
+            targetCountry: resolvedCountry,
+            targetPersona: resolvedPersona,
+            priceRange: resolvedPrice,
         };
     }, [recipe]);
 

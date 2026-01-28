@@ -2,7 +2,7 @@ package com.aivle0102.bigproject.service;
 
 import com.aivle0102.bigproject.client.OpenAiClient;
 import com.aivle0102.bigproject.dto.AgeGroupResult;
-import com.aivle0102.bigproject.dto.AiPersona;
+import com.aivle0102.bigproject.domain.VirtualConsumer;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import tools.jackson.databind.ObjectMapper;
@@ -42,14 +42,14 @@ public class PersonaService {
 
 
     //2. 국가별 Top1 연령대의 AI 페르소나 각각 생성 배치
-    public List<AiPersona> generatePersonas(String recipeSummary, List<AgeGroupResult> targets) {
+    public List<VirtualConsumer> generatePersonas(String recipeSummary, List<AgeGroupResult> targets) {
 
-        List<AiPersona> personas = new ArrayList<>();
+        List<VirtualConsumer> personas = new ArrayList<>();
         if (targets == null || targets.isEmpty()) return personas;
 
         for (AgeGroupResult t : targets) {
             try {
-                AiPersona persona = generatePersonaOne(recipeSummary, t.getCountry(), t.getAgeGroup());
+                VirtualConsumer persona = generatePersonaOne(recipeSummary, t.getCountry(), t.getAgeGroup());
                 personas.add(persona);
 
             } catch (Exception e) {
@@ -63,7 +63,7 @@ public class PersonaService {
 
 
     // 단일 국가 1명 생성
-    private AiPersona generatePersonaOne(String recipeSummary, String country, String ageGroup) throws Exception {
+    private VirtualConsumer generatePersonaOne(String recipeSummary, String country, String ageGroup) throws Exception {
 
         String prompt = buildPersonaPrompt(recipeSummary, country, ageGroup);
 
@@ -78,7 +78,7 @@ public class PersonaService {
         String content = openAiClient.chatCompletion(body);
 
         // JSON 파싱
-        return objectMapper.readValue(content, AiPersona.class);
+        return objectMapper.readValue(content, VirtualConsumer.class);
     }
 
 
