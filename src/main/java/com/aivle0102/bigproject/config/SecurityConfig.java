@@ -36,7 +36,16 @@ public class SecurityConfig {
         @ConditionalOnProperty(name = "app.oauth2.enabled", havingValue = "true")
         public SecurityFilterChain oauthSecurityFilterChain(HttpSecurity http) throws Exception {
                 http
-                                .csrf(csrf -> csrf.disable())
+                                .csrf(csrf -> {
+                                        CookieCsrfTokenRepository csrfTokenRepository = CookieCsrfTokenRepository
+                                                        .withHttpOnlyFalse();
+                                        csrfTokenRepository.setCookieCustomizer(cookie -> cookie
+                                                        .sameSite("None")
+                                                        .secure(true));
+                                        csrf.csrfTokenRepository(csrfTokenRepository)
+                                                        .csrfTokenRequestHandler(new CsrfTokenRequestAttributeHandler())
+                                                        .ignoringRequestMatchers("/api/auth/**", "/api/csrf");
+                                })
                                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                                 .sessionManagement(session -> session
                                                 .sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED))
@@ -60,7 +69,15 @@ public class SecurityConfig {
         @ConditionalOnProperty(name = "app.oauth2.enabled", havingValue = "false", matchIfMissing = true)
         public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
                 http
-                                .csrf(csrf -> csrf.disable())
+                                .csrf(csrf -> {
+                                        CookieCsrfTokenRepository csrfTokenRepository = CookieCsrfTokenRepository
+                                                        .withHttpOnlyFalse();
+                                        csrfTokenRepository.setCookieCustomizer(cookie -> cookie
+                                                        .sameSite("None")
+                                                        .secure(true));
+                                        csrf.csrfTokenRepository(csrfTokenRepository)
+                                                        .ignoringRequestMatchers("/api/auth/**", "/api/csrf");
+                                })
                                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                                 .sessionManagement(session -> session
                                                 .sessionCreationPolicy(SessionCreationPolicy.STATELESS))
