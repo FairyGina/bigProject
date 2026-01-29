@@ -35,7 +35,7 @@ const labels = {
     ingredientAutoEmpty: '조리 단계를 먼저 입력해주세요.',
     ingredientAutoFail: '재료 자동 추출에 실패했습니다.',
     guideTitle: '레시피 생성 안내',
-    guideBody: '생성까지 2~3분정도 소요됩니다.',
+    guideBody: '생성까지 약 5분정도 소요됩니다.',
     createLabel: '레시피 생성',
     updateLabel: '레시피 수정',
     creatingLabel: '생성 중...',
@@ -46,6 +46,8 @@ const labels = {
     targetPersona: '20~30대 직장인, 간편식 선호',
     ingredientAutoHelpLabel: '자동 추가 안내',
     ingredientAutoHelpDesc: '입력한 조리법에서 재료를 자동으로 추출하여 추가시켜줍니다.',
+    targetRecommendHelpLabel: 'AI 추천 안내',
+    targetRecommendHelpDesc: '레시피 기본 정보(제목, 설명, 재료, 조리 단계)를 모두 입력한 후 입력된 것들을 바탕으로 타겟을 AI가 추천해줍니다.',
     targetSectionLabel: '리포트 타겟 설정',
     targetCountryLabel: '국가',
     targetPersonaLabel: '페르소나',
@@ -431,7 +433,7 @@ const UserCreateRecipe = () => {
     };
 
     const HelpTooltip = ({ label, description }) => (
-        <span className="relative inline-flex items-center group ml-2 align-middle">
+        <span className="relative inline-flex items-center group align-middle">
             <span className="inline-flex h-5 w-5 items-center justify-center rounded-full border border-[color:var(--border)] text-[10px] font-semibold text-[color:var(--text-muted)] bg-[color:var(--surface)]">
                 ?
             </span>
@@ -948,14 +950,20 @@ const UserCreateRecipe = () => {
                                 <div className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[0_12px_30px_var(--shadow)] p-6 space-y-4">
                                     <div className="flex items-center justify-between">
                                         <h3 className="text-lg font-semibold text-[color:var(--text)]">{labels.targetSectionLabel}</h3>
-                                        <button
-                                            type="button"
-                                            onClick={handleRecommendTargets}
-                                            disabled={!canRecommendTargets || targetRecommendLoading}
-                                            className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[color:var(--surface-muted)] border border-[color:var(--border)] text-xs text-[color:var(--text)] disabled:opacity-60"
-                                        >
-                                            {targetRecommendLoading ? labels.targetRecommendLoading : labels.targetRecommendLabel}
-                                        </button>
+                                        <div className="flex items-center gap-2">
+                                            <button
+                                                type="button"
+                                                onClick={handleRecommendTargets}
+                                                disabled={!canRecommendTargets || targetRecommendLoading}
+                                                className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[color:var(--surface-muted)] border border-[color:var(--border)] text-xs text-[color:var(--text)] disabled:opacity-60"
+                                            >
+                                                {targetRecommendLoading ? labels.targetRecommendLoading : labels.targetRecommendLabel}
+                                            </button>
+                                            <HelpTooltip
+                                                label={labels.targetRecommendHelpLabel}
+                                                description={labels.targetRecommendHelpDesc}
+                                            />
+                                        </div>
                                     </div>
                                     <div className="grid grid-cols-1 gap-4">
                                         <div>
@@ -1084,12 +1092,14 @@ const UserCreateRecipe = () => {
                                     >
                                         {loading ? (isEditingMode ? labels.updatingLabel : labels.creatingLabel) : isEditingMode ? labels.updateLabel : labels.createLabel}
                                     </button>
-                                    {loading && (
-                                        <div className="flex items-center gap-2 text-xs text-[color:var(--text-muted)]">
-                                            <span className="h-4 w-4 rounded-full border-2 border-[color:var(--border)] border-t-[color:var(--accent)] animate-spin" />
-                                            <span>{progress}%</span>
-                                        </div>
-                                    )}
+                                    <div
+                                        className={`flex items-center gap-2 text-xs text-[color:var(--text-muted)] ${
+                                            loading ? 'ml-2 w-[72px] opacity-100' : 'ml-0 w-0 opacity-0'
+                                        } overflow-hidden pointer-events-none`}
+                                    >
+                                        <span className="h-4 w-4 rounded-full border-2 border-[color:var(--border)] border-t-[color:var(--accent)] animate-spin" />
+                                        <span className="min-w-[4ch] text-right tabular-nums">{progress}%</span>
+                                    </div>
                                 </div>
                                 {isEdit && (
                                     <button
