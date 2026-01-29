@@ -114,6 +114,7 @@ public class InfluencerDiscoveryService {
         String instructions = """
                 너는 글로벌 식품기업의 마케팅/브랜드 PM이다.
                 아래 후보들은 SerpApi(구글) 검색 결과에서 추출한 링크/요약이다.
+                Write rationale, riskNotes, and confidenceNote in Korean.
 
                 목표:
                 1) '실존' 인플루언서를 3~5명 추천하라.

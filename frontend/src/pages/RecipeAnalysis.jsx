@@ -846,7 +846,7 @@ const RecipeAnalysis = () => {
                     </div>
                 )}
 
-                <div className="mt-8 grid grid-cols-1 lg:grid-cols-[1.3fr_1fr] gap-6">
+                <div className="mt-8 grid grid-cols-1 lg:grid-cols-[1fr_1fr] gap-6">
                     <div className="lg:col-span-2 rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[0_12px_30px_var(--shadow)] p-6">
                         <div className="flex items-center justify-between mb-4">
                             <h3 className="text-lg font-semibold text-[color:var(--text)]">Global Market Map</h3>
@@ -862,7 +862,7 @@ const RecipeAnalysis = () => {
                             )}
                         </div>
                     </div>
-                    <div className="space-y-6">
+                    <div className="space-y-6 min-w-0">
                         <div className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[0_12px_30px_var(--shadow)] p-6">
                             <div className="flex items-center justify-between">
                                 <h3 className="text-lg font-semibold text-[color:var(--text)]">핵심 요약</h3>
@@ -980,7 +980,7 @@ const RecipeAnalysis = () => {
                         </div>
                     </div>
 
-                    <div className="space-y-6">
+                    <div className="space-y-6 min-w-0">
                         <div className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[0_12px_30px_var(--shadow)] p-6">
                             <div className="flex items-center justify-between">
                                 <h3 className="text-lg font-semibold text-[color:var(--text)]">요약본</h3>
@@ -1008,7 +1008,7 @@ const RecipeAnalysis = () => {
                                     {influencers.slice(0, 3).map((inf, idx) => (
                                         <div key={`${inf.name}-${idx}`} className="rounded-xl border border-[color:var(--border)] bg-[color:var(--surface-muted)] p-4">
                                             <p className="text-sm font-semibold text-[color:var(--text)]">{inf.name}</p>
-                                            <p className="text-xs text-[color:var(--text-soft)]">{inf.platform || '-'} · {inf.profileUrl || '링크 없음'}</p>
+                                            <p className="text-xs text-[color:var(--text-soft)] break-all">{inf.platform || '-'} · {inf.profileUrl || '링크 없음'}</p>
                                             <p className="mt-2 text-xs text-[color:var(--text-muted)]">{inf.rationale || '-'}</p>
                                             {inf.riskNotes && (
                                                 <p className="mt-2 text-xs text-[color:var(--danger)]">주의: {inf.riskNotes}</p>
