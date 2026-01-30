@@ -10,6 +10,7 @@ const MainBoard = () => {
     const maskedName = rawName.length <= 1 ? '*' : `${rawName.slice(0, -1)}*`;
 
     const [recipes, setRecipes] = useState([]);
+    const [searchTerm, setSearchTerm] = useState('');
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
 
@@ -29,6 +30,11 @@ const MainBoard = () => {
 
         fetchRecipes();
     }, []);
+
+    const normalizedSearch = searchTerm.trim().toLowerCase();
+    const filteredRecipes = normalizedSearch
+        ? recipes.filter((recipe) => (recipe.title || '').toLowerCase().includes(normalizedSearch))
+        : recipes;
 
     return (
         <div className="relative">
@@ -52,6 +58,30 @@ const MainBoard = () => {
                     </div>
                 </div>
 
+                <div className="mt-6">
+                    <label className="block text-xs font-semibold uppercase tracking-[0.3em] text-[color:var(--text-soft)] mb-2">
+                        제목 검색
+                    </label>
+                    <div className="flex items-center gap-2 rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface)] px-4 py-3 shadow-[0_10px_25px_var(--shadow)]">
+                        <input
+                            type="text"
+                            value={searchTerm}
+                            onChange={(event) => setSearchTerm(event.target.value)}
+                            placeholder="제목으로 레시피를 검색합니다"
+                            className="w-full bg-transparent text-sm text-[color:var(--text)] placeholder:text-[color:var(--text-soft)] focus:outline-none"
+                        />
+                        {searchTerm && (
+                            <button
+                                type="button"
+                                onClick={() => setSearchTerm('')}
+                                className="text-xs font-semibold text-[color:var(--text-soft)] hover:text-[color:var(--text)] transition"
+                            >
+                                Clear
+                            </button>
+                        )}
+                    </div>
+                </div>
+
                 <div className="mt-8">
                     {loading && <span className="text-sm text-[color:var(--text-muted)]">레시피를 불러오는 중입니다.</span>}
                 </div>
@@ -61,7 +91,7 @@ const MainBoard = () => {
                 )}
 
                 <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {recipes.map((recipe) => (
+                    {filteredRecipes.map((recipe) => (
                         <button
                             type="button"
                             key={recipe.id}
@@ -84,6 +114,10 @@ const MainBoard = () => {
 
                 {!loading && recipes.length === 0 && (
                     <p className="mt-6 text-sm text-[color:var(--text-muted)]">등록된 레시피가 없습니다.</p>
+                )}
+
+                {!loading && recipes.length > 0 && filteredRecipes.length === 0 && (
+                    <p className="mt-6 text-sm text-[color:var(--text-muted)]">일치하는 레시피가 없습니다.</p>
                 )}
             </div>
         </div>
