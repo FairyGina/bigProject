@@ -71,6 +71,7 @@ public class AllergenAnalysisService {
             case "IN": return "IN";
             case "VN": return "VN";
             case "TH": return "TH";
+            case "KR": return "KR";
             default:
                 break;
         }
@@ -84,10 +85,13 @@ public class AllergenAnalysisService {
             case "인도": return "IN";
             case "베트남": return "VN";
             case "태국": return "TH";
+            case "한국": return "KR";
+            case "대한민국": return "KR";
             default:
                 return upper;
         }
     }
+
     private final RestTemplate restTemplate = new RestTemplate();
 
     public AllergenAnalysisResponse analyze(ReportRequest request) {

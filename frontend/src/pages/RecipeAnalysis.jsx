@@ -27,6 +27,7 @@ const RecipeAnalysis = () => {
     const mapInfoWindowRef = useRef(null);
     const personaRunRef = useRef(null);
     const [evaluationResults, setEvaluationResults] = useState([]);
+    const showMap = Array.isArray(evaluationResults) && evaluationResults.length > 0;
     const targetMetaKey = (recipeId) => `recipeTargetMeta:${recipeId}`;
     const readTargetMeta = (recipeId) => {
         const cached =
@@ -80,21 +81,30 @@ const RecipeAnalysis = () => {
         }
     }, [id]);
 
+    const report = recipe?.report || null;
+    const hasReport = report && Object.keys(report).length > 0;
+    const isRecipeOnly = !hasReport;
+    const reportSections = Array.isArray(report?._sections) ? report._sections : null;
+    const allowInfluencer = reportSections
+        ? reportSections.includes('influencer') || reportSections.includes('influencerImage')
+        : Boolean(recipe?.influencers?.length || recipe?.influencerImageBase64);
+    const allowInfluencerImage = reportSections
+        ? reportSections.includes('influencerImage')
+        : Boolean(recipe?.influencerImageBase64);
+
     useEffect(() => {
         const seededInfluencers = location.state?.influencers;
         const seededImage = location.state?.influencerImageBase64;
-        if (Array.isArray(seededInfluencers) && seededInfluencers.length) {
+        if (Array.isArray(seededInfluencers) && seededInfluencers.length && allowInfluencer) {
             setInfluencers(seededInfluencers);
         }
-        if (seededImage) {
+        if (seededImage && allowInfluencerImage) {
             setImageBase64(seededImage);
         }
-    }, [location.state]);
-
-    const report = recipe?.report || null;
+    }, [allowInfluencer, allowInfluencerImage, location.state]);
 
     useEffect(() => {
-        if (loading) {
+        if (!showMap) {
             return;
         }
         const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
@@ -136,7 +146,7 @@ const RecipeAnalysis = () => {
                 ],
             });
             mapInstanceRef.current = map;
-            window.google.maps.event.addListenerOnce(map, 'idle', () => setMapReady(true));
+            setMapReady(true);
         };
 
         const existing = document.querySelector('script[data-google-maps]');
@@ -159,7 +169,7 @@ const RecipeAnalysis = () => {
         script.dataset.googleMaps = 'true';
         script.onerror = () => setMapError('Google Maps script failed to load.');
         document.body.appendChild(script);
-    }, [loading]);
+    }, [showMap]);
 
     useEffect(() => {
         if (Array.isArray(recipe?.influencers) && recipe.influencers.length) {
@@ -178,11 +188,26 @@ const RecipeAnalysis = () => {
             if (!recipe) {
                 return;
             }
+            if (!allowInfluencer) {
+                setInfluencers([]);
+                setImageBase64('');
+                return;
+            }
             if (Array.isArray(recipe?.influencers) && recipe.influencers.length) {
                 setInfluencers(recipe.influencers);
             }
             if (recipe?.influencerImageBase64) {
-                setImageBase64(recipe.influencerImageBase64);
+                if (allowInfluencerImage) {
+                    setImageBase64(recipe.influencerImageBase64);
+                } else {
+                    setImageBase64('');
+                }
+            }
+            if (
+                (recipe?.influencers?.length || 0) > 0 &&
+                (!allowInfluencerImage || recipe?.influencerImageBase64 || imageBase64)
+            ) {
+                return;
             }
             if ((recipe?.influencers?.length || 0) > 0 && recipe?.influencerImageBase64) {
                 return;
@@ -215,8 +240,14 @@ const RecipeAnalysis = () => {
                     // ignore cache parse errors
                 }
             }
-            if (cachedImage && !imageBase64) {
+            if (cachedImage && !imageBase64 && allowInfluencerImage) {
                 setImageBase64(cachedImage);
+            }
+            if (
+                cachedInfluencers &&
+                (!allowInfluencerImage || cachedImage || imageBase64)
+            ) {
+                return;
             }
             if (cachedInfluencers && cachedImage) {
                 return;
@@ -253,28 +284,28 @@ const RecipeAnalysis = () => {
                     }
                 }
 
-                const top = recs[0];
-                if (top?.name && top?.imageUrl) {
-                    const imageRes = await axiosInstance.post('/api/images/generate', {
-                        recipe: recipe.title,
-                        influencerName: top.name,
-                        influencerImageUrl: top.imageUrl,
-                        additionalStyle: 'clean studio, natural lighting',
-                    });
-                    setImageBase64(imageRes.data?.imageBase64 || '');
-                    if (imageRes.data?.imageBase64) {
-                        try {
-                            sessionStorage.setItem(`recipeInfluencerImage:${recipe.id}`, imageRes.data.imageBase64);
-                        } catch (err) {
-                            // ignore cache errors
-                        }
-                        try {
-                            localStorage.setItem(`recipeInfluencerImage:${recipe.id}`, imageRes.data.imageBase64);
-                        } catch (err) {
-                            // ignore cache errors
-                        }
+            const top = recs.find((item) => item?.name && item?.imageUrl) || recs.find((item) => item?.name);
+            if (allowInfluencerImage && top?.name) {
+                const imageRes = await axiosInstance.post('/api/images/generate', {
+                    recipe: recipe.title,
+                    influencerName: top.name,
+                    influencerImageUrl: top.imageUrl || '',
+                    additionalStyle: 'clean studio, natural lighting',
+                });
+                setImageBase64(imageRes.data?.imageBase64 || '');
+                if (imageRes.data?.imageBase64) {
+                    try {
+                        sessionStorage.setItem(`recipeInfluencerImage:${recipe.id}`, imageRes.data.imageBase64);
+                    } catch (err) {
+                        // ignore cache errors
+                    }
+                    try {
+                        localStorage.setItem(`recipeInfluencerImage:${recipe.id}`, imageRes.data.imageBase64);
+                    } catch (err) {
+                        // ignore cache errors
                     }
                 }
+            }
             } catch (err) {
                 console.error('Influencer generation failed', err);
             } finally {
@@ -283,7 +314,7 @@ const RecipeAnalysis = () => {
         };
 
         fetchInfluencers();
-    }, [imageBase64, influencers.length, recipe]);
+    }, [allowInfluencer, allowInfluencerImage, imageBase64, influencers.length, recipe]);
 
     const countryCoords = useMemo(
         () => ({
@@ -393,49 +424,20 @@ const RecipeAnalysis = () => {
         if (!value) return '';
         const key = String(value).trim();
         const map = {
-            'KR': '한국',
-            'KOR': '한국',
             'US': '미국',
             'USA': '미국',
             'UK': '영국',
-            'GB': '영국',
-            'GBR': '영국',
             'UAE': '아랍에미리트',
             'KOREA': '한국',
-            'REPUBLIC OF KOREA': '한국',
-            'KOREA, REPUBLIC OF': '한국',
             'SOUTH KOREA': '한국',
-            '대한민국': '한국',
-            'JP': '일본',
-            'JPN': '일본',
             'JAPAN': '일본',
-            'CN': '중국',
-            'CHN': '중국',
             'CHINA': '중국',
             'UNITED STATES': '미국',
-            'UNITED STATES OF AMERICA': '미국',
-            'U.S.': '미국',
-            'U.S.A.': '미국',
             'UNITED KINGDOM': '영국',
-            'ENGLAND': '영국',
-            'SCOTLAND': '영국',
-            'WALES': '영국',
-            'N.IRELAND': '영국',
-            'NORTHERN IRELAND': '영국',
-            'FR': '프랑스',
-            'FRA': '프랑스',
             'FRANCE': '프랑스',
-            'DE': '독일',
-            'DEU': '독일',
             'GERMANY': '독일',
-            'CA': '캐나다',
-            'CAN': '캐나다',
             'CANADA': '캐나다',
-            'AU': '호주',
-            'AUS': '호주',
             'AUSTRALIA': '호주',
-            'IN': '인도',
-            'IND': '인도',
             'INDIA': '인도',
         };
         const upper = key.toUpperCase();
@@ -591,6 +593,20 @@ const RecipeAnalysis = () => {
         }
     };
 
+    const showExec = Boolean(report?.executiveSummary);
+    const showMarket = Boolean(report?.marketSnapshot);
+    const showRisk = Boolean(report?.riskAssessment);
+    const showSwot = Boolean(report?.swot);
+    const showConceptIdeas = Array.isArray(report?.conceptIdeas) && report.conceptIdeas.length > 0;
+    const showKpis = Array.isArray(report?.kpis) && report.kpis.length > 0;
+    const showNextSteps = Array.isArray(report?.nextSteps) && report.nextSteps.length > 0;
+    const showSummary = Boolean(recipe?.summary);
+    const showAllergen =
+        Boolean(recipe?.allergen?.note) ||
+        (Array.isArray(recipe?.allergen?.matchedAllergens) && recipe.allergen.matchedAllergens.length > 0);
+    const showInfluencer = allowInfluencer && influencers.length > 0;
+    const showInfluencerImage = allowInfluencerImage && Boolean(imageBase64);
+
     const exec = report?.executiveSummary || {};
     const market = report?.marketSnapshot || {};
     const personaNeeds = market?.personaNeeds || {};
@@ -616,13 +632,165 @@ const RecipeAnalysis = () => {
         }
         return `<ul>${items.map((item) => `<li>${escapeHtml(item)}</li>`).join('')}</ul>`;
     };
-
     const buildPrintableHtml = () => {
+        const sections = [
+            showSummary
+                ? `
+  <div class="section">
+    <h2>\uC694\uC57D\uBCF8</h2>
+    <p>${escapeHtml(recipe?.summary || '\uC694\uC57D \uACB0\uACFC\uAC00 \uC5C6\uC2B5\uB2C8\uB2E4.')}</p>
+  </div>
+`
+                : '',
+            showExec
+                ? `
+  <div class="section">
+    <h2>\uD575\uC2EC \uC694\uC57D</h2>
+    <p><strong>\uACB0\uB860:</strong> ${escapeHtml(exec.decision || '-')}</p>
+    <p><strong>\uC2DC\uC7A5 \uC801\uD569\uB3C4:</strong> ${escapeHtml(exec.marketFitScore || '-')}\uC810</p>
+    <p><strong>\uC131\uACF5 \uAC00\uB2A5\uC131:</strong> ${escapeHtml(exec.successProbability || '-')}</p>
+    <p><strong>\uCD94\uCC9C \uC804\uB7B5:</strong> ${escapeHtml(exec.recommendation || '-')}</p>
+    <h3>\uD575\uC2EC \uAC15\uC810</h3>
+    ${listHtml(exec.keyPros)}
+    <h3>\uC8FC\uC694 \uB9AC\uC2A4\uD06C</h3>
+    ${listHtml(exec.topRisks)}
+  </div>
+`
+                : '',
+            showMarket
+                ? `
+  <div class="section">
+    <h2>\uC2DC\uC7A5 \uC2A4\uB0C5\uC0F7</h2>
+    <h3>\uD0C0\uAE43 \uD398\uB974\uC18C\uB098 \uB2C8\uC988</h3>
+    <p>${escapeHtml(personaNeeds.needs || '-')}</p>
+    <p>\uAD6C\uB9E4 \uC694\uC778: ${escapeHtml(personaNeeds.purchaseDrivers || '-')}</p>
+    <p>\uC7A5\uBCBD: ${escapeHtml(personaNeeds.barriers || '-')}</p>
+    <h3>\uD2B8\uB80C\uB4DC \uC2DC\uADF8\uB110</h3>
+    ${listHtml(trendSignals.trendNotes)}
+    <p>\uAC00\uACA9\uB300: ${escapeHtml(trendSignals.priceRangeNotes || '-')}</p>
+    <p>\uCC44\uB110: ${escapeHtml(trendSignals.channelSignals || '-')}</p>
+    <h3>\uACBD\uC7C1 \uAD6C\uB3C4</h3>
+    <p>${escapeHtml(competition.localCompetitors || '-')}</p>
+    <p>\uCC28\uBCC4\uD654: ${escapeHtml(competition.differentiation || '-')}</p>
+  </div>
+`
+                : '',
+            showRisk
+                ? `
+  <div class="section">
+    <h2>\uB9AC\uC2A4\uD06C & \uB300\uC751</h2>
+    <h3>\uB9AC\uC2A4\uD06C</h3>
+    ${listHtml(risk.riskList)}
+    <h3>\uC644\uD654 \uC804\uB7B5</h3>
+    ${listHtml(risk.mitigations)}
+  </div>
+`
+                : '',
+            showAllergen
+                ? `
+  <div class="section">
+    <h2>\uC54C\uB808\uB974\uAE30 \uC131\uBD84 \uB178\uD2B8</h2>
+    <p>${escapeHtml(recipe?.allergen?.note || '\uC54C\uB808\uB974\uAE30 \uC131\uBD84 \uC694\uC57D\uC774 \uC5C6\uC2B5\uB2C8\uB2E4.')}</p>
+  </div>
+`
+                : '',
+            showSwot
+                ? `
+  <div class="section">
+    <h2>SWOT</h2>
+    <h3>\uAC15\uC810</h3>
+    ${listHtml(swot.strengths)}
+    <h3>\uC57D\uC810</h3>
+    ${listHtml(swot.weaknesses)}
+    <h3>\uAE30\uD68C</h3>
+    ${listHtml(swot.opportunities)}
+    <h3>\uC704\uD611</h3>
+    ${listHtml(swot.threats)}
+  </div>
+`
+                : '',
+            showConceptIdeas
+                ? `
+  <div class="section">
+    <h2>\uCEE8\uC149 \uC544\uC774\uB514\uC5B4</h2>
+    ${conceptIdeas.length ? conceptIdeas.map((idea) => `
+      <div>
+        <p><strong>${escapeHtml(idea.name || '')}</strong></p>
+        <p>SCAMPER: ${escapeHtml(idea.scamperFocus || '-')}</p>
+        <p>\uD3EC\uC9C0\uC154\uB2DD: ${escapeHtml(idea.positioning || '-')}</p>
+        <p>\uAE30\uB300\uD6A8\uACFC: ${escapeHtml(idea.expectedEffect || '-')}</p>
+        <p>\uB9AC\uC2A4\uD06C: ${escapeHtml(idea.risks || '-')}</p>
+      </div>
+    `).join('') : '<p class="muted">\uB0B4\uC6A9\uC774 \uC5C6\uC2B5\uB2C8\uB2E4.</p>'}
+  </div>
+`
+                : '',
+            showKpis
+                ? `
+  <div class="section">
+    <h2>KPI \uC81C\uC548</h2>
+    ${kpis.length ? kpis.map((kpi) => `
+      <div>
+        <p><strong>${escapeHtml(kpi.name || '')}</strong></p>
+        <p>\uBAA9\uD45C: ${escapeHtml(kpi.target || '-')}</p>
+        <p>\uCE21\uC815: ${escapeHtml(kpi.method || '-')}</p>
+        <p>\uC778\uC0AC\uC774\uD2B8: ${escapeHtml(kpi.insight || '-')}</p>
+      </div>
+    `).join('') : '<p class="muted">\uB0B4\uC6A9\uC774 \uC5C6\uC2B5\uB2C8\uB2E4.</p>'}
+  </div>
+`
+                : '',
+            showNextSteps
+                ? `
+  <div class="section">
+    <h2>\uB2E4\uC74C \uB2E8\uACC4</h2>
+    ${listHtml(nextSteps)}
+  </div>
+`
+                : '',
+            showInfluencer
+                ? `
+  <div class="section">
+    <h2>\uC778\uD50C\uB8E8\uC5B8\uC11C \uCD94\uCC9C</h2>
+    ${
+        influencers.length
+            ? influencers
+                  .slice(0, 5)
+                  .map(
+                      (inf) => `
+        <div>
+          <p><strong>${escapeHtml(inf.name || '')}</strong> (${escapeHtml(inf.platform || '-')})</p>
+          <p class="muted">${escapeHtml(inf.profileUrl || '')}</p>
+          <p>${escapeHtml(inf.rationale || '-')}</p>
+          ${inf.riskNotes ? `<p class="muted">\uC8FC\uC758: ${escapeHtml(inf.riskNotes)}</p>` : ''}
+        </div>
+      `
+                  )
+                  .join('')
+            : '<p class="muted">\uCD94\uCC9C \uACB0\uACFC\uAC00 \uC5C6\uC2B5\uB2C8\uB2E4.</p>'
+    }
+  </div>
+`
+                : '',
+            showInfluencerImage
+                ? `
+  <div class="section">
+    <h2>\uC778\uD50C\uB8E8\uC5B8\uC11C \uC774\uBBF8\uC9C0</h2>
+    ${
+        imageBase64
+            ? `<img src="data:image/png;base64,${imageBase64}" alt="influencer" style="max-width:100%; border-radius:12px;"/>`
+            : '<p class="muted">\uC774\uBBF8\uC9C0 \uC0DD\uC131 \uACB0\uACFC\uAC00 \uC5C6\uC2B5\uB2C8\uB2E4.</p>'
+    }
+  </div>
+`
+                : '',
+        ].filter(Boolean).join('');
+
         return `<!doctype html>
 <html lang="ko">
 <head>
   <meta charset="utf-8" />
-  <title>${escapeHtml(recipe?.title)} 리포트</title>
+  <title>${escapeHtml(recipe?.title)} \uB9AC\uD3EC\uD2B8</title>
   <style>
     :root { color-scheme: light; }
     body { font-family: "Pretendard","Noto Sans KR",Arial,sans-serif; margin: 32px; color: #1f2937; }
@@ -637,131 +805,15 @@ const RecipeAnalysis = () => {
   </style>
 </head>
 <body>
-  <h1>${escapeHtml(recipe?.title)} 레시피 리포트</h1>
+  <h1>${escapeHtml(recipe?.title)} \uB808\uC2DC\uD53C \uB9AC\uD3EC\uD2B8</h1>
   <p class="muted">${escapeHtml(recipe?.description)}</p>
-
-  <div class="section">
-    <h2>요약본</h2>
-    <p>${escapeHtml(recipe?.summary || '요약 결과가 없습니다.')}</p>
-  </div>
-
-  <div class="section">
-    <h2>핵심 요약</h2>
-    <p><strong>결론:</strong> ${escapeHtml(exec.decision || '-')}</p>
-    <p><strong>시장 적합도:</strong> ${escapeHtml(exec.marketFitScore || '-')}점</p>
-    <p><strong>성공 가능성:</strong> ${escapeHtml(exec.successProbability || '-')}</p>
-    <p><strong>추천 전략:</strong> ${escapeHtml(exec.recommendation || '-')}</p>
-    <h3>핵심 강점</h3>
-    ${listHtml(exec.keyPros)}
-    <h3>주요 리스크</h3>
-    ${listHtml(exec.topRisks)}
-  </div>
-
-  <div class="section">
-    <h2>시장 스냅샷</h2>
-    <h3>타깃 페르소나 니즈</h3>
-    <p>${escapeHtml(personaNeeds.needs || '-')}</p>
-    <p>구매 요인: ${escapeHtml(personaNeeds.purchaseDrivers || '-')}</p>
-    <p>장벽: ${escapeHtml(personaNeeds.barriers || '-')}</p>
-    <h3>트렌드 시그널</h3>
-    ${listHtml(trendSignals.trendNotes)}
-    <p>가격대: ${escapeHtml(trendSignals.priceRangeNotes || '-')}</p>
-    <p>채널: ${escapeHtml(trendSignals.channelSignals || '-')}</p>
-    <h3>경쟁 구도</h3>
-    <p>${escapeHtml(competition.localCompetitors || '-')}</p>
-    <p>차별화: ${escapeHtml(competition.differentiation || '-')}</p>
-  </div>
-
-  <div class="section">
-    <h2>리스크 & 대응</h2>
-    <h3>리스크</h3>
-    ${listHtml(risk.riskList)}
-    <h3>완화 전략</h3>
-    ${listHtml(risk.mitigations)}
-  </div>
-
-  <div class="section">
-    <h2>알레르기 성분 노트</h2>
-    <p>${escapeHtml(recipe?.allergen?.note || '알레르기 성분 요약이 없습니다.')}</p>
-  </div>
-
-  <div class="section">
-    <h2>SWOT</h2>
-    <h3>Strengths</h3>
-    ${listHtml(swot.strengths)}
-    <h3>Weaknesses</h3>
-    ${listHtml(swot.weaknesses)}
-    <h3>Opportunities</h3>
-    ${listHtml(swot.opportunities)}
-    <h3>Threats</h3>
-    ${listHtml(swot.threats)}
-  </div>
-
-  <div class="section">
-    <h2>컨셉 아이디어</h2>
-    ${conceptIdeas.length ? conceptIdeas.map((idea) => `
-      <div>
-        <p><strong>${escapeHtml(idea.name || '')}</strong></p>
-        <p>SCAMPER: ${escapeHtml(idea.scamperFocus || '-')}</p>
-        <p>포지셔닝: ${escapeHtml(idea.positioning || '-')}</p>
-        <p>기대효과: ${escapeHtml(idea.expectedEffect || '-')}</p>
-        <p>리스크: ${escapeHtml(idea.risks || '-')}</p>
-      </div>
-    `).join('') : '<p class="muted">내용이 없습니다.</p>'}
-  </div>
-
-  <div class="section">
-    <h2>KPI 제안</h2>
-    ${kpis.length ? kpis.map((kpi) => `
-      <div>
-        <p><strong>${escapeHtml(kpi.name || '')}</strong></p>
-        <p>목표: ${escapeHtml(kpi.target || '-')}</p>
-        <p>측정: ${escapeHtml(kpi.method || '-')}</p>
-        <p>인사이트: ${escapeHtml(kpi.insight || '-')}</p>
-      </div>
-    `).join('') : '<p class="muted">내용이 없습니다.</p>'}
-  </div>
-
-  <div class="section">
-    <h2>다음 단계</h2>
-    ${listHtml(nextSteps)}
-  </div>
-
-  <div class="section">
-    <h2>인플루언서 추천</h2>
-    ${
-        influencers.length
-            ? influencers
-                  .slice(0, 5)
-                  .map(
-                      (inf) => `
-        <div>
-          <p><strong>${escapeHtml(inf.name || '')}</strong> (${escapeHtml(inf.platform || '-')})</p>
-          <p class="muted">${escapeHtml(inf.profileUrl || '')}</p>
-          <p>${escapeHtml(inf.rationale || '-')}</p>
-          ${inf.riskNotes ? `<p class="muted">주의: ${escapeHtml(inf.riskNotes)}</p>` : ''}
-        </div>
-      `
-                  )
-                  .join('')
-            : '<p class="muted">추천 결과가 없습니다.</p>'
-    }
-  </div>
-
-  <div class="section">
-    <h2>인플루언서 이미지</h2>
-    ${
-        imageBase64
-            ? `<img src="data:image/png;base64,${imageBase64}" alt="influencer" style="max-width:100%; border-radius:12px;"/>`
-            : '<p class="muted">이미지 생성 결과가 없습니다.</p>'
-    }
-  </div>
+  ${sections}
 </body>
 </html>`;
     };
 
     const handlePdfDownload = () => {
-        if (influencerLoading) {
+        if ((allowInfluencer && influencers.length === 0) || (allowInfluencerImage && !imageBase64)) {
             return;
         }
         const html = buildPrintableHtml();
@@ -879,163 +931,175 @@ const RecipeAnalysis = () => {
                 )}
 
                 <div className="mt-8 grid grid-cols-1 lg:grid-cols-[1fr_1fr] gap-6">
-                    <div className="lg:col-span-2 rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[0_12px_30px_var(--shadow)] p-6">
-                        <div className="flex items-center justify-between mb-4">
-                            <h3 className="text-lg font-semibold text-[color:var(--text)]">Global Market Map</h3>
-                            <span className="text-xs text-[color:var(--text-soft)]">World View</span>
-                        </div>
-                        <div className="h-[260px] rounded-xl border border-[color:var(--border)] bg-[color:var(--surface-muted)] overflow-hidden">
-                            {mapError ? (
-                                <div className="h-full flex items-center justify-center text-sm text-[color:var(--text-muted)]">
-                                    {mapError}
-                                </div>
-                            ) : (
-                                <div ref={mapRef} className="h-full w-full" />
-                            )}
-                        </div>
-                    </div>
-                    <div className="space-y-6 min-w-0">
-                        <div className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[0_12px_30px_var(--shadow)] p-6">
-                            <div className="flex items-center justify-between">
-                                <h3 className="text-lg font-semibold text-[color:var(--text)]">핵심 요약</h3>
+                    {showMap && (
+                        <div className="lg:col-span-2 rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[0_12px_30px_var(--shadow)] p-6">
+                            <div className="flex items-center justify-between mb-4">
+                                <h3 className="text-lg font-semibold text-[color:var(--text)]">Global Market Map</h3>
+                                <span className="text-xs text-[color:var(--text-soft)]">World View</span>
                             </div>
-                            <div className="mt-4 space-y-3 text-sm text-[color:var(--text)]">
-                                <p><strong>결론:</strong> {exec.decision || '-'}</p>
-                                <p><strong>시장 적합도:</strong> {exec.marketFitScore || '-'}점</p>
-                                <p><strong>성공 가능성:</strong> {exec.successProbability || '-'}</p>
-                                <p><strong>추천 전략:</strong> {exec.recommendation || '-'}</p>
-                                <div>
-                                    <p className="font-semibold text-[color:var(--text)] mb-2">핵심 강점</p>
-                                    {renderList(exec.keyPros)}
-                                </div>
-                                <div>
-                                    <p className="font-semibold text-[color:var(--text)] mb-2">주요 리스크</p>
-                                    {renderList(exec.topRisks)}
-                                </div>
-                            </div>
-                        </div>
-
-                        <div className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[0_12px_30px_var(--shadow)] p-6">
-                            <h3 className="text-lg font-semibold text-[color:var(--text)] mb-4">시장 스냅샷</h3>
-                            <div className="space-y-4 text-sm text-[color:var(--text)]">
-                                <div>
-                                    <p className="font-semibold text-[color:var(--text)]">타깃 페르소나 니즈</p>
-                                    <p className="text-[color:var(--text-muted)]">{personaNeeds.needs || '-'}</p>
-                                    <p className="mt-2">구매 요인: {personaNeeds.purchaseDrivers || '-'}</p>
-                                    <p>장벽: {personaNeeds.barriers || '-'}</p>
-                                </div>
-                                <div>
-                                    <p className="font-semibold text-[color:var(--text)]">트렌드 시그널</p>
-                                    {renderList(trendSignals.trendNotes)}
-                                    <p className="mt-2">가격대: {trendSignals.priceRangeNotes || '-'}</p>
-                                    <p>채널: {trendSignals.channelSignals || '-'}</p>
-                                </div>
-                                <div>
-                                    <p className="font-semibold text-[color:var(--text)]">경쟁 구도</p>
-                                    <p className="text-[color:var(--text-muted)]">{competition.localCompetitors || '-'}</p>
-                                    <p className="mt-2">차별화: {competition.differentiation || '-'}</p>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            <div className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[0_12px_30px_var(--shadow)] p-6">
-                                <h3 className="text-lg font-semibold text-[color:var(--text)] mb-3">리스크 & 대응</h3>
-                                <p className="text-sm font-semibold text-[color:var(--text)] mb-2">리스크</p>
-                                {renderList(risk.riskList)}
-                                <p className="mt-4 text-sm font-semibold text-[color:var(--text)] mb-2">완화 전략</p>
-                                {renderList(risk.mitigations)}
-                            </div>
-                            <div className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[0_12px_30px_var(--shadow)] p-6">
-                                <h3 className="text-lg font-semibold text-[color:var(--text)] mb-3 flex items-center">
-                                SWOT
-                                <HelpTooltip
-                                    label="SWOT"
-                                    description="강점 Strength, 약점 Weakenesses, 기회 Opportunities, 위협 Threats을 정리해서 상황을 분석하는 방법입니다."
-                                />
-                            </h3>
-                                <p className="text-sm font-semibold text-[color:var(--text)] mb-2">Strengths</p>
-                                {renderList(swot.strengths)}
-                                <p className="mt-3 text-sm font-semibold text-[color:var(--text)] mb-2">Weaknesses</p>
-                                {renderList(swot.weaknesses)}
-                                <p className="mt-3 text-sm font-semibold text-[color:var(--text)] mb-2">Opportunities</p>
-                                {renderList(swot.opportunities)}
-                                <p className="mt-3 text-sm font-semibold text-[color:var(--text)] mb-2">Threats</p>
-                                {renderList(swot.threats)}
-                            </div>
-                        </div>
-
-                        <div className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[0_12px_30px_var(--shadow)] p-6">
-                            <h3 className="text-lg font-semibold text-[color:var(--text)] mb-4">컨셉 아이디어</h3>
-                            <div className="space-y-4">
-                                {conceptIdeas.length === 0 && (
-                                    <p className="text-sm text-[color:var(--text-muted)]">내용이 없습니다.</p>
-                                )}
-                                {conceptIdeas.map((idea, idx) => (
-                                    <div key={`${idea.name}-${idx}`} className="rounded-xl border border-[color:var(--border)] bg-[color:var(--surface-muted)] p-4">
-                                        <p className="text-sm font-semibold text-[color:var(--text)]">{idea.name || `아이디어 ${idx + 1}`}</p>
-                                        <p className="text-sm text-[color:var(--text-muted)] mt-1">SCAMPER: {idea.scamperFocus || '-'}</p>
-                                        <p className="text-sm text-[color:var(--text-muted)]">포지셔닝: {idea.positioning || '-'}</p>
-                                        <p className="text-sm text-[color:var(--text-muted)]">기대효과: {idea.expectedEffect || '-'}</p>
-                                        <p className="text-sm text-[color:var(--text-muted)]">리스크: {idea.risks || '-'}</p>
+                            <div className="h-[260px] rounded-xl border border-[color:var(--border)] bg-[color:var(--surface-muted)] overflow-hidden">
+                                {mapError ? (
+                                    <div className="h-full flex items-center justify-center text-sm text-[color:var(--text-muted)]">
+                                        {mapError}
                                     </div>
-                                ))}
-                            </div>
-                        </div>
-
-                        <div className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[0_12px_30px_var(--shadow)] p-6">
-                            <h3 className="text-lg font-semibold text-[color:var(--text)] mb-4 flex items-center">
-                                KPI 제안
-                                <HelpTooltip
-                                    label="KPI"
-                                    description="핵심 성과 지표로, 목표가 얼마나 달성됐는지 숫자로 확인하는 기준입니다."
-                                />
-                            </h3>
-                            <div className="space-y-3">
-                                {kpis.length === 0 && (
-                                    <p className="text-sm text-[color:var(--text-muted)]">내용이 없습니다.</p>
+                                ) : (
+                                    <div ref={mapRef} className="h-full w-full" />
                                 )}
-                                {kpis.map((kpi, idx) => (
-                                    <div key={`${kpi.name}-${idx}`} className="rounded-xl border border-[color:var(--border)] bg-[color:var(--surface-muted)] p-4 text-sm">
-                                        <p className="font-semibold text-[color:var(--text)]">{kpi.name || `KPI ${idx + 1}`}</p>
-                                        <p className="text-[color:var(--text-muted)]">목표: {kpi.target || '-'}</p>
-                                        <p className="text-[color:var(--text-muted)]">측정: {kpi.method || '-'}</p>
-                                        <p className="text-[color:var(--text-muted)]">인사이트: {kpi.insight || '-'}</p>
-                                    </div>
-                                ))}
                             </div>
                         </div>
+                    )}
+                    <div className="space-y-6 min-w-0">
+                        {showExec && (
+                            <div className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[0_12px_30px_var(--shadow)] p-6">
+                                <div className="flex items-center justify-between">
+                                    <h3 className="text-lg font-semibold text-[color:var(--text)]">핵심 요약</h3>
+                                </div>
+                                <div className="mt-4 space-y-3 text-sm text-[color:var(--text)]">
+                                    <p><strong>결론:</strong> {exec.decision || '-'}</p>
+                                    <p><strong>시장 적합도:</strong> {exec.marketFitScore || '-'}점</p>
+                                    <p><strong>성공 가능성:</strong> {exec.successProbability || '-'}</p>
+                                    <p><strong>추천 전략:</strong> {exec.recommendation || '-'}</p>
+                                    <div>
+                                        <p className="font-semibold text-[color:var(--text)] mb-2">핵심 강점</p>
+                                        {renderList(exec.keyPros)}
+                                    </div>
+                                    <div>
+                                        <p className="font-semibold text-[color:var(--text)] mb-2">주요 리스크</p>
+                                        {renderList(exec.topRisks)}
+                                    </div>
+                                </div>
+                            </div>
+                        )}
 
-                        <div className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[0_12px_30px_var(--shadow)] p-6">
-                            <h3 className="text-lg font-semibold text-[color:var(--text)] mb-3">다음 단계</h3>
-                            {renderList(nextSteps)}
-                        </div>
+                        {showMarket && (
+                            <div className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[0_12px_30px_var(--shadow)] p-6">
+                                <h3 className="text-lg font-semibold text-[color:var(--text)] mb-4">시장 스냅샷</h3>
+                                <div className="space-y-4 text-sm text-[color:var(--text)]">
+                                    <div>
+                                        <p className="font-semibold text-[color:var(--text)]">타깃 페르소나 니즈</p>
+                                        <p className="text-[color:var(--text-muted)]">{personaNeeds.needs || '-'}</p>
+                                        <p className="mt-2">구매 요인: {personaNeeds.purchaseDrivers || '-'}</p>
+                                        <p>장벽: {personaNeeds.barriers || '-'}</p>
+                                    </div>
+                                    <div>
+                                        <p className="font-semibold text-[color:var(--text)]">트렌드 시그널</p>
+                                        {renderList(trendSignals.trendNotes)}
+                                        <p className="mt-2">가격대: {trendSignals.priceRangeNotes || '-'}</p>
+                                        <p>채널: {trendSignals.channelSignals || '-'}</p>
+                                    </div>
+                                    <div>
+                                        <p className="font-semibold text-[color:var(--text)]">경쟁 구도</p>
+                                        <p className="text-[color:var(--text-muted)]">{competition.localCompetitors || '-'}</p>
+                                        <p className="mt-2">차별화: {competition.differentiation || '-'}</p>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        {(showRisk || showSwot) && (
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                {showRisk && (
+                                    <div className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[0_12px_30px_var(--shadow)] p-6">
+                                        <h3 className="text-lg font-semibold text-[color:var(--text)] mb-3">리스크 & 대응</h3>
+                                        <p className="text-sm font-semibold text-[color:var(--text)] mb-2">리스크</p>
+                                        {renderList(risk.riskList)}
+                                        <p className="mt-4 text-sm font-semibold text-[color:var(--text)] mb-2">완화 전략</p>
+                                        {renderList(risk.mitigations)}
+                                    </div>
+                                )}
+                                {showSwot && (
+                                    <div className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[0_12px_30px_var(--shadow)] p-6">
+                                        <h3 className="text-lg font-semibold text-[color:var(--text)] mb-3 flex items-center">
+                                            SWOT
+                                            <HelpTooltip
+                                                label="SWOT"
+                                                description="강점 Strength, 약점 Weakenesses, 기회 Opportunities, 위협 Threats을 정리해서 상황을 분석하는 방법입니다."
+                                            />
+                                        </h3>
+                                        <p className="text-sm font-semibold text-[color:var(--text)] mb-2">Strengths</p>
+                                        {renderList(swot.strengths)}
+                                        <p className="mt-3 text-sm font-semibold text-[color:var(--text)] mb-2">Weaknesses</p>
+                                        {renderList(swot.weaknesses)}
+                                        <p className="mt-3 text-sm font-semibold text-[color:var(--text)] mb-2">Opportunities</p>
+                                        {renderList(swot.opportunities)}
+                                        <p className="mt-3 text-sm font-semibold text-[color:var(--text)] mb-2">Threats</p>
+                                        {renderList(swot.threats)}
+                                    </div>
+                                )}
+                            </div>
+                        )}
+
+                        {showConceptIdeas && (
+                            <div className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[0_12px_30px_var(--shadow)] p-6">
+                                <h3 className="text-lg font-semibold text-[color:var(--text)] mb-4">컨셉 아이디어</h3>
+                                <div className="space-y-4">
+                                    {conceptIdeas.map((idea, idx) => (
+                                        <div key={`${idea.name}-${idx}`} className="rounded-xl border border-[color:var(--border)] bg-[color:var(--surface-muted)] p-4">
+                                            <p className="text-sm font-semibold text-[color:var(--text)]">{idea.name || `아이디어 ${idx + 1}`}</p>
+                                            <p className="text-sm text-[color:var(--text-muted)] mt-1">SCAMPER: {idea.scamperFocus || '-'}</p>
+                                            <p className="text-sm text-[color:var(--text-muted)]">포지셔닝: {idea.positioning || '-'}</p>
+                                            <p className="text-sm text-[color:var(--text-muted)]">기대효과: {idea.expectedEffect || '-'}</p>
+                                            <p className="text-sm text-[color:var(--text-muted)]">리스크: {idea.risks || '-'}</p>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+
+                        {showKpis && (
+                            <div className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[0_12px_30px_var(--shadow)] p-6">
+                                <h3 className="text-lg font-semibold text-[color:var(--text)] mb-4 flex items-center">
+                                    KPI 제안
+                                    <HelpTooltip
+                                        label="KPI"
+                                        description="핵심 성과 지표로, 목표가 얼마나 달성됐는지 숫자로 확인하는 기준입니다."
+                                    />
+                                </h3>
+                                <div className="space-y-3">
+                                    {kpis.map((kpi, idx) => (
+                                        <div key={`${kpi.name}-${idx}`} className="rounded-xl border border-[color:var(--border)] bg-[color:var(--surface-muted)] p-4 text-sm">
+                                            <p className="font-semibold text-[color:var(--text)]">{kpi.name || `KPI ${idx + 1}`}</p>
+                                            <p className="text-[color:var(--text-muted)]">목표: {kpi.target || '-'}</p>
+                                            <p className="text-[color:var(--text-muted)]">측정: {kpi.method || '-'}</p>
+                                            <p className="text-[color:var(--text-muted)]">인사이트: {kpi.insight || '-'}</p>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+
+                        {showNextSteps && (
+                            <div className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[0_12px_30px_var(--shadow)] p-6">
+                                <h3 className="text-lg font-semibold text-[color:var(--text)] mb-3">다음 단계</h3>
+                                {renderList(nextSteps)}
+                            </div>
+                        )}
                     </div>
 
                     <div className="space-y-6 min-w-0">
-                        <div className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[0_12px_30px_var(--shadow)] p-6">
-                            <div className="flex items-center justify-between">
-                                <h3 className="text-lg font-semibold text-[color:var(--text)]">요약본</h3>
+                        {showSummary && (
+                            <div className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[0_12px_30px_var(--shadow)] p-6">
+                                <div className="flex items-center justify-between">
+                                    <h3 className="text-lg font-semibold text-[color:var(--text)]">요약본</h3>
+                                </div>
+                                <p className="mt-4 text-sm text-[color:var(--text-muted)] whitespace-pre-line">
+                                    {recipe.summary}
+                                </p>
                             </div>
-                            <p className="mt-4 text-sm text-[color:var(--text-muted)] whitespace-pre-line">
-                                {recipe.summary || '요약 결과가 없습니다.'}
-                            </p>
-                        </div>
+                        )}
 
-                        <div className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[0_12px_30px_var(--shadow)] p-6">
-                            <h3 className="text-lg font-semibold text-[color:var(--text)] mb-3">알레르기 성분 노트</h3>
-                            <p className="text-sm text-[color:var(--text-muted)] whitespace-pre-line">
-                                {recipe.allergen?.note || '알레르기 성분 요약이 없습니다.'}
-                            </p>
-                        </div>
+                        {showAllergen && (
+                            <div className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[0_12px_30px_var(--shadow)] p-6">
+                                <h3 className="text-lg font-semibold text-[color:var(--text)] mb-3">알레르기 성분 노트</h3>
+                                <p className="text-sm text-[color:var(--text-muted)] whitespace-pre-line">
+                                    {recipe.allergen?.note}
+                                </p>
+                            </div>
+                        )}
                         
-                        <div className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[0_12px_30px_var(--shadow)] p-6">
-                            <h3 className="text-lg font-semibold text-[color:var(--text)] mb-3">인플루언서 추천</h3>
-                            {influencerLoading ? (
-                                <p className="text-sm text-[color:var(--text-muted)]">인플루언서 추천 중...</p>
-                            ) : influencers.length === 0 ? (
-                                <p className="text-sm text-[color:var(--text-muted)]">추천 결과가 없습니다.</p>
-                            ) : (
+                        {showInfluencer && (
+                            <div className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[0_12px_30px_var(--shadow)] p-6">
+                                <h3 className="text-lg font-semibold text-[color:var(--text)] mb-3">인플루언서 추천</h3>
                                 <div className="space-y-4">
                                     {influencers.slice(0, 3).map((inf, idx) => (
                                         <div key={`${inf.name}-${idx}`} className="rounded-xl border border-[color:var(--border)] bg-[color:var(--surface-muted)] p-4">
@@ -1048,32 +1112,33 @@ const RecipeAnalysis = () => {
                                         </div>
                                     ))}
                                 </div>
-                            )}
-                        </div>
+                            </div>
+                        )}
 
-                        <div className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[0_12px_30px_var(--shadow)] p-6">
-                            <h3 className="text-lg font-semibold text-[color:var(--text)] mb-3">인플루언서 이미지</h3>
-                            <div className="min-h-[320px] rounded-xl border border-[color:var(--border)] bg-[color:var(--surface-muted)] flex items-center justify-center overflow-hidden">
-                                {imageBase64 ? (
+                        {showInfluencerImage && (
+                            <div className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[0_12px_30px_var(--shadow)] p-6">
+                                <h3 className="text-lg font-semibold text-[color:var(--text)] mb-3">인플루언서 이미지</h3>
+                                <div className="min-h-[320px] rounded-xl border border-[color:var(--border)] bg-[color:var(--surface-muted)] flex items-center justify-center overflow-hidden">
                                     <img
                                         src={`data:image/png;base64,${imageBase64}`}
                                         alt="influencer"
                                         className="h-full w-full object-contain"
                                     />
-                                ) : (
-                                    <p className="text-sm text-[color:var(--text-muted)]">
-                                        {influencerLoading ? '이미지 생성 중...' : '이미지 생성 결과가 없습니다.'}
-                                    </p>
-                                )}
+                                </div>
                             </div>
-                        </div>
+                        )}
 
-                        {recipe.status === 'DRAFT' && isOwner && (
+                        {recipe.status === 'DRAFT' && isOwner && !isRecipeOnly && (
                             <button
                                 type="button"
                                 className="w-full py-2 rounded-xl bg-[color:var(--accent)] text-[color:var(--accent-contrast)] text-sm font-semibold hover:bg-[color:var(--accent-strong)] transition disabled:opacity-60 disabled:cursor-not-allowed"
                                 onClick={handlePublish}
-                                disabled={publishLoading || influencerLoading || !imageBase64 || influencers.length === 0}
+                                disabled={
+                                    publishLoading ||
+                                    influencerLoading ||
+                                    (allowInfluencer && influencers.length === 0) ||
+                                    (allowInfluencerImage && !imageBase64)
+                                }
                             >
                                 {publishLoading ? '등록 중...' : '등록 확정'}
                             </button>
@@ -1083,9 +1148,17 @@ const RecipeAnalysis = () => {
                                 type="button"
                                 className="w-full py-2 rounded-xl bg-[color:var(--accent)] text-[color:var(--accent-contrast)] text-sm font-semibold hover:bg-[color:var(--accent-strong)] transition disabled:opacity-60 disabled:cursor-not-allowed"
                                 onClick={handlePdfDownload}
-                                disabled={influencerLoading}
+                                disabled={
+                                    (allowInfluencer && influencers.length === 0) ||
+                                    (allowInfluencerImage && !imageBase64)
+                                }
                             >
-                                {influencerLoading ? 'PDF 준비 중...' : 'PDF 다운로드'}
+                                {(allowInfluencer && influencers.length === 0) ||
+                                (allowInfluencerImage && !imageBase64)
+                                    ? allowInfluencerImage
+                                        ? '이미지 생성 중...'
+                                        : '인플루언서 준비 중...'
+                                    : 'PDF 다운로드'}
                             </button>
                         )}
                         <button

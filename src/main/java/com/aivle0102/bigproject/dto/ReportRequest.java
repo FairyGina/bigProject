@@ -10,5 +10,6 @@ public class ReportRequest {
     private String targetCountry; // 국가
     private String targetPersona; // 소비자
     private String priceRange;    // 가격대
+    private java.util.List<String> sections; // report sections to generate
 }
 

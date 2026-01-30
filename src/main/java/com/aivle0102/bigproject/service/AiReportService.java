@@ -21,6 +21,15 @@ public class AiReportService {
     private String model;
     private final OpenAiClient openAiClient;
     private final ObjectMapper objectMapper = new ObjectMapper();
+    private static final List<String> REPORT_SECTION_ORDER = List.of(
+            "executiveSummary",
+            "marketSnapshot",
+            "riskAssessment",
+            "swot",
+            "conceptIdeas",
+            "kpis",
+            "nextSteps"
+    );
 
     public Map<String, Object> generateReport(ReportRequest req) {
         String prompt = buildPrompt(req);
@@ -29,7 +38,7 @@ public class AiReportService {
                 "model", model,
                 "messages", List.of(
                         Map.of("role", "system", "content",
-                                "당신은 글로벌 식품 제품 전략 분석가입니다."),
+                                "You are a global food/recipe business analyst. Respond only in Korean."),
                         Map.of("role", "user", "content", prompt)
                 ),
                 "temperature", 0.4
@@ -46,7 +55,7 @@ public class AiReportService {
                 "model", model,
                 "messages", List.of(
                         Map.of("role", "system", "content",
-                                "당신은 글로벌 식품 제품 전략 분석가입니다."),
+                                "You are a global food/recipe business analyst. Respond only in Korean."),
                         Map.of("role", "user", "content", prompt)
                 ),
                 "temperature", 0.4
@@ -75,30 +84,64 @@ public class AiReportService {
     }
 
     private String buildPrompt(ReportRequest r) {
+        String schema = buildSchema(r.getSections());
         return """
-        당신은 글로벌 식품 제품 전략 분석가입니다.
-        아래 레시피 콘셉트에 대한 시장 분석 리포트를 JSON으로 작성하세요.
-        모든 텍스트는 한국어로 작성하세요.
-        유효한 JSON만 반환하세요. 마크다운이나 설명은 포함하지 마세요.
+        ??? ??? ?? ?? ?? ??????.
+        ?? ??? ???? ?? ?? ?? ???? JSON?? ?????.
+        ?? ???? ???? ?????.
+        ??? JSON? ?????. ?????? ??? ???? ???.
 
-        레시피 콘셉트:
+        ??? ???:
         %s
 
-        타깃 조건:
+        ?? ??:
         - targetCountry: %s
         - targetPersona: %s
         - priceRange: %s
 
-        JSON 스키마(모든 키는 필수, 모르면 빈 문자열 또는 빈 배열 사용):
+        JSON ???(?? ?? ??, ??? ? ??? ?? ? ?? ??):
         {
+%s
+        }
+        """
+        .formatted(
+                r.getRecipe(),
+                r.getTargetCountry(),
+                r.getTargetPersona(),
+                r.getPriceRange(),
+                schema
+        );
+    }
+
+    private String buildSchema(List<String> sections) {
+        List<String> requested = sections == null || sections.isEmpty()
+                ? REPORT_SECTION_ORDER
+                : sections.stream()
+                    .map(String::trim)
+                    .filter(s -> !s.isBlank())
+                    .filter(REPORT_SECTION_ORDER::contains)
+                    .toList();
+        if (requested.isEmpty()) {
+            requested = REPORT_SECTION_ORDER;
+        }
+        return requested.stream()
+                .map(this::schemaForSection)
+                .filter(v -> v != null && !v.isBlank())
+                .collect(java.util.stream.Collectors.joining(",\n"));
+    }
+
+    private String schemaForSection(String key) {
+        return switch (key) {
+            case "executiveSummary" -> """
           "executiveSummary": {
-            "decision": "Go | No-Go | Conditional Go",
+            "decision": "?? | ?? | ??? ??",
             "marketFitScore": "0-100",
             "keyPros": ["..."],
             "topRisks": ["..."],
-            "successProbability": "0-100%% with brief rationale",
+            "successProbability": "0-100%%? ??? ??",
             "recommendation": "..."
-          },
+          }""";
+            case "marketSnapshot" -> """
           "marketSnapshot": {
             "personaNeeds": {
               "needs": "...",
@@ -114,17 +157,20 @@ public class AiReportService {
               "localCompetitors": "...",
               "differentiation": "..."
             }
-          },
+          }""";
+            case "riskAssessment" -> """
           "riskAssessment": {
             "riskList": ["..."],
             "mitigations": ["..."]
-          },
+          }""";
+            case "swot" -> """
           "swot": {
             "strengths": ["..."],
             "weaknesses": ["..."],
             "opportunities": ["..."],
             "threats": ["..."]
-          },
+          }""";
+            case "conceptIdeas" -> """
           "conceptIdeas": [
             {
               "name": "...",
@@ -133,7 +179,8 @@ public class AiReportService {
               "expectedEffect": "...",
               "risks": "..."
             }
-          ],
+          ]""";
+            case "kpis" -> """
           "kpis": [
             {
               "name": "...",
@@ -141,26 +188,22 @@ public class AiReportService {
               "method": "...",
               "insight": "..."
             }
-          ],
-          "nextSteps": ["..."]
-        }
-        """
-        .formatted(
-                r.getRecipe(),
-                r.getTargetCountry(),
-                r.getTargetPersona(),
-                r.getPriceRange()
-        );
+          ]""";
+            case "nextSteps" -> """
+          "nextSteps": ["..."]""";
+            default -> null;
+        };
     }
 
     private String buildSummaryPrompt(String fullReport) {
         return """
-        다음 리포트 JSON을 1페이지 분량의 간결한 한국어 실행 요약으로 작성하세요.
-        시장 기회, 핵심 리스크, 기대 효과, 추천 후속 조치에 집중하세요.
-        짧은 문장을 사용하세요.
+        Write a one-page executive summary in Korean based on the report JSON below.
+        Include market opportunity, key risks, expected impact, and recommended next steps.
+        Output only Korean prose or bullet points. Do NOT include JSON, keys, code fences, or arrays.
 
         Report JSON:
         %s
+
         """
         .formatted(fullReport);
     }

@@ -70,6 +70,18 @@ public class RecipeController {
         return ResponseEntity.ok(recipeService.publish(id, principal.getName(), request));
     }
 
+    @PutMapping("/{id}/influencers")
+    public ResponseEntity<RecipeResponse> saveInfluencers(
+            @PathVariable("id") Long id,
+            @RequestBody(required = false) RecipePublishRequest request,
+            Principal principal
+    ) {
+        if (principal == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+        return ResponseEntity.ok(recipeService.saveInfluencers(id, principal.getName(), request));
+    }
+
     @PutMapping("/{id}")
     public ResponseEntity<RecipeResponse> update(@PathVariable("id") Long id, @RequestBody RecipeCreateRequest request, Principal principal) {
         if (principal == null) {

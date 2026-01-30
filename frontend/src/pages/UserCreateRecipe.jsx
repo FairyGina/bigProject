@@ -35,7 +35,7 @@ const labels = {
     ingredientAutoEmpty: '조리 단계를 먼저 입력해주세요.',
     ingredientAutoFail: '재료 자동 추출에 실패했습니다.',
     guideTitle: '레시피 생성 안내',
-    guideBody: '생성까지 약 5분정도 소요됩니다.',
+    guideBody: '생성시간은 선택사항에 따라 1~5분정도 소요됩니다.',
     createLabel: '레시피 생성',
     updateLabel: '레시피 수정',
     creatingLabel: '생성 중...',
@@ -85,6 +85,133 @@ const PRICE_RANGE_OPTIONS = [
     'USD 15~20',
 ];
 
+const REPORT_SECTION_ORDER = [
+    'executiveSummary',
+    'marketSnapshot',
+    'riskAssessment',
+    'swot',
+    'conceptIdeas',
+    'kpis',
+    'nextSteps',
+    'summary',
+    'allergenNote',
+    'influencer',
+    'influencerImage',
+    'globalMarketMap',
+];
+
+const REPORT_SECTION_LABELS = {
+    executiveSummary: '핵심 요약',
+    marketSnapshot: '시장 스냅샷',
+    riskAssessment: '리스크 & 대응',
+    swot: 'SWOT',
+    conceptIdeas: '컨셉 아이디어',
+    kpis: 'KPI 제안',
+    nextSteps: '다음 단계',
+    summary: '요약본',
+    allergenNote: '알레르기 성분 노트',
+    influencer: '인플루언서 추천',
+    influencerImage: '인플루언서 이미지',
+    globalMarketMap: 'Global Market Map',
+};
+
+const REQUIRED_REPORT_SECTIONS = new Set([
+    'executiveSummary',
+    'marketSnapshot',
+    'riskAssessment',
+    'conceptIdeas',
+    'summary',
+]);
+
+const GENERATION_OPTIONS = [
+    { value: 'recipe', label: '레시피', includeReport: false },
+    { value: 'recipe_report', label: '레시피+리포트/요약', includeReport: true },
+    { value: 'recipe_report_map', label: '레시피+리포트/요약+지도 평가 점수', includeReport: true },
+    { value: 'recipe_report_influencer', label: '레시피+리포트/요약+인플루언서 추천', includeReport: true },
+    { value: 'recipe_report_influencer_map', label: '레시피+리포트/요약+인플루언서 추천+지도 평가 점수', includeReport: true },
+    { value: 'recipe_report_influencer_image', label: '레시피+리포트/요약+인플루언서 추천+이미지 생성', includeReport: true },
+    { value: 'recipe_report_influencer_image_map', label: '레시피+리포트/요약+인플루언서 추천+이미지 생성+지도 평가 점수', includeReport: true },
+];
+
+const REPORT_PRESETS = {
+    recipe: [],
+    recipe_report: [
+        'executiveSummary',
+        'marketSnapshot',
+        'riskAssessment',
+        'swot',
+        'conceptIdeas',
+        'kpis',
+        'nextSteps',
+        'summary',
+        'allergenNote',
+    ],
+    recipe_report_map: [
+        'executiveSummary',
+        'marketSnapshot',
+        'riskAssessment',
+        'swot',
+        'conceptIdeas',
+        'kpis',
+        'nextSteps',
+        'summary',
+        'allergenNote',
+        'globalMarketMap',
+    ],
+    recipe_report_influencer: [
+        'executiveSummary',
+        'marketSnapshot',
+        'riskAssessment',
+        'swot',
+        'conceptIdeas',
+        'kpis',
+        'nextSteps',
+        'summary',
+        'allergenNote',
+        'influencer',
+    ],
+    recipe_report_influencer_map: [
+        'executiveSummary',
+        'marketSnapshot',
+        'riskAssessment',
+        'swot',
+        'conceptIdeas',
+        'kpis',
+        'nextSteps',
+        'summary',
+        'allergenNote',
+        'influencer',
+        'globalMarketMap',
+    ],
+    recipe_report_influencer_image: [
+        'executiveSummary',
+        'marketSnapshot',
+        'riskAssessment',
+        'swot',
+        'conceptIdeas',
+        'kpis',
+        'nextSteps',
+        'summary',
+        'allergenNote',
+        'influencer',
+        'influencerImage',
+    ],
+    recipe_report_influencer_image_map: [
+        'executiveSummary',
+        'marketSnapshot',
+        'riskAssessment',
+        'swot',
+        'conceptIdeas',
+        'kpis',
+        'nextSteps',
+        'summary',
+        'allergenNote',
+        'influencer',
+        'influencerImage',
+        'globalMarketMap',
+    ],
+};
+
 const UserCreateRecipe = () => {
     const { user } = useAuth();
     const navigate = useNavigate();
@@ -110,9 +237,12 @@ const UserCreateRecipe = () => {
     const [targetCountry, setTargetCountry] = useState(TARGET_COUNTRY_OPTIONS[0].value);
     const [targetPersona, setTargetPersona] = useState(TARGET_PERSONA_OPTIONS[0]);
     const [priceRange, setPriceRange] = useState(PRICE_RANGE_OPTIONS[1]);
+    const [generationOption, setGenerationOption] = useState(GENERATION_OPTIONS[0].value);
+    const [selectedReportSections, setSelectedReportSections] = useState(REPORT_PRESETS[GENERATION_OPTIONS[0].value]);
     const [targetRecommendLoading, setTargetRecommendLoading] = useState(false);
     const [loading, setLoading] = useState(false);
     const [progress, setProgress] = useState(0);
+    const [publishLoading, setPublishLoading] = useState(false);
     const [autoIngredientLoading, setAutoIngredientLoading] = useState(false);
     const [error, setError] = useState('');
     const [initializing, setInitializing] = useState(true);
@@ -130,6 +260,32 @@ const UserCreateRecipe = () => {
             imageBase64: data.imageBase64 || '',
         });
 
+    const inferGenerationOption = (sections) => {
+        if (!Array.isArray(sections) || sections.length === 0) {
+            return 'recipe_only';
+        }
+        const hasInfluencerImage = sections.includes('influencerImage');
+        const hasInfluencer = sections.includes('influencer');
+        const hasMap = sections.includes('globalMarketMap');
+        if (hasInfluencerImage) {
+            return hasMap ? 'recipe_report_influencer_image_map' : 'recipe_report_influencer_image';
+        }
+        if (hasInfluencer) {
+            return hasMap ? 'recipe_report_influencer_map' : 'recipe_report_influencer';
+        }
+        if (hasMap) {
+            return 'recipe_report_map';
+        }
+        return 'recipe_report';
+    };
+
+    const applyReportSelectionFromRecipe = (data) => {
+        const sections = Array.isArray(data?.report?._sections) ? data.report._sections : [];
+        const option = inferGenerationOption(sections);
+        setGenerationOption(option);
+        setSelectedReportSections(sections.length ? sections : REPORT_PRESETS[option] || []);
+    };
+
     const applyInitialState = (data) => {
         setTitle(data.title || '');
         setDescription(data.description || '');
@@ -144,7 +300,6 @@ const UserCreateRecipe = () => {
     };
 
     const targetMetaKey = (recipeId) => `recipeTargetMeta:${recipeId}`;
-
     const readTargetMeta = (recipeId) => {
         const cached =
             sessionStorage.getItem(targetMetaKey(recipeId)) ||
@@ -185,7 +340,9 @@ const UserCreateRecipe = () => {
             try {
                 setInitializing(true);
                 const res = await axiosInstance.get(`/api/recipes/${id}`);
-                applyInitialState(res.data || {});
+                const data = res.data || {};
+                applyInitialState(data);
+                applyReportSelectionFromRecipe(data);
             } catch (err) {
                 console.error('Failed to load recipe', err);
                 setError(labels.loadError);
@@ -197,6 +354,7 @@ const UserCreateRecipe = () => {
         if (isEdit) {
             if (initialRecipe && String(initialRecipe.id) === String(id)) {
                 applyInitialState(initialRecipe);
+                applyReportSelectionFromRecipe(initialRecipe);
                 applyTargetMeta(readTargetMeta(initialRecipe.id));
             } else {
                 loadRecipe().then(() => {
@@ -208,7 +366,9 @@ const UserCreateRecipe = () => {
                 try {
                     setInitializing(true);
                     const res = await axiosInstance.get(`/api/recipes/${reviewRecipeId}`);
-                    setCreatedRecipe(res.data);
+                    const data = res.data || {};
+                    setCreatedRecipe(data);
+                    applyReportSelectionFromRecipe(data);
                     applyTargetMeta(readTargetMeta(reviewRecipeId));
                     setCreatedInfluencers(location.state?.influencers || []);
                     setCreatedInfluencerImage(location.state?.influencerImageBase64 || '');
@@ -246,6 +406,36 @@ const UserCreateRecipe = () => {
         });
         return currentSnapshot !== initialSnapshotRef.current;
     }, [description, imageBase64, ingredients, initializing, steps, title]);
+
+    const selectedOptionMeta = useMemo(
+        () => GENERATION_OPTIONS.find((option) => option.value === generationOption),
+        [generationOption]
+    );
+    const includesReport = Boolean(selectedOptionMeta?.includeReport);
+    const influencerSelected = selectedReportSections.includes('influencer');
+
+    useEffect(() => {
+        if (!influencerSelected && selectedReportSections.includes('influencerImage')) {
+            setSelectedReportSections((prev) => prev.filter((key) => key !== 'influencerImage'));
+        }
+    }, [influencerSelected, selectedReportSections]);
+
+    const handleGenerationOptionChange = (value) => {
+        setGenerationOption(value);
+        setSelectedReportSections(REPORT_PRESETS[value] || []);
+    };
+
+    const toggleReportSection = (key) => {
+        if (REQUIRED_REPORT_SECTIONS.has(key)) {
+            return;
+        }
+        if (key === 'influencerImage' && !influencerSelected) {
+            return;
+        }
+        setSelectedReportSections((prev) => (
+            prev.includes(key) ? prev.filter((item) => item !== key) : [...prev, key]
+        ));
+    };
 
     useEffect(() => {
         if (isDirty && hasUserEdits && shouldBlockRef.current) {
@@ -462,17 +652,17 @@ const UserCreateRecipe = () => {
         }
     };
 
-    const safeCacheRemove = (key) => {
+    const safeSessionRemove = (key) => {
         try {
-            localStorage.removeItem(key);
+            sessionStorage.removeItem(key);
         } catch (err) {
             // ignore remove errors
         }
     };
 
-    const safeSessionRemove = (key) => {
+    const safeCacheRemove = (key) => {
         try {
-            sessionStorage.removeItem(key);
+            localStorage.removeItem(key);
         } catch (err) {
             // ignore remove errors
         }
@@ -516,28 +706,53 @@ const UserCreateRecipe = () => {
         safeCacheRemove(influencerMetaKey(recipeId));
     };
 
-    const generateInfluencerAssets = async (recipe) => {
+    const pickInfluencerForImage = (items) => {
+        if (!Array.isArray(items) || items.length === 0) {
+            return null;
+        }
+        return items.find((item) => item?.name && item?.imageUrl) || items.find((item) => item?.name) || null;
+    };
+
+    const generateInfluencerAssets = async (recipe, options) => {
+        const includeInfluencer = Boolean(options?.includeInfluencer);
+        const includeImage = Boolean(options?.includeImage);
+        if (!includeInfluencer) {
+            setCreatedInfluencers([]);
+            setCreatedInfluencerImage('');
+            return { influencers: [], imageBase64: '' };
+        }
         const cachedInfluencers =
             sessionStorage.getItem(`recipeInfluencers:${recipe.id}`) ||
             localStorage.getItem(`recipeInfluencers:${recipe.id}`);
-        const cachedImage =
-            sessionStorage.getItem(`recipeInfluencerImage:${recipe.id}`) ||
-            localStorage.getItem(`recipeInfluencerImage:${recipe.id}`);
+        const cachedImage = includeImage
+            ? (sessionStorage.getItem(`recipeInfluencerImage:${recipe.id}`) ||
+                localStorage.getItem(`recipeInfluencerImage:${recipe.id}`))
+            : '';
         const cachedMeta = readInfluencerMeta(recipe.id);
         if (cachedMeta && !isInfluencerMetaMatch(cachedMeta, recipe)) {
             clearInfluencerCache(recipe.id);
         }
-        if (cachedInfluencers && cachedImage) {
+        if (cachedInfluencers && (!includeImage || cachedImage)) {
             try {
                 const parsed = JSON.parse(cachedInfluencers);
                 if (Array.isArray(parsed)) {
                     setCreatedInfluencers(parsed);
+                    if (includeImage) {
+                        setCreatedInfluencerImage(cachedImage || '');
+                    } else {
+                        setCreatedInfluencerImage('');
+                    }
+                    return { influencers: parsed, imageBase64: includeImage ? cachedImage || '' : '' };
                 }
             } catch (err) {
                 // ignore cache parse errors
             }
-            setCreatedInfluencerImage(cachedImage);
-            return true;
+            if (includeImage) {
+                setCreatedInfluencerImage(cachedImage || '');
+            } else {
+                setCreatedInfluencerImage('');
+            }
+            return { influencers: [], imageBase64: includeImage ? cachedImage || '' : '' };
         }
         try {
             const payload = {
@@ -550,7 +765,7 @@ const UserCreateRecipe = () => {
             const recs = influencerRes.data?.recommendations ?? [];
             if (!recs.length) {
                 setError(labels.influencerError);
-                return true;
+                return null;
             }
             setCreatedInfluencers(recs);
             const influencersJson = JSON.stringify(recs);
@@ -560,31 +775,51 @@ const UserCreateRecipe = () => {
             safeSessionSet(influencerMetaKey(recipe.id), metaJson);
             safeCacheSet(influencerMetaKey(recipe.id), metaJson);
 
-            const top = recs[0];
-            if (top?.name && top?.imageUrl) {
+            if (!includeImage) {
+                setCreatedInfluencerImage('');
+                return { influencers: recs, imageBase64: '' };
+            }
+
+            const top = pickInfluencerForImage(recs);
+            if (top?.name) {
                 const imageRes = await axiosInstance.post('/api/images/generate', {
                     recipe: recipe.title,
                     influencerName: top.name,
-                    influencerImageUrl: top.imageUrl,
+                    influencerImageUrl: top.imageUrl || '',
                     additionalStyle: 'clean studio, natural lighting',
                 });
-                if (imageRes.data?.imageBase64) {
-                    setCreatedInfluencerImage(imageRes.data.imageBase64);
-                    safeSessionSet(`recipeInfluencerImage:${recipe.id}`, imageRes.data.imageBase64);
-                    safeCacheSet(`recipeInfluencerImage:${recipe.id}`, imageRes.data.imageBase64);
-                } else {
-                    setError(labels.influencerError);
-                    return true;
+                const imageBase64 = imageRes.data?.imageBase64 || '';
+                if (imageBase64) {
+                    setCreatedInfluencerImage(imageBase64);
+                    safeSessionSet(`recipeInfluencerImage:${recipe.id}`, imageBase64);
+                    safeCacheSet(`recipeInfluencerImage:${recipe.id}`, imageBase64);
+                    return { influencers: recs, imageBase64 };
                 }
-            } else {
-                setError(labels.influencerError);
-                return true;
+                setCreatedInfluencerImage('');
+                setError(imageRes.data?.note || labels.influencerError);
+                return { influencers: recs, imageBase64: '' };
             }
-            return true;
+            setCreatedInfluencerImage('');
+            setError(labels.influencerError);
+            return { influencers: recs, imageBase64: '' };
         } catch (err) {
             console.error('Influencer generation failed', err);
             setError(labels.influencerError);
-            return true;
+            return null;
+        }
+    };
+
+    const persistInfluencerAssets = async (recipeId, includeInfluencer, includeImage, assets) => {
+        if (!recipeId || (!includeInfluencer && !includeImage)) {
+            return;
+        }
+        try {
+            await axiosInstance.put(`/api/recipes/${recipeId}/influencers`, {
+                influencers: includeInfluencer ? assets?.influencers || [] : [],
+                influencerImageBase64: includeImage ? assets?.imageBase64 || '' : '',
+            });
+        } catch (err) {
+            console.error('Failed to persist influencer assets', err);
         }
     };
 
@@ -602,6 +837,8 @@ const UserCreateRecipe = () => {
         const isUpdate = Boolean(recipeId);
         const isCreateFlow = !id;
         const shouldRegenerate = isCreateFlow && (isDirty || !createdRecipe);
+        const shouldGenerateReport = includesReport;
+        const shouldRegenerateReport = shouldGenerateReport && (isEdit ? true : shouldRegenerate);
         const payload = {
             title: title.trim(),
             description: description.trim(),
@@ -612,7 +849,8 @@ const UserCreateRecipe = () => {
             targetPersona,
             priceRange,
             draft: true,
-            regenerateReport: shouldRegenerate,
+            regenerateReport: shouldRegenerateReport,
+            reportSections: shouldGenerateReport ? selectedReportSections : [],
         };
         setLoading(true);
         startProgress();
@@ -637,13 +875,21 @@ const UserCreateRecipe = () => {
             shouldBlockRef.current = false;
             sessionStorage.removeItem('recipeEditDirty');
 
-            if (isCreateFlow && shouldRegenerate) {
-                bumpProgress(70);
-                const influencerOk = await generateInfluencerAssets(created);
-                if (!influencerOk) {
-                    return;
+            if (shouldRegenerateReport) {
+                const runInfluencer = selectedReportSections.includes('influencer');
+                const runInfluencerImage = selectedReportSections.includes('influencerImage');
+                if (runInfluencer || runInfluencerImage) {
+                    bumpProgress(70);
+                    const assets = await generateInfluencerAssets(created, {
+                        includeInfluencer: runInfluencer,
+                        includeImage: runInfluencerImage,
+                    });
+                    if (!assets) {
+                        return;
+                    }
+                    bumpProgress(85);
+                    await persistInfluencerAssets(created.id, runInfluencer, runInfluencerImage, assets);
                 }
-                bumpProgress(85);
             }
 
             if (isCreateFlow) {
@@ -683,6 +929,30 @@ const UserCreateRecipe = () => {
         }
         setShowReview(false);
         applyInitialState(createdRecipe);
+    };
+
+    const handlePublishDraft = async () => {
+        if (!createdRecipe?.id || publishLoading) {
+            return;
+        }
+        setPublishLoading(true);
+        try {
+            try {
+                await axiosInstance.get('/api/csrf');
+            } catch (err) {
+                // ignore csrf refresh failures
+            }
+            await axiosInstance.put(`/api/recipes/${createdRecipe.id}/publish`, {
+                influencers: includesReport ? createdInfluencers : [],
+                influencerImageBase64: includesReport ? createdInfluencerImage : '',
+            });
+            navigate(`/mainboard/recipes/${createdRecipe.id}`);
+        } catch (err) {
+            console.error('Failed to publish recipe', err);
+            setError('레시피 등록 확정에 실패했습니다.');
+        } finally {
+            setPublishLoading(false);
+        }
     };
 
     const isReviewMode = showReview && createdRecipe;
@@ -810,31 +1080,55 @@ const UserCreateRecipe = () => {
                             </div>
 
                             <div className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[0_12px_30px_var(--shadow)] p-6 space-y-4">
-                                <h3 className="text-lg font-semibold text-[color:var(--text)]">레시피 요약</h3>
-                                <div className="rounded-xl border border-[color:var(--border)] bg-[color:var(--surface-muted)] p-4">
-                                    <p className="text-sm font-semibold text-[color:var(--text)] mb-2">요약</p>
-                                    <p className="text-sm text-[color:var(--text-muted)] whitespace-pre-line">
-                                        {createdRecipe?.summary || '요약 결과가 없습니다.'}
-                                    </p>
-                                </div>
-
+                                {includesReport && (
+                                    <h3 className="text-lg font-semibold text-[color:var(--text)]">레시피 요약</h3>
+                                )}
                                 <div className="rounded-xl border border-[color:var(--border)] bg-[color:var(--surface-muted)] p-4 space-y-3">
+                                    {includesReport && (
+                                        <div className="text-sm text-[color:var(--text-muted)] leading-7">
+                                            {createdRecipe?.summary?.trim() ? (
+                                                <ul className="space-y-2 list-disc list-inside">
+                                                    {createdRecipe.summary
+                                                        .split(/\s*-\s+/)
+                                                        .map((chunk) => chunk.trim())
+                                                        .filter(Boolean)
+                                                        .flatMap((chunk) => chunk.split(/\n+/))
+                                                        .map((item, idx) => (
+                                                            <li key={`${idx}-${item.slice(0, 8)}`}>{item}</li>
+                                                        ))}
+                                                </ul>
+                                            ) : (
+                                                '요약 결과가 없습니다.'
+                                            )}
+                                        </div>
+                                    )}
                                     <div className="flex gap-2">
-                                        <button
-                                            type="button"
-                                            onClick={() =>
-                                                navigate(`/mainboard/recipes/${createdRecipe.id}/report`, {
-                                                    state: {
-                                                        fromReview: true,
-                                                        influencers: createdInfluencers,
-                                                        influencerImageBase64: createdInfluencerImage,
-                                                    },
-                                                })
-                                            }
-                                            className="flex-1 py-2 rounded-lg bg-[color:var(--accent)] text-[color:var(--accent-contrast)] text-sm font-semibold hover:bg-[color:var(--accent-strong)] transition"
-                                        >
-                                            리포트 보기
-                                        </button>
+                                        {includesReport ? (
+                                            <button
+                                                type="button"
+                                                onClick={() =>
+                                                    navigate(`/mainboard/recipes/${createdRecipe.id}/report`, {
+                                                        state: {
+                                                            fromReview: true,
+                                                            influencers: createdInfluencers,
+                                                            influencerImageBase64: createdInfluencerImage,
+                                                        },
+                                                    })
+                                                }
+                                                className="flex-1 py-2 rounded-lg bg-[color:var(--accent)] text-[color:var(--accent-contrast)] text-sm font-semibold hover:bg-[color:var(--accent-strong)] transition"
+                                            >
+                                                리포트 보기
+                                            </button>
+                                        ) : (
+                                            <button
+                                                type="button"
+                                                onClick={handlePublishDraft}
+                                                disabled={publishLoading}
+                                                className="flex-1 py-2 rounded-lg bg-[color:var(--accent)] text-[color:var(--accent-contrast)] text-sm font-semibold hover:bg-[color:var(--accent-strong)] transition disabled:opacity-60"
+                                            >
+                                                {publishLoading ? '등록 중...' : '등록 확정'}
+                                            </button>
+                                        )}
                                         <button
                                             type="button"
                                             onClick={handleReviewEdit}
@@ -1027,98 +1321,161 @@ const UserCreateRecipe = () => {
                                 </div>
 
                                 <div className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[0_12px_30px_var(--shadow)] p-6 space-y-5">
-                                <div className="flex items-center justify-between">
-                                    <h3 className="text-lg font-semibold text-[color:var(--text)]">{labels.ingredientsLabel}</h3>
-                                    <div className="flex items-center gap-2">
-                                        <button
-                                            type="button"
-                                            onClick={handleAutoAddIngredients}
-                                            disabled={autoIngredientLoading}
-                                            className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[color:var(--surface-muted)] border border-[color:var(--border)] text-xs text-[color:var(--text)] disabled:opacity-60"
-                                        >
-                                            {autoIngredientLoading ? labels.ingredientAutoLoading : labels.ingredientAutoAdd}
-                                        </button>
-                                        <HelpTooltip
-                                            label={labels.ingredientAutoHelpLabel}
-                                            description={labels.ingredientAutoHelpDesc}
-                                        />
-                                        <button
-                                            type="button"
-                                            onClick={addIngredient}
-                                            className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[color:var(--surface-muted)] border border-[color:var(--border)] text-xs text-[color:var(--text)]"
-                                        >
-                                            <Plus size={14} />
-                                            {labels.ingredientAdd}
-                                        </button>
+                                    <div className="flex items-center justify-between">
+                                        <h3 className="text-lg font-semibold text-[color:var(--text)]">{labels.ingredientsLabel}</h3>
+                                        <div className="flex items-center gap-2">
+                                            <button
+                                                type="button"
+                                                onClick={handleAutoAddIngredients}
+                                                disabled={autoIngredientLoading}
+                                                className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[color:var(--surface-muted)] border border-[color:var(--border)] text-xs text-[color:var(--text)] disabled:opacity-60"
+                                            >
+                                                {autoIngredientLoading ? labels.ingredientAutoLoading : labels.ingredientAutoAdd}
+                                            </button>
+                                            <HelpTooltip
+                                                label={labels.ingredientAutoHelpLabel}
+                                                description={labels.ingredientAutoHelpDesc}
+                                            />
+                                            <button
+                                                type="button"
+                                                onClick={addIngredient}
+                                                className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[color:var(--surface-muted)] border border-[color:var(--border)] text-xs text-[color:var(--text)]"
+                                            >
+                                                <Plus size={14} />
+                                                {labels.ingredientAdd}
+                                            </button>
+                                        </div>
+                                    </div>
+
+                                    <div className="space-y-3">
+                                        {ingredients.map((item, idx) => (
+                                            <div key={`ingredient-${idx}`} className="flex items-center gap-2">
+                                                <input
+                                                    type="text"
+                                                    placeholder={labels.ingredientPlaceholder}
+                                                    value={item}
+                                                    onChange={(e) => handleIngredientChange(idx, e.target.value)}
+                                                    className="flex-1 p-3 rounded-xl bg-[color:var(--surface-muted)] border border-[color:var(--border)] text-[color:var(--text)] placeholder:text-[color:var(--text-soft)] focus:outline-none focus:ring-2 focus:ring-[color:var(--accent)]"
+                                                />
+                                                {ingredients.length > 1 && (
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => removeIngredient(idx)}
+                                                        className="p-2 rounded-lg border border-[color:var(--border)] text-[color:var(--text-muted)] hover:text-[color:var(--danger)]"
+                                                    >
+                                                        <Trash2 size={16} />
+                                                    </button>
+                                                )}
+                                            </div>
+                                        ))}
                                     </div>
                                 </div>
 
-                                <div className="space-y-3">
-                                    {ingredients.map((item, idx) => (
-                                        <div key={`ingredient-${idx}`} className="flex items-center gap-2">
-                                            <input
-                                                type="text"
-                                                placeholder={labels.ingredientPlaceholder}
-                                                value={item}
-                                                onChange={(e) => handleIngredientChange(idx, e.target.value)}
-                                                className="flex-1 p-3 rounded-xl bg-[color:var(--surface-muted)] border border-[color:var(--border)] text-[color:var(--text)] placeholder:text-[color:var(--text-soft)] focus:outline-none focus:ring-2 focus:ring-[color:var(--accent)]"
-                                            />
-                                            {ingredients.length > 1 && (
-                                                <button
-                                                    type="button"
-                                                    onClick={() => removeIngredient(idx)}
-                                                    className="p-2 rounded-lg border border-[color:var(--border)] text-[color:var(--text-muted)] hover:text-[color:var(--danger)]"
-                                                >
-                                                    <Trash2 size={16} />
-                                                </button>
+                                <div className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[0_12px_30px_var(--shadow)] p-6 space-y-4">
+                                    <div className="space-y-2">
+                                        <label className="block text-xs font-semibold text-[color:var(--text-muted)]">
+                                            생성 옵션
+                                        </label>
+                                        <select
+                                            value={generationOption}
+                                            onChange={(e) => handleGenerationOptionChange(e.target.value)}
+                                            className="w-full p-3 rounded-xl bg-[color:var(--surface-muted)] border border-[color:var(--border)] text-[color:var(--text)] focus:outline-none focus:ring-2 focus:ring-[color:var(--accent)]"
+                                        >
+                                            {GENERATION_OPTIONS.map((option) => (
+                                                <option key={option.value} value={option.value}>
+                                                    {option.label}
+                                                </option>
+                                            ))}
+                                        </select>
+                                    </div>
+
+                                    {includesReport && (
+                                        <div className="rounded-xl border border-[color:var(--border)] bg-[color:var(--surface-muted)] p-4 space-y-3">
+                                            <p className="text-sm font-semibold text-[color:var(--text)]">리포트 생성 항목</p>
+                                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                                {REPORT_SECTION_ORDER.map((key) => {
+                                                    const label = REPORT_SECTION_LABELS[key];
+                                                    if (!label) {
+                                                        return null;
+                                                    }
+                                                    const isRequired = REQUIRED_REPORT_SECTIONS.has(key);
+                                                    const isChecked = isRequired || selectedReportSections.includes(key);
+                                                    const isDisabled = isRequired || (key === 'influencerImage' && !influencerSelected);
+                                                    return (
+                                                        <label
+                                                            key={key}
+                                                            className={`flex items-center gap-2 text-sm ${
+                                                                isDisabled ? 'text-[color:var(--text-soft)]' : 'text-[color:var(--text)]'
+                                                            }`}
+                                                        >
+                                                            <input
+                                                                type="checkbox"
+                                                                checked={isChecked}
+                                                                disabled={isDisabled}
+                                                                onChange={() => toggleReportSection(key)}
+                                                                className="h-4 w-4 rounded border-[color:var(--border)]"
+                                                            />
+                                                            <span>{label}</span>
+                                                            {isRequired && (
+                                                                <span className="ml-auto text-[10px] uppercase tracking-[0.2em] text-[color:var(--text-soft)]">
+                                                                    필수
+                                                                </span>
+                                                            )}
+                                                        </label>
+                                                    );
+                                                })}
+                                            </div>
+                                            {!influencerSelected && (
+                                                <p className="text-xs text-[color:var(--text-soft)]">
+                                                    인플루언서 추천을 체크해야 이미지 생성 항목을 선택할 수 있습니다.
+                                                </p>
                                             )}
                                         </div>
-                                    ))}
-                                </div>
+                                    )}
 
-                                {!isEdit && (
-                                    <div className="space-y-2 text-sm text-[color:var(--text-muted)]">
-                                        <p className="font-semibold text-[color:var(--text)]">{labels.guideTitle}</p>
-                                        <p>{labels.guideBody}</p>
-                                    </div>
-                                )}
+                                    {!isEdit && (
+                                        <div className="space-y-2 text-sm text-[color:var(--text-muted)]">
+                                            <p className="font-semibold text-[color:var(--text)]">{labels.guideTitle}</p>
+                                            <p>{labels.guideBody}</p>
+                                        </div>
+                                    )}
 
-                                <div className="flex items-center gap-3">
-                                    <button
-                                        type="button"
-                                        onClick={handleSubmit}
-                                        disabled={loading}
-                                        className="flex-1 py-3 rounded-xl bg-[color:var(--accent)] text-[color:var(--accent-contrast)] font-semibold hover:bg-[color:var(--accent-strong)] transition shadow-[0_10px_30px_var(--shadow)] disabled:opacity-60"
-                                    >
-                                        {loading ? (isEditingMode ? labels.updatingLabel : labels.creatingLabel) : isEditingMode ? labels.updateLabel : labels.createLabel}
-                                    </button>
-                                    <div
-                                        className={`flex items-center gap-2 text-xs text-[color:var(--text-muted)] ${
-                                            loading ? 'ml-2 w-[72px] opacity-100' : 'ml-0 w-0 opacity-0'
-                                        } overflow-hidden pointer-events-none`}
-                                    >
-                                        <span className="h-4 w-4 rounded-full border-2 border-[color:var(--border)] border-t-[color:var(--accent)] animate-spin" />
-                                        <span className="min-w-[4ch] text-right tabular-nums">{progress}%</span>
+                                    <div className="flex items-center gap-3">
+                                        <button
+                                            type="button"
+                                            onClick={handleSubmit}
+                                            disabled={loading}
+                                            className="flex-1 py-3 rounded-xl bg-[color:var(--accent)] text-[color:var(--accent-contrast)] font-semibold hover:bg-[color:var(--accent-strong)] transition shadow-[0_10px_30px_var(--shadow)] disabled:opacity-60"
+                                        >
+                                            {loading ? (isEditingMode ? labels.updatingLabel : labels.creatingLabel) : isEditingMode ? labels.updateLabel : labels.createLabel}
+                                        </button>
+                                        <div
+                                            className={`flex items-center gap-2 text-xs text-[color:var(--text-muted)] ${
+                                                loading ? 'ml-2 w-[72px] opacity-100' : 'ml-0 w-0 opacity-0'
+                                            } overflow-hidden pointer-events-none`}
+                                        >
+                                            <span className="h-4 w-4 rounded-full border-2 border-[color:var(--border)] border-t-[color:var(--accent)] animate-spin" />
+                                            <span className="min-w-[4ch] text-right tabular-nums">{progress}%</span>
+                                        </div>
                                     </div>
-                                </div>
-                                {isEdit && (
-                                    <button
-                                        type="button"
-                                        onClick={() => {
-                                            if (isDirty && shouldBlockRef.current) {
-                                                const confirmed = window.confirm(labels.confirmLeave);
-                                                if (!confirmed) {
-                                                    return;
+                                    {isEdit && (
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                if (isDirty && shouldBlockRef.current) {
+                                                    const confirmed = window.confirm(labels.confirmLeave);
+                                                    if (!confirmed) {
+                                                        return;
+                                                    }
                                                 }
-                                            }
-                                            sessionStorage.removeItem('recipeEditDirty');
-                                            navigate(`/mainboard/recipes/${id}`);
-                                        }}
-                                        className="w-full py-3 rounded-xl border border-[color:var(--border)] text-[color:var(--text)] font-semibold hover:bg-[color:var(--surface-muted)] transition"
-                                    >
-                                        {labels.cancelLabel}
-                                    </button>
-                                )}
+                                                sessionStorage.removeItem('recipeEditDirty');
+                                                navigate(`/mainboard/recipes/${id}`);
+                                            }}
+                                            className="w-full py-3 rounded-xl border border-[color:var(--border)] text-[color:var(--text)] font-semibold hover:bg-[color:var(--surface-muted)] transition"
+                                        >
+                                            {labels.cancelLabel}
+                                        </button>
+                                    )}
                                 </div>
                             </div>
                         </>
