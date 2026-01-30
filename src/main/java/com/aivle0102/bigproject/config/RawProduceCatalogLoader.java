@@ -122,7 +122,7 @@ public class RawProduceCatalogLoader {
 
     private String normalizeKey(String value) {
         if (value == null) return "";
-        String cleaned = value.replace("\uFEFF", "")
+        String cleaned = value.replace("﻿", "")
                 .replace("_", " ")
                 .trim();
         cleaned = cleaned.replaceAll("\\([^)]*\\)", " ");

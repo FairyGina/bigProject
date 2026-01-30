@@ -4,18 +4,18 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 
 const labels = {
-    brand: '\ube48 \ub808\uc2dc\ud53c',
-    notice: '\uacf5\uc9c0\uc0ac\ud56d',
-    hub: '\ub808\uc2dc\ud53c \ud5c8\ube0c',
-    userHub: '\uc720\uc800 \ud5c8\ube0c',
-    userRecipes: '\uc720\uc800 \ub808\uc2dc\ud53c',
-    profileEdit: '\ub0b4 \uc815\ubcf4 \uc218\uc815',
-    create: '\ub808\uc2dc\ud53c \uc0dd\uc131\ud558\uae30',
-    aiCreate: 'AI\ub85c \uc0dd\uc131\ud558\uae30',
-    manualCreate: '\uc9c1\uc811 \ub4f1\ub85d\ud558\uae30',
-    logout: '\ub85c\uadf8\uc544\uc6c3',
-    confirmNavigation: '\uc791\uc131 \uc911\uc778 \ub0b4\uc6a9\uc774 \uc0ac\ub77c\uc9d1\ub2c8\ub2e4. \uc774\ub3d9\ud560\uae4c\uc694?',
-    confirmLogout: '\ub85c\uadf8\uc544\uc6c3 \ud558\uc2dc\uaca0\uc2b5\ub2c8\uae4c?',
+    brand: '빈 레시피',
+    notice: '공지사항',
+    hub: '레시피 허브',
+    userHub: '유저 허브',
+    userRecipes: '유저 레시피',
+    profileEdit: '내 정보 수정',
+    create: '레시피 생성하기',
+    aiCreate: 'AI로 생성하기',
+    manualCreate: '직접 등록하기',
+    logout: '로그아웃',
+    confirmNavigation: '작성 중인 내용이 사라집니다. 이동할까요?',
+    confirmLogout: '로그아웃 하시겠습니까?',
 };
 
 const menuItems = [

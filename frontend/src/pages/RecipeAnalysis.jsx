@@ -637,22 +637,22 @@ const RecipeAnalysis = () => {
             showSummary
                 ? `
   <div class="section">
-    <h2>\uC694\uC57D\uBCF8</h2>
-    <p>${escapeHtml(recipe?.summary || '\uC694\uC57D \uACB0\uACFC\uAC00 \uC5C6\uC2B5\uB2C8\uB2E4.')}</p>
+    <h2>요약본</h2>
+    <p>${escapeHtml(recipe?.summary || '요약 결과가 없습니다.')}</p>
   </div>
 `
                 : '',
             showExec
                 ? `
   <div class="section">
-    <h2>\uD575\uC2EC \uC694\uC57D</h2>
-    <p><strong>\uACB0\uB860:</strong> ${escapeHtml(exec.decision || '-')}</p>
-    <p><strong>\uC2DC\uC7A5 \uC801\uD569\uB3C4:</strong> ${escapeHtml(exec.marketFitScore || '-')}\uC810</p>
-    <p><strong>\uC131\uACF5 \uAC00\uB2A5\uC131:</strong> ${escapeHtml(exec.successProbability || '-')}</p>
-    <p><strong>\uCD94\uCC9C \uC804\uB7B5:</strong> ${escapeHtml(exec.recommendation || '-')}</p>
-    <h3>\uD575\uC2EC \uAC15\uC810</h3>
+    <h2>핵심 요약</h2>
+    <p><strong>결론:</strong> ${escapeHtml(exec.decision || '-')}</p>
+    <p><strong>시장 적합도:</strong> ${escapeHtml(exec.marketFitScore || '-')}점</p>
+    <p><strong>성공 가능성:</strong> ${escapeHtml(exec.successProbability || '-')}</p>
+    <p><strong>추천 전략:</strong> ${escapeHtml(exec.recommendation || '-')}</p>
+    <h3>핵심 강점</h3>
     ${listHtml(exec.keyPros)}
-    <h3>\uC8FC\uC694 \uB9AC\uC2A4\uD06C</h3>
+    <h3>주요 리스크</h3>
     ${listHtml(exec.topRisks)}
   </div>
 `
@@ -660,28 +660,28 @@ const RecipeAnalysis = () => {
             showMarket
                 ? `
   <div class="section">
-    <h2>\uC2DC\uC7A5 \uC2A4\uB0C5\uC0F7</h2>
-    <h3>\uD0C0\uAE43 \uD398\uB974\uC18C\uB098 \uB2C8\uC988</h3>
+    <h2>시장 스냅샷</h2>
+    <h3>타깃 페르소나 니즈</h3>
     <p>${escapeHtml(personaNeeds.needs || '-')}</p>
-    <p>\uAD6C\uB9E4 \uC694\uC778: ${escapeHtml(personaNeeds.purchaseDrivers || '-')}</p>
-    <p>\uC7A5\uBCBD: ${escapeHtml(personaNeeds.barriers || '-')}</p>
-    <h3>\uD2B8\uB80C\uB4DC \uC2DC\uADF8\uB110</h3>
+    <p>구매 요인: ${escapeHtml(personaNeeds.purchaseDrivers || '-')}</p>
+    <p>장벽: ${escapeHtml(personaNeeds.barriers || '-')}</p>
+    <h3>트렌드 시그널</h3>
     ${listHtml(trendSignals.trendNotes)}
-    <p>\uAC00\uACA9\uB300: ${escapeHtml(trendSignals.priceRangeNotes || '-')}</p>
-    <p>\uCC44\uB110: ${escapeHtml(trendSignals.channelSignals || '-')}</p>
-    <h3>\uACBD\uC7C1 \uAD6C\uB3C4</h3>
+    <p>가격대: ${escapeHtml(trendSignals.priceRangeNotes || '-')}</p>
+    <p>채널: ${escapeHtml(trendSignals.channelSignals || '-')}</p>
+    <h3>경쟁 구도</h3>
     <p>${escapeHtml(competition.localCompetitors || '-')}</p>
-    <p>\uCC28\uBCC4\uD654: ${escapeHtml(competition.differentiation || '-')}</p>
+    <p>차별화: ${escapeHtml(competition.differentiation || '-')}</p>
   </div>
 `
                 : '',
             showRisk
                 ? `
   <div class="section">
-    <h2>\uB9AC\uC2A4\uD06C & \uB300\uC751</h2>
-    <h3>\uB9AC\uC2A4\uD06C</h3>
+    <h2>리스크 & 대응</h2>
+    <h3>리스크</h3>
     ${listHtml(risk.riskList)}
-    <h3>\uC644\uD654 \uC804\uB7B5</h3>
+    <h3>완화 전략</h3>
     ${listHtml(risk.mitigations)}
   </div>
 `
@@ -689,8 +689,8 @@ const RecipeAnalysis = () => {
             showAllergen
                 ? `
   <div class="section">
-    <h2>\uC54C\uB808\uB974\uAE30 \uC131\uBD84 \uB178\uD2B8</h2>
-    <p>${escapeHtml(recipe?.allergen?.note || '\uC54C\uB808\uB974\uAE30 \uC131\uBD84 \uC694\uC57D\uC774 \uC5C6\uC2B5\uB2C8\uB2E4.')}</p>
+    <h2>알레르기 성분 노트</h2>
+    <p>${escapeHtml(recipe?.allergen?.note || '알레르기 성분 요약이 없습니다.')}</p>
   </div>
 `
                 : '',
@@ -698,13 +698,13 @@ const RecipeAnalysis = () => {
                 ? `
   <div class="section">
     <h2>SWOT</h2>
-    <h3>\uAC15\uC810</h3>
+    <h3>강점</h3>
     ${listHtml(swot.strengths)}
-    <h3>\uC57D\uC810</h3>
+    <h3>약점</h3>
     ${listHtml(swot.weaknesses)}
-    <h3>\uAE30\uD68C</h3>
+    <h3>기회</h3>
     ${listHtml(swot.opportunities)}
-    <h3>\uC704\uD611</h3>
+    <h3>위협</h3>
     ${listHtml(swot.threats)}
   </div>
 `
@@ -712,38 +712,38 @@ const RecipeAnalysis = () => {
             showConceptIdeas
                 ? `
   <div class="section">
-    <h2>\uCEE8\uC149 \uC544\uC774\uB514\uC5B4</h2>
+    <h2>컨셉 아이디어</h2>
     ${conceptIdeas.length ? conceptIdeas.map((idea) => `
       <div>
         <p><strong>${escapeHtml(idea.name || '')}</strong></p>
         <p>SCAMPER: ${escapeHtml(idea.scamperFocus || '-')}</p>
-        <p>\uD3EC\uC9C0\uC154\uB2DD: ${escapeHtml(idea.positioning || '-')}</p>
-        <p>\uAE30\uB300\uD6A8\uACFC: ${escapeHtml(idea.expectedEffect || '-')}</p>
-        <p>\uB9AC\uC2A4\uD06C: ${escapeHtml(idea.risks || '-')}</p>
+        <p>포지셔닝: ${escapeHtml(idea.positioning || '-')}</p>
+        <p>기대효과: ${escapeHtml(idea.expectedEffect || '-')}</p>
+        <p>리스크: ${escapeHtml(idea.risks || '-')}</p>
       </div>
-    `).join('') : '<p class="muted">\uB0B4\uC6A9\uC774 \uC5C6\uC2B5\uB2C8\uB2E4.</p>'}
+    `).join('') : '<p class="muted">내용이 없습니다.</p>'}
   </div>
 `
                 : '',
             showKpis
                 ? `
   <div class="section">
-    <h2>KPI \uC81C\uC548</h2>
+    <h2>KPI 제안</h2>
     ${kpis.length ? kpis.map((kpi) => `
       <div>
         <p><strong>${escapeHtml(kpi.name || '')}</strong></p>
-        <p>\uBAA9\uD45C: ${escapeHtml(kpi.target || '-')}</p>
-        <p>\uCE21\uC815: ${escapeHtml(kpi.method || '-')}</p>
-        <p>\uC778\uC0AC\uC774\uD2B8: ${escapeHtml(kpi.insight || '-')}</p>
+        <p>목표: ${escapeHtml(kpi.target || '-')}</p>
+        <p>측정: ${escapeHtml(kpi.method || '-')}</p>
+        <p>인사이트: ${escapeHtml(kpi.insight || '-')}</p>
       </div>
-    `).join('') : '<p class="muted">\uB0B4\uC6A9\uC774 \uC5C6\uC2B5\uB2C8\uB2E4.</p>'}
+    `).join('') : '<p class="muted">내용이 없습니다.</p>'}
   </div>
 `
                 : '',
             showNextSteps
                 ? `
   <div class="section">
-    <h2>\uB2E4\uC74C \uB2E8\uACC4</h2>
+    <h2>다음 단계</h2>
     ${listHtml(nextSteps)}
   </div>
 `
@@ -751,7 +751,7 @@ const RecipeAnalysis = () => {
             showInfluencer
                 ? `
   <div class="section">
-    <h2>\uC778\uD50C\uB8E8\uC5B8\uC11C \uCD94\uCC9C</h2>
+    <h2>인플루언서 추천</h2>
     ${
         influencers.length
             ? influencers
@@ -762,12 +762,12 @@ const RecipeAnalysis = () => {
           <p><strong>${escapeHtml(inf.name || '')}</strong> (${escapeHtml(inf.platform || '-')})</p>
           <p class="muted">${escapeHtml(inf.profileUrl || '')}</p>
           <p>${escapeHtml(inf.rationale || '-')}</p>
-          ${inf.riskNotes ? `<p class="muted">\uC8FC\uC758: ${escapeHtml(inf.riskNotes)}</p>` : ''}
+          ${inf.riskNotes ? `<p class="muted">주의: ${escapeHtml(inf.riskNotes)}</p>` : ''}
         </div>
       `
                   )
                   .join('')
-            : '<p class="muted">\uCD94\uCC9C \uACB0\uACFC\uAC00 \uC5C6\uC2B5\uB2C8\uB2E4.</p>'
+            : '<p class="muted">추천 결과가 없습니다.</p>'
     }
   </div>
 `
@@ -775,11 +775,11 @@ const RecipeAnalysis = () => {
             showInfluencerImage
                 ? `
   <div class="section">
-    <h2>\uC778\uD50C\uB8E8\uC5B8\uC11C \uC774\uBBF8\uC9C0</h2>
+    <h2>인플루언서 이미지</h2>
     ${
         imageBase64
             ? `<img src="data:image/png;base64,${imageBase64}" alt="influencer" style="max-width:100%; border-radius:12px;"/>`
-            : '<p class="muted">\uC774\uBBF8\uC9C0 \uC0DD\uC131 \uACB0\uACFC\uAC00 \uC5C6\uC2B5\uB2C8\uB2E4.</p>'
+            : '<p class="muted">이미지 생성 결과가 없습니다.</p>'
     }
   </div>
 `
@@ -790,7 +790,7 @@ const RecipeAnalysis = () => {
 <html lang="ko">
 <head>
   <meta charset="utf-8" />
-  <title>${escapeHtml(recipe?.title)} \uB9AC\uD3EC\uD2B8</title>
+  <title>${escapeHtml(recipe?.title)} 리포트</title>
   <style>
     :root { color-scheme: light; }
     body { font-family: "Pretendard","Noto Sans KR",Arial,sans-serif; margin: 32px; color: #1f2937; }
@@ -805,7 +805,7 @@ const RecipeAnalysis = () => {
   </style>
 </head>
 <body>
-  <h1>${escapeHtml(recipe?.title)} \uB808\uC2DC\uD53C \uB9AC\uD3EC\uD2B8</h1>
+  <h1>${escapeHtml(recipe?.title)} 레시피 리포트</h1>
   <p class="muted">${escapeHtml(recipe?.description)}</p>
   ${sections}
 </body>
