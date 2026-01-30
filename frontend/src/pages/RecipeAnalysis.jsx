@@ -94,6 +94,9 @@ const RecipeAnalysis = () => {
     const report = recipe?.report || null;
 
     useEffect(() => {
+        if (loading) {
+            return;
+        }
         const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
         if (!apiKey) {
             setMapError('Google Maps API key is missing.');
@@ -133,7 +136,7 @@ const RecipeAnalysis = () => {
                 ],
             });
             mapInstanceRef.current = map;
-            setMapReady(true);
+            window.google.maps.event.addListenerOnce(map, 'idle', () => setMapReady(true));
         };
 
         const existing = document.querySelector('script[data-google-maps]');
@@ -156,7 +159,7 @@ const RecipeAnalysis = () => {
         script.dataset.googleMaps = 'true';
         script.onerror = () => setMapError('Google Maps script failed to load.');
         document.body.appendChild(script);
-    }, []);
+    }, [loading]);
 
     useEffect(() => {
         if (Array.isArray(recipe?.influencers) && recipe.influencers.length) {
@@ -390,20 +393,49 @@ const RecipeAnalysis = () => {
         if (!value) return '';
         const key = String(value).trim();
         const map = {
+            'KR': '한국',
+            'KOR': '한국',
             'US': '미국',
             'USA': '미국',
             'UK': '영국',
+            'GB': '영국',
+            'GBR': '영국',
             'UAE': '아랍에미리트',
             'KOREA': '한국',
+            'REPUBLIC OF KOREA': '한국',
+            'KOREA, REPUBLIC OF': '한국',
             'SOUTH KOREA': '한국',
+            '대한민국': '한국',
+            'JP': '일본',
+            'JPN': '일본',
             'JAPAN': '일본',
+            'CN': '중국',
+            'CHN': '중국',
             'CHINA': '중국',
             'UNITED STATES': '미국',
+            'UNITED STATES OF AMERICA': '미국',
+            'U.S.': '미국',
+            'U.S.A.': '미국',
             'UNITED KINGDOM': '영국',
+            'ENGLAND': '영국',
+            'SCOTLAND': '영국',
+            'WALES': '영국',
+            'N.IRELAND': '영국',
+            'NORTHERN IRELAND': '영국',
+            'FR': '프랑스',
+            'FRA': '프랑스',
             'FRANCE': '프랑스',
+            'DE': '독일',
+            'DEU': '독일',
             'GERMANY': '독일',
+            'CA': '캐나다',
+            'CAN': '캐나다',
             'CANADA': '캐나다',
+            'AU': '호주',
+            'AUS': '호주',
             'AUSTRALIA': '호주',
+            'IN': '인도',
+            'IND': '인도',
             'INDIA': '인도',
         };
         const upper = key.toUpperCase();
