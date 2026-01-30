@@ -52,6 +52,21 @@ public class RecipeService {
     private static final List<String> VIRTUAL_CONSUMER_COUNTRIES = List.of(
             "미국", "한국", "일본", "중국", "영국", "프랑스", "독일", "캐나다", "호주", "인도"
     );
+    private static final List<String> REPORT_JSON_SECTION_KEYS = List.of(
+            "executiveSummary",
+            "marketSnapshot",
+            "riskAssessment",
+            "swot",
+            "conceptIdeas",
+            "kpis",
+            "nextSteps"
+    );
+    private static final String SECTION_SUMMARY = "summary";
+    private static final String SECTION_ALLERGEN = "allergenNote";
+    private static final String SECTION_INFLUENCER = "influencer";
+    private static final String SECTION_INFLUENCER_IMAGE = "influencerImage";
+    private static final String SECTION_GLOBAL_MAP = "globalMarketMap";
+
 
     private final RecipeRepository recipeRepository;
     private final RecipeIngredientRepository recipeIngredientRepository;
@@ -73,23 +88,53 @@ public class RecipeService {
         String rawTargetCountry = defaultIfBlank(request.getTargetCountry(), "US");
         String normalizedTargetCountry = normalizeCountryCode(rawTargetCountry);
 
-        ReportRequest reportRequest = buildReportRequest(
-                request,
-                request.getIngredients(),
-                request.getSteps(),
-                rawTargetCountry
-        );
+        List<String> reportSections = normalizeReportSections(request.getReportSections());
+        boolean hasSelection = request.getReportSections() != null;
+        boolean includeReportJson = hasSelection
+                ? hasAnyReportJsonSection(reportSections)
+                : true;
+        boolean includeSummary = hasSelection
+                ? reportSections.contains(SECTION_SUMMARY)
+                : true;
+        boolean includeAllergen = hasSelection
+                ? reportSections.contains(SECTION_ALLERGEN)
+                : true;
+        boolean includeEvaluation = hasSelection
+                ? reportSections.contains(SECTION_GLOBAL_MAP)
+                : true;
+        if (!includeReportJson) {
+            includeSummary = false;
+            includeAllergen = false;
+            includeEvaluation = false;
+        }
 
-        String reportJson;
-        String summary;
-        AllergenAnalysisResponse allergenResponse;
-        try {
-            var report = aiReportService.generateReport(reportRequest);
-            reportJson = writeJsonMap(report);
-            summary = aiReportService.generateSummary(reportJson);
+        ReportRequest reportRequest = null;
+        String reportJson = null;
+        String summary = null;
+        AllergenAnalysisResponse allergenResponse = null;
+        if (includeReportJson) {
+            reportRequest = buildReportRequest(
+                    request,
+                    request.getIngredients(),
+                    request.getSteps(),
+                    rawTargetCountry
+            );
+            reportRequest.setSections(filterReportSectionsForPrompt(reportSections));
+            try {
+                var report = aiReportService.generateReport(reportRequest);
+                Map<String, Object> filtered = filterReportContent(report, reportSections);
+                reportJson = writeJsonMap(filtered);
+                if (includeSummary) {
+                    summary = aiReportService.generateSummary(reportJson);
+                }
+                if (includeAllergen) {
+                    allergenResponse = allergenAnalysisService.analyzeIngredients(request.getIngredients(), normalizedTargetCountry);
+                }
+            } catch (Exception e) {
+                throw new IllegalStateException("Failed to generate report for recipe", e);
+            }
+        } else if (includeAllergen) {
             allergenResponse = allergenAnalysisService.analyzeIngredients(request.getIngredients(), normalizedTargetCountry);
-        } catch (Exception e) {
-            throw new IllegalStateException("Failed to generate report for recipe", e);
         }
 
         Recipe recipe = Recipe.builder()
@@ -107,16 +152,23 @@ public class RecipeService {
         Recipe saved = recipeRepository.save(recipe);
 
         List<RecipeIngredient> ingredients = saveIngredients(saved, request.getIngredients());
-        MarketReport marketReport = marketReportRepository.save(MarketReport.builder()
-                .recipe(saved)
-                .reportType(REPORT_TYPE_AI)
-                .content(reportJson)
-                .summary(summary)
-                .build());
+        MarketReport marketReport = null;
+        if (includeReportJson) {
+            marketReport = marketReportRepository.save(MarketReport.builder()
+                    .recipe(saved)
+                    .reportType(REPORT_TYPE_AI)
+                    .content(reportJson)
+                    .summary(summary)
+                    .build());
+        }
 
-        saveAllergens(saved, ingredients, allergenResponse);
-        List<VirtualConsumer> consumers = saveVirtualConsumers(marketReport, reportRequest.getRecipe(), summary, reportJson);
-        evaluationService.evaluateAndSave(marketReport, consumers, reportJson);
+        if (includeAllergen && allergenResponse != null) {
+            saveAllergens(saved, ingredients, allergenResponse);
+        }
+        if (includeEvaluation && includeReportJson && marketReport != null && reportRequest != null) {
+            List<VirtualConsumer> consumers = saveVirtualConsumers(marketReport, reportRequest.getRecipe(), summary, reportJson);
+            evaluationService.evaluateAndSave(marketReport, consumers, reportJson);
+        }
 
         return toResponse(saved, ingredients, marketReport, authorName);
     }
@@ -155,7 +207,36 @@ public class RecipeService {
         }
         String targetCountry = rawTargetCountry;
 
-        if (request.isRegenerateReport()) {
+        List<String> reportSections = normalizeReportSections(request.getReportSections());
+        boolean hasSelection = request.getReportSections() != null;
+        boolean includeReportJson = hasSelection
+                ? hasAnyReportJsonSection(reportSections)
+                : request.isRegenerateReport();
+        boolean includeSummary = hasSelection
+                ? reportSections.contains(SECTION_SUMMARY)
+                : request.isRegenerateReport();
+        boolean includeAllergen = hasSelection
+                ? reportSections.contains(SECTION_ALLERGEN)
+                : ingredientsChanged;
+        boolean includeEvaluation = hasSelection
+                ? reportSections.contains(SECTION_GLOBAL_MAP)
+                : request.isRegenerateReport();
+        if (!includeReportJson) {
+            includeSummary = false;
+            includeEvaluation = false;
+        }
+
+        if (hasSelection && !includeReportJson) {
+            List<MarketReport> reports = marketReportRepository.findByRecipe_IdOrderByCreatedAtDesc(saved.getId());
+            for (MarketReport report : reports) {
+                if (report.getId() != null) {
+                    influencerRepository.deleteByReport_Id(report.getId());
+                    consumerFeedbackRepository.deleteByReport_Id(report.getId());
+                    virtualConsumerRepository.deleteByReport_Id(report.getId());
+                }
+            }
+            marketReportRepository.deleteAll(reports);
+        } else if (includeReportJson && request.isRegenerateReport()) {
             List<String> stepsForAnalysis = request.getSteps() != null ? request.getSteps() : splitSteps(recipe.getSteps());
             ReportRequest reportRequest = buildReportRequest(
                     request,
@@ -163,12 +244,16 @@ public class RecipeService {
                     stepsForAnalysis,
                     targetCountry
             );
+            reportRequest.setSections(filterReportSectionsForPrompt(reportSections));
             String reportJson;
-            String summary;
+            String summary = null;
             try {
                 var report = aiReportService.generateReport(reportRequest);
-                reportJson = writeJsonMap(report);
-                summary = aiReportService.generateSummary(reportJson);
+                Map<String, Object> filtered = filterReportContent(report, reportSections);
+                reportJson = writeJsonMap(filtered);
+                if (includeSummary) {
+                    summary = aiReportService.generateSummary(reportJson);
+                }
             } catch (Exception e) {
                 throw new IllegalStateException("Failed to generate report for recipe", e);
             }
@@ -183,22 +268,37 @@ public class RecipeService {
                 consumerFeedbackRepository.deleteByReport_Id(marketReport.getId());
                 virtualConsumerRepository.deleteByReport_Id(marketReport.getId());
             }
-            List<VirtualConsumer> consumers = saveVirtualConsumers(marketReport, reportRequest.getRecipe(), summary, reportJson);
-            evaluationService.evaluateAndSave(marketReport, consumers, reportJson);
+            if (includeEvaluation) {
+                List<VirtualConsumer> consumers = saveVirtualConsumers(marketReport, reportRequest.getRecipe(), summary, reportJson);
+                evaluationService.evaluateAndSave(marketReport, consumers, reportJson);
+            }
+        } else if (hasSelection && includeReportJson && !includeEvaluation) {
+            MarketReport latestReport = marketReportRepository.findTopByRecipe_IdOrderByCreatedAtDesc(saved.getId()).orElse(null);
+            if (latestReport != null && latestReport.getId() != null) {
+                consumerFeedbackRepository.deleteByReport_Id(latestReport.getId());
+                virtualConsumerRepository.deleteByReport_Id(latestReport.getId());
+            }
         }
 
-        if (ingredientsChanged) {
-            AllergenAnalysisResponse allergenResponse = allergenAnalysisService.analyzeIngredients(
-                    ingredientsForAnalysis,
-                    normalizedTargetCountry
-            );
-            saveAllergens(saved, ingredients, allergenResponse);
+        if (hasSelection && !includeAllergen) {
+            recipeAllergenRepository.deleteByRecipe_Id(saved.getId());
+        } else if (includeAllergen) {
+            boolean hasExistingAllergens =
+                    !recipeAllergenRepository.findByRecipe_IdOrderByIdAsc(saved.getId()).isEmpty();
+            if (ingredientsChanged || !hasExistingAllergens) {
+                AllergenAnalysisResponse allergenResponse = allergenAnalysisService.analyzeIngredients(
+                        ingredientsForAnalysis,
+                        normalizedTargetCountry
+                );
+                saveAllergens(saved, ingredients, allergenResponse);
+            }
         }
 
         String authorName = resolveUserName(authorId);
         MarketReport latestReport = marketReportRepository.findTopByRecipe_IdOrderByCreatedAtDesc(saved.getId()).orElse(null);
         return toResponse(saved, ingredients, latestReport, authorName);
     }
+
 
     @Transactional(readOnly = true)
     public List<RecipeResponse> getAll() {
@@ -266,6 +366,42 @@ public class RecipeService {
     }
 
     @Transactional
+    public RecipeResponse saveInfluencers(Long id, String requesterId, RecipePublishRequest request) {
+        Recipe recipe = recipeRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("Recipe not found"));
+        if (!recipe.getUserId().equals(requesterId)) {
+            throw new IllegalArgumentException("Recipe not found");
+        }
+        if (request == null) {
+            return toResponse(recipe);
+        }
+
+        MarketReport latestReport = marketReportRepository.findTopByRecipe_IdOrderByCreatedAtDesc(recipe.getId()).orElse(null);
+        Long reportId = latestReport == null ? null : latestReport.getId();
+        if (reportId == null) {
+            return toResponse(recipe);
+        }
+
+        influencerRepository.deleteByReport_Id(reportId);
+        if (request.getInfluencers() != null && !request.getInfluencers().isEmpty()) {
+            for (Map<String, Object> influencer : request.getInfluencers()) {
+                influencerRepository.save(Influencer.builder()
+                        .report(latestReport)
+                        .influencerInfo(writeJsonMap(influencer))
+                        .influencerImage(request.getInfluencerImageBase64())
+                        .build());
+            }
+        } else if (request.getInfluencerImageBase64() != null) {
+            influencerRepository.save(Influencer.builder()
+                    .report(latestReport)
+                    .influencerImage(request.getInfluencerImageBase64())
+                    .build());
+        }
+
+        return toResponse(recipe);
+    }
+
+    @Transactional
     public void delete(Long id, String requesterId) {
         Recipe recipe = recipeRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Recipe not found"));
@@ -304,8 +440,14 @@ public class RecipeService {
         List<Map<String, Object>> influencers = readInfluencers(report);
         String influencerImage = influencers.isEmpty() ? null : readInfluencerImage(report);
         if (STATUS_DRAFT.equalsIgnoreCase(recipe.getStatus())) {
-            influencers = List.of();
-            influencerImage = null;
+            List<String> sections = reportMap.get("_sections") instanceof List<?> list
+                    ? list.stream().filter(String.class::isInstance).map(String.class::cast).toList()
+                    : List.of();
+            boolean allowInfluencer = sections.contains(SECTION_INFLUENCER) || sections.contains(SECTION_INFLUENCER_IMAGE);
+            if (!allowInfluencer) {
+                influencers = List.of();
+                influencerImage = null;
+            }
         }
 
         return new RecipeResponse(
@@ -352,6 +494,12 @@ public class RecipeService {
         List<RecipeAllergen> items = (targetCountry == null || targetCountry.isBlank())
                 ? recipeAllergenRepository.findByRecipe_IdOrderByIdAsc(recipe.getId())
                 : recipeAllergenRepository.findByRecipe_IdAndTargetCountryOrderByIdAsc(recipe.getId(), targetCountry);
+        if ((items == null || items.isEmpty()) && targetCountry != null && !targetCountry.isBlank()) {
+            items = recipeAllergenRepository.findByRecipe_IdOrderByIdAsc(recipe.getId());
+        }
+        if (items == null || items.isEmpty()) {
+            return Collections.emptyMap();
+        }
 
         Set<String> matched = items.stream()
                 .map(RecipeAllergen::getMatchedAllergen)
@@ -627,6 +775,52 @@ public class RecipeService {
         }
     }
 
+    private List<String> normalizeReportSections(List<String> sections) {
+        if (sections == null) {
+            return List.of();
+        }
+        return sections.stream()
+                .filter(v -> v != null && !v.isBlank())
+                .map(String::trim)
+                .toList();
+    }
+
+    private boolean hasAnyReportJsonSection(List<String> sections) {
+        if (sections == null || sections.isEmpty()) {
+            return false;
+        }
+        return sections.stream().anyMatch(REPORT_JSON_SECTION_KEYS::contains);
+    }
+
+    private List<String> filterReportSectionsForPrompt(List<String> sections) {
+        if (sections == null || sections.isEmpty()) {
+            return REPORT_JSON_SECTION_KEYS;
+        }
+        List<String> filtered = sections.stream()
+                .filter(REPORT_JSON_SECTION_KEYS::contains)
+                .toList();
+        return filtered.isEmpty() ? REPORT_JSON_SECTION_KEYS : filtered;
+    }
+
+    private Map<String, Object> filterReportContent(Map<String, Object> report, List<String> sections) {
+        if (report == null || report.isEmpty()) {
+            return Collections.emptyMap();
+        }
+        if (sections == null || sections.isEmpty()) {
+            return report;
+        }
+        List<String> allowed = filterReportSectionsForPrompt(sections);
+        List<String> selected = sections;
+        Map<String, Object> out = new LinkedHashMap<>();
+        for (String key : allowed) {
+            if (report.containsKey(key)) {
+                out.put(key, report.get(key));
+            }
+        }
+        out.put("_sections", selected);
+        return out;
+    }
+
     private Map<String, Object> readJsonMap(String value) {
         if (value == null || value.isBlank()) {
             return Collections.emptyMap();
@@ -652,23 +846,25 @@ public class RecipeService {
         String trimmed = raw.trim();
         String upper = trimmed.toUpperCase();
         switch (upper) {
-            case "US", "JP", "CN", "FR", "DE", "PL", "IN", "VN", "TH":
+            case "US", "JP", "CN", "FR", "DE", "PL", "IN", "VN", "TH", "KR":
                 return upper;
             default:
                 break;
         }
-        return switch (trimmed) {
-            case "미국" -> "US";
-            case "일본" -> "JP";
-            case "중국" -> "CN";
-            case "프랑스" -> "FR";
-            case "독일" -> "DE";
-            case "폴란드" -> "PL";
-            case "인도" -> "IN";
-            case "베트남" -> "VN";
-            case "태국" -> "TH";
-            default -> upper;
-        };
+        switch (trimmed) {
+            case "미국": return "US";
+            case "일본": return "JP";
+            case "중국": return "CN";
+            case "프랑스": return "FR";
+            case "독일": return "DE";
+            case "폴란드": return "PL";
+            case "인도": return "IN";
+            case "베트남": return "VN";
+            case "태국": return "TH";
+            case "한국": return "KR";
+            case "대한민국": return "KR";
+            default: return upper;
+        }
     }
 
     private String resolveUserName(String userId) {

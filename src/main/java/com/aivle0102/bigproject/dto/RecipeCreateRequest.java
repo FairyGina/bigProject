@@ -18,6 +18,7 @@ public class RecipeCreateRequest {
     private String targetCountry;
     private String targetPersona;
     private String priceRange;
+    private List<String> reportSections;
     private boolean draft;
     private boolean regenerateReport;
 }

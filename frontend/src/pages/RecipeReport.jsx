@@ -15,6 +15,7 @@ const RecipeReport = () => {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
     const [deleteLoading, setDeleteLoading] = useState(false);
+    const [publishLoading, setPublishLoading] = useState(false);
 
     const targetMetaKey = (recipeId) => `recipeTargetMeta:${recipeId}`;
     const readTargetMeta = (recipeId) => {
@@ -50,6 +51,14 @@ const RecipeReport = () => {
         }
     }, [id]);
 
+    const hasReport = useMemo(() => {
+        if (!recipe || !recipe.report) {
+            return false;
+        }
+        return Object.keys(recipe.report).length > 0;
+    }, [recipe]);
+    const isRecipeOnly = !hasReport;
+
     const reportInput = useMemo(() => {
         if (!recipe) {
             return null;
@@ -67,6 +76,7 @@ const RecipeReport = () => {
             priceRange: resolvedPrice,
         };
     }, [recipe]);
+
 
     const influencerMetaKey = (recipeId) => `recipeInfluencerMeta:${recipeId}`;
     const getCachedInfluencers = (currentRecipe) => {
@@ -116,6 +126,31 @@ const RecipeReport = () => {
         localStorage.getItem(`recipeInfluencerImage:${currentRecipe?.id}`) ||
         '';
 
+
+    const handlePublish = async () => {
+        if (!recipe || recipe.status !== 'DRAFT' || publishLoading) {
+            return;
+        }
+        setPublishLoading(true);
+        try {
+            try {
+                await axiosInstance.get('/api/csrf');
+            } catch (err) {
+                // ignore csrf refresh failures
+            }
+            const res = await axiosInstance.put(`/api/recipes/${recipe.id}/publish`, {
+                influencers: [],
+                influencerImageBase64: '',
+            });
+            setRecipe(res.data);
+            navigate(`/mainboard/recipes/${recipe.id}`);
+        } catch (err) {
+            console.error('Failed to publish recipe', err);
+            setError('??? ?? ??? ??????.');
+        } finally {
+            setPublishLoading(false);
+        }
+    };
 
     const handleDelete = async () => {
         if (!recipe || deleteLoading) {
@@ -228,37 +263,54 @@ const RecipeReport = () => {
                     </div>
 
                     <div className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[0_12px_30px_var(--shadow)] p-6 space-y-4">
-                        <div className="flex items-start justify-between">
-                            <h3 className="text-lg font-semibold text-[color:var(--text)]">레시피 요약</h3>
-                        </div>
+                        {hasReport && (
+                            <div className="flex items-start justify-between">
+                                <h3 className="text-lg font-semibold text-[color:var(--text)]">레시피 요약</h3>
+                            </div>
+                        )}
 
-                        <div className="rounded-xl border border-[color:var(--border)] bg-[color:var(--surface-muted)] p-4">
-                            <p className="text-sm font-semibold text-[color:var(--text)] mb-2">요약</p>
-                            <p className="text-sm text-[color:var(--text-muted)] whitespace-pre-line">
-                                {recipe.summary || '요약 결과가 없습니다.'}
-                            </p>
-                        </div>
+                        {recipe.summary && (
+                            <div className="rounded-xl border border-[color:var(--border)] bg-[color:var(--surface-muted)] p-4">
+                                <p className="text-sm font-semibold text-[color:var(--text)] mb-2">요약</p>
+                                <p className="text-sm text-[color:var(--text-muted)] whitespace-pre-line">
+                                    {recipe.summary}
+                                </p>
+                            </div>
+                        )}
 
                         <div className="rounded-xl border border-[color:var(--border)] bg-[color:var(--surface-muted)] p-4 space-y-3">
                             <div className="flex gap-2">
-                                <button
-                                    type="button"
-                                    onClick={() => {
-                                        if (recipe?.id) {
-                                            navigate(`/mainboard/recipes/${recipe.id}/report`, {
-                                                state: {
-                                                    fromReview: false,
-                                                    reportInput,
-                                                    influencers: getCachedInfluencers(recipe),
-                                                    influencerImageBase64: getCachedInfluencerImage(recipe),
-                                                },
-                                            });
-                                        }
-                                    }}
-                                    className="flex-1 py-2 rounded-lg bg-[color:var(--accent)] text-[color:var(--accent-contrast)] text-sm font-semibold hover:bg-[color:var(--accent-strong)] transition"
-                                >
-                                    리포트 보기
-                                </button>
+                                {isRecipeOnly ? (
+                                    isOwner && recipe.status === 'DRAFT' ? (
+                                        <button
+                                            type="button"
+                                            onClick={handlePublish}
+                                            disabled={publishLoading}
+                                            className="flex-1 py-2 rounded-lg bg-[color:var(--accent)] text-[color:var(--accent-contrast)] text-sm font-semibold hover:bg-[color:var(--accent-strong)] transition disabled:opacity-60"
+                                        >
+                                            {publishLoading ? '등록 중...' : '등록 확정'}
+                                        </button>
+                                    ) : null
+                                ) : (
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            if (recipe?.id) {
+                                                navigate(`/mainboard/recipes/${recipe.id}/report`, {
+                                                    state: {
+                                                        fromReview: false,
+                                                        reportInput,
+                                                        influencers: getCachedInfluencers(recipe),
+                                                        influencerImageBase64: getCachedInfluencerImage(recipe),
+                                                    },
+                                                });
+                                            }
+                                        }}
+                                        className="flex-1 py-2 rounded-lg bg-[color:var(--accent)] text-[color:var(--accent-contrast)] text-sm font-semibold hover:bg-[color:var(--accent-strong)] transition"
+                                    >
+                                        리포트 보기
+                                    </button>
+                                )}
                                 {isOwner && (
                                     <button
                                         type="button"
