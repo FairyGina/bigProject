@@ -1327,7 +1327,7 @@ const UserCreateRecipe = () => {
                                             <button
                                                 type="button"
                                                 onClick={handleAutoAddIngredients}
-                                                disabled={autoIngredientLoading}
+                                                disabled={autoIngredientLoading || !steps.some((step) => step.trim())}
                                                 className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[color:var(--surface-muted)] border border-[color:var(--border)] text-xs text-[color:var(--text)] disabled:opacity-60"
                                             >
                                                 {autoIngredientLoading ? labels.ingredientAutoLoading : labels.ingredientAutoAdd}
@@ -1379,6 +1379,7 @@ const UserCreateRecipe = () => {
                                         <select
                                             value={generationOption}
                                             onChange={(e) => handleGenerationOptionChange(e.target.value)}
+                                            disabled={loading}
                                             className="w-full p-3 rounded-xl bg-[color:var(--surface-muted)] border border-[color:var(--border)] text-[color:var(--text)] focus:outline-none focus:ring-2 focus:ring-[color:var(--accent)]"
                                         >
                                             {GENERATION_OPTIONS.map((option) => (
@@ -1411,7 +1412,7 @@ const UserCreateRecipe = () => {
                                                             <input
                                                                 type="checkbox"
                                                                 checked={isChecked}
-                                                                disabled={isDisabled}
+                                                                disabled={isDisabled || loading}
                                                                 onChange={() => toggleReportSection(key)}
                                                                 className="h-4 w-4 rounded border-[color:var(--border)]"
                                                             />
