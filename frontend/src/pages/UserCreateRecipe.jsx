@@ -1,4 +1,4 @@
-﻿import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Plus, Trash2 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
@@ -36,7 +36,7 @@ const labels = {
     ingredientAutoFail: '재료 자동 추출에 실패했습니다.',
     guideTitle: '레시피 생성 안내',
     guideBody: '생성시간은 선택사항에 따라 1~5분정도 소요됩니다.',
-    createLabel: '레시피 생성',
+    createLabel: '레시피 등록',
     updateLabel: '레시피 수정',
     creatingLabel: '생성 중...',
     updatingLabel: '수정 중...',
@@ -125,12 +125,6 @@ const REQUIRED_REPORT_SECTIONS = new Set([
 
 const GENERATION_OPTIONS = [
     { value: 'recipe', label: '레시피', includeReport: false },
-    { value: 'recipe_report', label: '레시피+리포트/요약', includeReport: true },
-    { value: 'recipe_report_map', label: '레시피+리포트/요약+지도 평가 점수', includeReport: true },
-    { value: 'recipe_report_influencer', label: '레시피+리포트/요약+인플루언서 추천', includeReport: true },
-    { value: 'recipe_report_influencer_map', label: '레시피+리포트/요약+인플루언서 추천+지도 평가 점수', includeReport: true },
-    { value: 'recipe_report_influencer_image', label: '레시피+리포트/요약+인플루언서 추천+이미지 생성', includeReport: true },
-    { value: 'recipe_report_influencer_image_map', label: '레시피+리포트/요약+인플루언서 추천+이미지 생성+지도 평가 점수', includeReport: true },
 ];
 
 const REPORT_PRESETS = {
@@ -237,8 +231,9 @@ const UserCreateRecipe = () => {
     const [targetCountry, setTargetCountry] = useState(TARGET_COUNTRY_OPTIONS[0].value);
     const [targetPersona, setTargetPersona] = useState(TARGET_PERSONA_OPTIONS[0]);
     const [priceRange, setPriceRange] = useState(PRICE_RANGE_OPTIONS[1]);
+    const [recipeOpenYn, setRecipeOpenYn] = useState('N');
     const [generationOption, setGenerationOption] = useState(GENERATION_OPTIONS[0].value);
-    const [selectedReportSections, setSelectedReportSections] = useState(REPORT_PRESETS[GENERATION_OPTIONS[0].value]);
+    const [selectedReportSections, setSelectedReportSections] = useState([]);
     const [targetRecommendLoading, setTargetRecommendLoading] = useState(false);
     const [loading, setLoading] = useState(false);
     const [progress, setProgress] = useState(0);
@@ -280,10 +275,8 @@ const UserCreateRecipe = () => {
     };
 
     const applyReportSelectionFromRecipe = (data) => {
-        const sections = Array.isArray(data?.report?._sections) ? data.report._sections : [];
-        const option = inferGenerationOption(sections);
-        setGenerationOption(option);
-        setSelectedReportSections(sections.length ? sections : REPORT_PRESETS[option] || []);
+        setGenerationOption('recipe');
+        setSelectedReportSections([]);
     };
 
     const applyInitialState = (data) => {
@@ -293,6 +286,7 @@ const UserCreateRecipe = () => {
         setSteps(data.steps?.length ? data.steps : ['']);
         setImageBase64(data.imageBase64 || '');
         setImagePreviewUrl(data.imageBase64 || '');
+        setRecipeOpenYn(data.openYn || 'N');
         initialSnapshotRef.current = buildSnapshot(data);
         shouldBlockRef.current = true;
         setHasUserEdits(false);
@@ -413,6 +407,8 @@ const UserCreateRecipe = () => {
     );
     const includesReport = Boolean(selectedOptionMeta?.includeReport);
     const influencerSelected = selectedReportSections.includes('influencer');
+    const showReportTarget = false;
+    const showGenerationOptions = false;
 
     useEffect(() => {
         if (!influencerSelected && selectedReportSections.includes('influencerImage')) {
@@ -848,6 +844,7 @@ const UserCreateRecipe = () => {
             targetCountry,
             targetPersona,
             priceRange,
+            openYn: recipeOpenYn,
             draft: true,
             regenerateReport: shouldRegenerateReport,
             reportSections: shouldGenerateReport ? selectedReportSections : [],
@@ -1241,7 +1238,7 @@ const UserCreateRecipe = () => {
                             </div>
 
                             <div className="flex flex-col gap-6">
-                                <div className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[0_12px_30px_var(--shadow)] p-6 space-y-4">
+                                <div className={showReportTarget ? "rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[0_12px_30px_var(--shadow)] p-6 space-y-4" : "hidden"}>
                                     <div className="flex items-center justify-between">
                                         <h3 className="text-lg font-semibold text-[color:var(--text)]">{labels.targetSectionLabel}</h3>
                                         <div className="flex items-center gap-2">
@@ -1372,74 +1369,82 @@ const UserCreateRecipe = () => {
                                 </div>
 
                                 <div className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[0_12px_30px_var(--shadow)] p-6 space-y-4">
-                                    <div className="space-y-2">
-                                        <label className="block text-xs font-semibold text-[color:var(--text-muted)]">
-                                            생성 옵션
-                                        </label>
-                                        <select
-                                            value={generationOption}
-                                            onChange={(e) => handleGenerationOptionChange(e.target.value)}
-                                            disabled={loading}
-                                            className="w-full p-3 rounded-xl bg-[color:var(--surface-muted)] border border-[color:var(--border)] text-[color:var(--text)] focus:outline-none focus:ring-2 focus:ring-[color:var(--accent)]"
-                                        >
-                                            {GENERATION_OPTIONS.map((option) => (
-                                                <option key={option.value} value={option.value}>
-                                                    {option.label}
-                                                </option>
-                                            ))}
-                                        </select>
-                                    </div>
-
-                                    {includesReport && (
-                                        <div className="rounded-xl border border-[color:var(--border)] bg-[color:var(--surface-muted)] p-4 space-y-3">
-                                            <p className="text-sm font-semibold text-[color:var(--text)]">리포트 생성 항목</p>
-                                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                                                {REPORT_SECTION_ORDER.map((key) => {
-                                                    const label = REPORT_SECTION_LABELS[key];
-                                                    if (!label) {
-                                                        return null;
-                                                    }
-                                                    const isRequired = REQUIRED_REPORT_SECTIONS.has(key);
-                                                    const isChecked = isRequired || selectedReportSections.includes(key);
-                                                    const isDisabled = isRequired || (key === 'influencerImage' && !influencerSelected);
-                                                    return (
-                                                        <label
-                                                            key={key}
-                                                            className={`flex items-center gap-2 text-sm ${
-                                                                isDisabled ? 'text-[color:var(--text-soft)]' : 'text-[color:var(--text)]'
-                                                            }`}
-                                                        >
-                                                            <input
-                                                                type="checkbox"
-                                                                checked={isChecked}
-                                                                disabled={isDisabled || loading}
-                                                                onChange={() => toggleReportSection(key)}
-                                                                className="h-4 w-4 rounded border-[color:var(--border)]"
-                                                            />
-                                                            <span>{label}</span>
-                                                            {isRequired && (
-                                                                <span className="ml-auto text-[10px] uppercase tracking-[0.2em] text-[color:var(--text-soft)]">
-                                                                    필수
-                                                                </span>
-                                                            )}
-                                                        </label>
-                                                    );
-                                                })}
+                                    {showGenerationOptions && (
+                                        <>
+                                            <div className="space-y-2">
+                                                <label className="block text-xs font-semibold text-[color:var(--text-muted)]">
+                                                    생성 옵션
+                                                </label>
+                                                <select
+                                                    value={generationOption}
+                                                    onChange={(e) => handleGenerationOptionChange(e.target.value)}
+                                                    disabled={loading}
+                                                    className="w-full p-3 rounded-xl bg-[color:var(--surface-muted)] border border-[color:var(--border)] text-[color:var(--text)] focus:outline-none focus:ring-2 focus:ring-[color:var(--accent)]"
+                                                >
+                                                    {GENERATION_OPTIONS.map((option) => (
+                                                        <option key={option.value} value={option.value}>
+                                                            {option.label}
+                                                        </option>
+                                                    ))}
+                                                </select>
                                             </div>
-                                            {!influencerSelected && (
-                                                <p className="text-xs text-[color:var(--text-soft)]">
-                                                    인플루언서 추천을 체크해야 이미지 생성 항목을 선택할 수 있습니다.
-                                                </p>
+
+                                            {includesReport && (
+                                                <div className="rounded-xl border border-[color:var(--border)] bg-[color:var(--surface-muted)] p-4 space-y-3">
+                                                    <p className="text-sm font-semibold text-[color:var(--text)]">리포트 생성 항목</p>
+                                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                                        {REPORT_SECTION_ORDER.map((key) => {
+                                                            const label = REPORT_SECTION_LABELS[key];
+                                                            if (!label) {
+                                                                return null;
+                                                            }
+                                                            const isRequired = REQUIRED_REPORT_SECTIONS.has(key);
+                                                            const isChecked = isRequired || selectedReportSections.includes(key);
+                                                            const isDisabled = isRequired || (key === 'influencerImage' && !influencerSelected);
+                                                            return (
+                                                                <label
+                                                                    key={key}
+                                                                    className={`flex items-center gap-2 text-sm ${
+                                                                        isDisabled ? 'text-[color:var(--text-soft)]' : 'text-[color:var(--text)]'
+                                                                    }`}
+                                                                >
+                                                                    <input
+                                                                        type="checkbox"
+                                                                        checked={isChecked}
+                                                                        disabled={isDisabled || loading}
+                                                                        onChange={() => toggleReportSection(key)}
+                                                                        className="h-4 w-4 rounded border-[color:var(--border)]"
+                                                                    />
+                                                                    <span>{label}</span>
+                                                                    {isRequired && (
+                                                                        <span className="ml-auto text-[10px] uppercase tracking-[0.2em] text-[color:var(--text-soft)]">
+                                                                            필수
+                                                                        </span>
+                                                                    )}
+                                                                </label>
+                                                            );
+                                                        })}
+                                                    </div>
+                                                    {!influencerSelected && (
+                                                        <p className="text-xs text-[color:var(--text-soft)]">
+                                                            인플루언서 추천을 체크해야 이미지 생성 항목을 선택할 수 있습니다.
+                                                        </p>
+                                                    )}
+                                                </div>
                                             )}
-                                        </div>
+                                        </>
                                     )}
 
-                                    {!isEdit && (
-                                        <div className="space-y-2 text-sm text-[color:var(--text-muted)]">
-                                            <p className="font-semibold text-[color:var(--text)]">{labels.guideTitle}</p>
-                                            <p>{labels.guideBody}</p>
-                                        </div>
-                                    )}
+                                    <div className="flex items-center justify-between text-sm">
+                                        <p className="font-semibold text-[color:var(--text)]">레시피 공개 여부</p>
+                                        <button
+                                            type="button"
+                                            onClick={() => setRecipeOpenYn((prev) => (prev === 'Y' ? 'N' : 'Y'))}
+                                            className="text-xs font-semibold text-[color:var(--accent)]"
+                                        >
+                                            {recipeOpenYn === 'Y' ? '🔓 공개' : '🔒 비공개'}
+                                        </button>
+                                    </div>
 
                                     <div className="flex items-center gap-3">
                                         <button

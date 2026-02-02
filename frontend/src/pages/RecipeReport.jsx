@@ -1,7 +1,131 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import axiosInstance from '../axiosConfig';
+
+const TARGET_COUNTRY_OPTIONS = [
+    { value: 'US', label: '미국' },
+    { value: 'KR', label: '한국' },
+    { value: 'JP', label: '일본' },
+    { value: 'CN', label: '중국' },
+    { value: 'UK', label: '영국' },
+    { value: 'FR', label: '프랑스' },
+    { value: 'DE', label: '독일' },
+    { value: 'CA', label: '캐나다' },
+    { value: 'AU', label: '호주' },
+    { value: 'IN', label: '인도' },
+];
+
+const TARGET_PERSONA_OPTIONS = [
+    '20~30대 직장인, 간편식 선호',
+    '30~40대 가족 중심',
+    '20~30대 건강식 관심',
+    '40~50대 전통식 선호',
+];
+
+const PRICE_RANGE_OPTIONS = ['USD 6~9', 'USD 10~15', 'USD 15~20', 'USD 20+'];
+
+const REPORT_SECTION_OPTIONS = [
+    { key: 'executiveSummary', label: '핵심 요약', required: true },
+    { key: 'marketSnapshot', label: '시장 스냅샷', required: true },
+    { key: 'riskAssessment', label: '리스크 & 대응', required: true },
+    { key: 'swot', label: 'SWOT' },
+    { key: 'conceptIdeas', label: '컨셉 아이디어', required: true },
+    { key: 'kpis', label: 'KPI 제안' },
+    { key: 'nextSteps', label: '다음 단계' },
+    { key: 'summary', label: '요약본', required: true },
+    { key: 'allergenNote', label: '알레르기 성분 노트' },
+    { key: 'influencer', label: '인플루언서 추천' },
+    { key: 'influencerImage', label: '인플루언서 이미지' },
+    { key: 'globalMarketMap', label: 'Global Market Map' },
+];
+
+const GENERATION_OPTIONS = [
+    { value: 'recipe_report', label: '리포트/요약', includeReport: true },
+    { value: 'recipe_report_map', label: '리포트/요약+지도 평가 점수', includeReport: true },
+    { value: 'recipe_report_influencer', label: '리포트/요약+인플루언서 추천', includeReport: true },
+    { value: 'recipe_report_influencer_map', label: '리포트/요약+인플루언서 추천+지도 평가 점수', includeReport: true },
+    { value: 'recipe_report_influencer_image', label: '리포트/요약+인플루언서 추천+이미지 생성', includeReport: true },
+    { value: 'recipe_report_influencer_image_map', label: '리포트/요약+인플루언서 추천+이미지 생성+지도 평가 점수', includeReport: true },
+];
+
+const REPORT_PRESETS = {
+    recipe_report: [
+        'executiveSummary',
+        'marketSnapshot',
+        'riskAssessment',
+        'swot',
+        'conceptIdeas',
+        'kpis',
+        'nextSteps',
+        'summary',
+        'allergenNote',
+    ],
+    recipe_report_map: [
+        'executiveSummary',
+        'marketSnapshot',
+        'riskAssessment',
+        'swot',
+        'conceptIdeas',
+        'kpis',
+        'nextSteps',
+        'summary',
+        'allergenNote',
+        'globalMarketMap',
+    ],
+    recipe_report_influencer: [
+        'executiveSummary',
+        'marketSnapshot',
+        'riskAssessment',
+        'swot',
+        'conceptIdeas',
+        'kpis',
+        'nextSteps',
+        'summary',
+        'allergenNote',
+        'influencer',
+    ],
+    recipe_report_influencer_map: [
+        'executiveSummary',
+        'marketSnapshot',
+        'riskAssessment',
+        'swot',
+        'conceptIdeas',
+        'kpis',
+        'nextSteps',
+        'summary',
+        'allergenNote',
+        'influencer',
+        'globalMarketMap',
+    ],
+    recipe_report_influencer_image: [
+        'executiveSummary',
+        'marketSnapshot',
+        'riskAssessment',
+        'swot',
+        'conceptIdeas',
+        'kpis',
+        'nextSteps',
+        'summary',
+        'allergenNote',
+        'influencer',
+        'influencerImage',
+    ],
+    recipe_report_influencer_image_map: [
+        'executiveSummary',
+        'marketSnapshot',
+        'riskAssessment',
+        'swot',
+        'conceptIdeas',
+        'kpis',
+        'nextSteps',
+        'summary',
+        'allergenNote',
+        'influencer',
+        'influencerImage',
+        'globalMarketMap',
+    ],
+};
 
 const RecipeReport = () => {
     const { user } = useAuth();
@@ -12,163 +136,186 @@ const RecipeReport = () => {
     const userId = user?.userId || localStorage.getItem('userId') || null;
 
     const [recipe, setRecipe] = useState(null);
+    const [reports, setReports] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
-    const [deleteLoading, setDeleteLoading] = useState(false);
-    const [publishLoading, setPublishLoading] = useState(false);
+    const [listLoading, setListLoading] = useState(false);
+    const [createOpen, setCreateOpen] = useState(false);
+    const [createLoading, setCreateLoading] = useState(false);
+    const [targetCountry, setTargetCountry] = useState(TARGET_COUNTRY_OPTIONS[0].value);
+    const [targetPersona, setTargetPersona] = useState(TARGET_PERSONA_OPTIONS[0]);
+    const [priceRange, setPriceRange] = useState(PRICE_RANGE_OPTIONS[0]);
+    const [generationOption, setGenerationOption] = useState('recipe_report');
+    const [reportSections, setReportSections] = useState(() => REPORT_PRESETS.recipe_report);
+    const [reportOpenYn, setReportOpenYn] = useState('N');
+    const [recipeOpenYn, setRecipeOpenYn] = useState('N');
+    const [targetRecommendLoading, setTargetRecommendLoading] = useState(false);
 
-    const targetMetaKey = (recipeId) => `recipeTargetMeta:${recipeId}`;
-    const readTargetMeta = (recipeId) => {
-        const cached =
-            sessionStorage.getItem(targetMetaKey(recipeId)) ||
-            localStorage.getItem(targetMetaKey(recipeId));
-        if (!cached) {
-            return null;
-        }
+    const selectedGeneration = useMemo(
+        () => GENERATION_OPTIONS.find((option) => option.value === generationOption),
+        [generationOption]
+    );
+    const includesReport = Boolean(selectedGeneration?.includeReport);
+
+    const isOwner =
+        (userId && (recipe?.user_id === userId || recipe?.userId === userId)) ||
+        (!userId && (recipe?.user_name === rawName || recipe?.userName === rawName));
+
+    const canRecommendTargets = useMemo(() => {
+        if (!recipe) return false;
+        const hasTitle = Boolean(recipe.title && recipe.title.trim());
+        const hasDesc = Boolean(recipe.description && recipe.description.trim());
+        const hasIngredients = Array.isArray(recipe.ingredients) && recipe.ingredients.length > 0;
+        const hasSteps = Array.isArray(recipe.steps) && recipe.steps.length > 0;
+        return hasTitle && hasDesc && hasIngredients && hasSteps;
+    }, [recipe]);
+
+    const loadRecipe = async () => {
+        if (!id) return;
         try {
-            return JSON.parse(cached);
+            setLoading(true);
+            const res = await axiosInstance.get(`/api/recipes/${id}`);
+            setRecipe(res.data || null);
+            setRecipeOpenYn(res.data?.openYn || 'N');
         } catch (err) {
-            return null;
+            console.error('Failed to fetch recipe', err);
+            setError('레시피 정보를 불러오지 못했습니다.');
+        } finally {
+            setLoading(false);
         }
     };
 
-    React.useEffect(() => {
-        const fetchRecipe = async () => {
-            try {
-                setLoading(true);
-                const res = await axiosInstance.get(`/api/recipes/${id}`);
-                setRecipe(res.data);
-            } catch (err) {
-                console.error('레시피를 불러오지 못했습니다', err);
-                setError('레시피 정보를 불러오지 못했습니다.');
-            } finally {
-                setLoading(false);
-            }
-        };
-
-        if (id) {
-            fetchRecipe();
+    const loadReports = async () => {
+        if (!id) return;
+        try {
+            setListLoading(true);
+            const res = await axiosInstance.get(`/api/recipes/${id}/reports`);
+            setReports(res.data || []);
+        } catch (err) {
+            console.error('Failed to fetch reports', err);
+            setError('리포트 목록을 불러오지 못했습니다.');
+        } finally {
+            setListLoading(false);
         }
+    };
+
+    useEffect(() => {
+        loadRecipe();
+        loadReports();
     }, [id]);
 
-    const hasReport = useMemo(() => {
-        if (!recipe || !recipe.report) {
-            return false;
+    useEffect(() => {
+        if (!reportSections.includes('influencer') && reportSections.includes('influencerImage')) {
+            setReportSections((prev) => prev.filter((key) => key !== 'influencerImage'));
         }
-        return Object.keys(recipe.report).length > 0;
-    }, [recipe]);
-    const isRecipeOnly = !hasReport;
+    }, [reportSections]);
 
-    const reportInput = useMemo(() => {
-        if (!recipe) {
-            return null;
+    const handleGenerationOptionChange = (value) => {
+        setGenerationOption(value);
+        setReportSections(REPORT_PRESETS[value] || []);
+    };
+
+    const toggleSection = (key) => {
+        const isRequired = REPORT_SECTION_OPTIONS.find((item) => item.key === key)?.required;
+        if (isRequired) return;
+        if (key === 'influencerImage' && !reportSections.includes('influencer')) {
+            return;
         }
-        const targetMeta = readTargetMeta(recipe.id) || {};
-        const resolvedCountry = targetMeta.targetCountry || 'US';
-        const resolvedPersona = targetMeta.targetPersona || '20~30대 직장인, 간편식 선호';
-        const resolvedPrice = targetMeta.priceRange || 'USD 6~9';
-        const ingredientsText = (recipe.ingredients || []).join(', ');
-        const stepsText = (recipe.steps || []).join('\n');
-        return {
-            recipe: `${recipe.title}\n${recipe.description || ''}\n재료: ${ingredientsText}\n조리 단계:\n${stepsText}`,
-            targetCountry: resolvedCountry,
-            targetPersona: resolvedPersona,
-            priceRange: resolvedPrice,
-        };
-    }, [recipe]);
+        setReportSections((prev) =>
+            prev.includes(key) ? prev.filter((item) => item !== key) : [...prev, key]
+        );
+    };
 
-
-    const influencerMetaKey = (recipeId) => `recipeInfluencerMeta:${recipeId}`;
-    const getCachedInfluencers = (currentRecipe) => {
-        if (Array.isArray(currentRecipe?.influencers) && currentRecipe.influencers.length) {
-            return currentRecipe.influencers;
+    const handleCreateReport = async () => {
+        if (!id || createLoading) return;
+        if (!includesReport) {
+            setError('리포트 생성 옵션을 먼저 선택해주세요.');
+            return;
         }
-        const cachedMeta =
-            sessionStorage.getItem(influencerMetaKey(currentRecipe?.id)) ||
-            localStorage.getItem(influencerMetaKey(currentRecipe?.id));
-        if (cachedMeta) {
-            try {
-                const meta = JSON.parse(cachedMeta);
-                if (
-                    meta.title !== (currentRecipe?.title ?? '') ||
-                    meta.summary !== (currentRecipe?.summary ?? '') ||
-                    meta.createdAt !== (currentRecipe?.createdAt ?? '')
-                ) {
-                    sessionStorage.removeItem(`recipeInfluencers:${currentRecipe?.id}`);
-                    sessionStorage.removeItem(`recipeInfluencerImage:${currentRecipe?.id}`);
-                    sessionStorage.removeItem(influencerMetaKey(currentRecipe?.id));
-                    localStorage.removeItem(`recipeInfluencers:${currentRecipe?.id}`);
-                    localStorage.removeItem(`recipeInfluencerImage:${currentRecipe?.id}`);
-                    localStorage.removeItem(influencerMetaKey(currentRecipe?.id));
-                    return [];
+        setCreateLoading(true);
+        setError('');
+        try {
+            const payload = {
+                targetCountry,
+                targetPersona,
+                priceRange,
+                reportSections,
+                openYn: reportOpenYn,
+            };
+            const res = await axiosInstance.post(`/api/recipes/${id}/reports`, payload);
+            if (res.data?.reportId) {
+                if (res.data?.recipeOpenYn) {
+                    setRecipeOpenYn(res.data.recipeOpenYn);
                 }
-            } catch (err) {
-                // ignore meta parse errors
+                await loadReports();
+                setCreateOpen(false);
+                navigate(`/mainboard/reports/${res.data.reportId}`);
             }
-        }
-        const cached =
-            sessionStorage.getItem(`recipeInfluencers:${currentRecipe?.id}`) ||
-            localStorage.getItem(`recipeInfluencers:${currentRecipe?.id}`);
-        if (!cached) {
-            return [];
-        }
-        try {
-            const parsed = JSON.parse(cached);
-            return Array.isArray(parsed) ? parsed : [];
         } catch (err) {
-            return [];
+            console.error('Failed to create report', err);
+            setError('리포트 생성에 실패했습니다.');
+        } finally {
+            setCreateLoading(false);
         }
     };
 
-    const getCachedInfluencerImage = (currentRecipe) =>
-        currentRecipe?.influencerImageBase64 ||
-        sessionStorage.getItem(`recipeInfluencerImage:${currentRecipe?.id}`) ||
-        localStorage.getItem(`recipeInfluencerImage:${currentRecipe?.id}`) ||
-        '';
-
-
-    const handlePublish = async () => {
-        if (!recipe || recipe.status !== 'DRAFT' || publishLoading) {
-            return;
-        }
-        setPublishLoading(true);
+    const handleRecommendTargets = async () => {
+        if (!canRecommendTargets || targetRecommendLoading) return;
+        setTargetRecommendLoading(true);
+        setError('');
         try {
-            try {
-                await axiosInstance.get('/api/csrf');
-            } catch (err) {
-                // ignore csrf refresh failures
-            }
-            const res = await axiosInstance.put(`/api/recipes/${recipe.id}/publish`, {
-                influencers: [],
-                influencerImageBase64: '',
+            await axiosInstance.get('/api/csrf');
+            const res = await axiosInstance.post('/api/recipes/recommend-targets', {
+                title: recipe?.title || '',
+                description: recipe?.description || '',
+                ingredients: recipe?.ingredients || [],
+                steps: recipe?.steps || [],
             });
-            setRecipe(res.data);
-            navigate(`/mainboard/recipes/${recipe.id}`);
+            const data = res.data || {};
+            if (data.targetCountry) {
+                setTargetCountry(data.targetCountry);
+            }
+            if (data.targetPersona) {
+                setTargetPersona(data.targetPersona);
+            }
+            if (data.priceRange) {
+                setPriceRange(data.priceRange);
+            }
         } catch (err) {
-            console.error('레시피 게시에 실패했습니다', err);
-            setError('리포트를 불러오지 못했습니다.');
+            console.error('Failed to recommend targets', err);
+            setError('타겟 추천에 실패했습니다.');
         } finally {
-            setPublishLoading(false);
+            setTargetRecommendLoading(false);
         }
     };
 
-    const handleDelete = async () => {
-        if (!recipe || deleteLoading) {
-            return;
-        }
-        const confirmDelete = window.confirm('레시피를 삭제할까요? 삭제 후 복구할 수 없습니다.');
-        if (!confirmDelete) {
-            return;
-        }
-        setDeleteLoading(true);
+    const handleRecipeOpenYnToggle = async () => {
+        if (!id) return;
+        const next = recipeOpenYn === 'Y' ? 'N' : 'Y';
         try {
-            await axiosInstance.delete(`/api/recipes/${recipe.id}`);
-            navigate('/mainboard');
+            const res = await axiosInstance.put(`/api/recipes/${id}/visibility`, { openYn: next });
+            setRecipeOpenYn(res.data?.openYn || next);
         } catch (err) {
-            console.error('레시피 삭제에 실패했습니다', err);
-            setError('레시피 삭제에 실패했습니다.');
-        } finally {
-            setDeleteLoading(false);
+            console.error('Failed to update recipe openYn', err);
+            setError('레시피 공개 여부 변경에 실패했습니다.');
+        }
+    };
+
+    const handleReportOpenYnToggle = async (reportId, current) => {
+        if (!reportId) return;
+        const next = current === 'Y' ? 'N' : 'Y';
+        try {
+            const res = await axiosInstance.put(`/api/reports/${reportId}/visibility`, { openYn: next });
+            const nextOpenYn = res.data?.reportOpenYn || next;
+            setReports((prev) =>
+                prev.map((item) => (item.id === reportId ? { ...item, openYn: nextOpenYn } : item))
+            );
+            if (res.data?.recipeOpenYn) {
+                setRecipeOpenYn(res.data.recipeOpenYn);
+            }
+        } catch (err) {
+            console.error('Failed to update report openYn', err);
+            setError('리포트 공개 여부 변경에 실패했습니다.');
         }
     };
 
@@ -188,10 +335,6 @@ const RecipeReport = () => {
         );
     }
 
-    const isOwner =
-        (userId && recipe.user_id === userId) ||
-        (!userId && recipe.user_name && recipe.user_name === rawName);
-
     return (
         <div className="relative">
             <div className="pointer-events-none absolute -top-16 -right-6 h-64 w-64 rounded-full bg-[color:var(--bg-3)] blur-3xl opacity-70" />
@@ -200,7 +343,7 @@ const RecipeReport = () => {
             <div className="rounded-[2.5rem] bg-[color:var(--surface)]/90 border border-[color:var(--border)] shadow-[0_30px_80px_var(--shadow)] p-8 md:p-10 backdrop-blur">
                 <div className="flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
                     <div>
-                        <p className="text-xs uppercase tracking-[0.4em] text-[color:var(--text-soft)] mb-2">레시피 상세</p>
+                        <p className="text-xs uppercase tracking-[0.4em] text-[color:var(--text-soft)] mb-2">Recipe Detail</p>
                         <h2 className="text-2xl md:text-3xl font-semibold text-[color:var(--text)]">{recipe.title}</h2>
                     </div>
                     <div className="flex items-center gap-3">
@@ -214,10 +357,23 @@ const RecipeReport = () => {
                     </div>
                 </div>
 
+                {error && (
+                    <div className="mt-4 text-sm text-[color:var(--danger)]">{error}</div>
+                )}
+
                 <div className="mt-8 grid grid-cols-1 lg:grid-cols-[1.4fr_1fr] gap-6">
                     <div className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[0_12px_30px_var(--shadow)] p-6">
                         <div className="flex items-center justify-between mb-4">
                             <h3 className="text-lg font-semibold text-[color:var(--text)]">레시피 정보</h3>
+                            {isOwner && (
+                                <button
+                                    type="button"
+                                    onClick={handleRecipeOpenYnToggle}
+                                    className="text-xs font-semibold text-[color:var(--accent)]"
+                                >
+                                    {recipeOpenYn === 'Y' ? '🔓 공개' : '🔒 비공개'}
+                                </button>
+                            )}
                         </div>
                         <div className="relative h-[200px] rounded-2xl bg-[color:var(--surface-muted)] border border-[color:var(--border)] overflow-hidden flex items-center justify-center text-[color:var(--text-soft)] text-sm">
                             {recipe.imageBase64 ? (
@@ -263,75 +419,180 @@ const RecipeReport = () => {
                     </div>
 
                     <div className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[0_12px_30px_var(--shadow)] p-6 space-y-4">
-                        {hasReport && (
-                            <div className="flex items-start justify-between">
-                                <h3 className="text-lg font-semibold text-[color:var(--text)]">레시피 요약</h3>
-                            </div>
-                        )}
-
-                        {recipe.summary && (
-                            <div className="rounded-xl border border-[color:var(--border)] bg-[color:var(--surface-muted)] p-4">
-                                <p className="text-sm font-semibold text-[color:var(--text)] mb-2">요약</p>
-                                <p className="text-sm text-[color:var(--text-muted)] whitespace-pre-line">
-                                    {recipe.summary}
-                                </p>
-                            </div>
-                        )}
-
-                        <div className="rounded-xl border border-[color:var(--border)] bg-[color:var(--surface-muted)] p-4 space-y-3">
-                            <div className="flex gap-2">
-                                {isRecipeOnly ? (
-                                    isOwner && recipe.status === 'DRAFT' ? (
-                                        <button
-                                            type="button"
-                                            onClick={handlePublish}
-                                            disabled={publishLoading}
-                                            className="flex-1 py-2 rounded-lg bg-[color:var(--accent)] text-[color:var(--accent-contrast)] text-sm font-semibold hover:bg-[color:var(--accent-strong)] transition disabled:opacity-60"
-                                        >
-                                            {publishLoading ? '등록 중...' : '등록 확정'}
-                                        </button>
-                                    ) : null
-                                ) : (
-                                    <button
-                                        type="button"
-                                        onClick={() => {
-                                            if (recipe?.id) {
-                                                navigate(`/mainboard/recipes/${recipe.id}/report`, {
-                                                    state: {
-                                                        fromReview: false,
-                                                        reportInput,
-                                                        influencers: getCachedInfluencers(recipe),
-                                                        influencerImageBase64: getCachedInfluencerImage(recipe),
-                                                    },
-                                                });
-                                            }
-                                        }}
-                                        className="flex-1 py-2 rounded-lg bg-[color:var(--accent)] text-[color:var(--accent-contrast)] text-sm font-semibold hover:bg-[color:var(--accent-strong)] transition"
-                                    >
-                                        리포트 보기
-                                    </button>
-                                )}
-                                {isOwner && (
-                                    <button
-                                        type="button"
-                                        onClick={() => navigate(`/mainboard/recipes/${recipe.id}/edit`, { state: { recipe } })}
-                                        className="flex-1 py-2 rounded-lg border border-[color:var(--border)] text-sm text-[color:var(--text)] hover:bg-[color:var(--surface-muted)] transition"
-                                    >
-                                        수정하기
-                                    </button>
-                                )}
-                            </div>
+                        <div className="flex items-center justify-between">
+                            <h3 className="text-lg font-semibold text-[color:var(--text)]">레시피 보고서</h3>
                             {isOwner && (
                                 <button
                                     type="button"
-                                    onClick={handleDelete}
-                                    disabled={deleteLoading}
-                                    className="w-full py-2 rounded-lg border border-[color:var(--danger)] text-[color:var(--danger)] text-sm font-semibold hover:bg-[color:var(--danger-bg)] transition disabled:opacity-60"
+                                    onClick={() => setCreateOpen((prev) => !prev)}
+                                    className="h-8 w-8 rounded-full border border-[color:var(--border)] text-[color:var(--text)] flex items-center justify-center"
                                 >
-                                    {deleteLoading ? '삭제 중...' : '삭제하기'}
+                                    +
                                 </button>
                             )}
                         </div>
+
+                        {listLoading && (
+                            <p className="text-sm text-[color:var(--text-muted)]">리포트 목록을 불러오는 중입니다...</p>
+                        )}
+
+                        {!listLoading && reports.length === 0 && (
+                            <p className="text-sm text-[color:var(--text-muted)]">등록된 리포트가 없습니다.</p>
+                        )}
+
+                        <div className="space-y-3">
+                            {reports.map((report) => (
+                                <div
+                                    key={report.id}
+                                    className="rounded-xl border border-[color:var(--border)] bg-[color:var(--surface-muted)] p-4 flex items-center justify-between"
+                                >
+                                    <div>
+                                        <p className="text-sm font-semibold text-[color:var(--text)]">리포트 #{report.id}</p>
+                                        <p className="text-xs text-[color:var(--text-muted)]">{report.summary || '요약 없음'}</p>
+                                        <p className="text-xs text-[color:var(--text-soft)]">{new Date(report.createdAt).toLocaleString()}</p>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                        {isOwner && (
+                                            <button
+                                                type="button"
+                                                onClick={() => handleReportOpenYnToggle(report.id, report.openYn)}
+                                                className="text-xs font-semibold text-[color:var(--accent)]"
+                                            >
+                                                {report.openYn === 'Y' ? '🔓 공개' : '🔒 비공개'}
+                                            </button>
+                                        )}
+                                        <button
+                                            type="button"
+                                            onClick={() => navigate(`/mainboard/reports/${report.id}`)}
+                                            className="px-3 py-1 rounded-lg bg-[color:var(--accent)] text-[color:var(--accent-contrast)] text-xs font-semibold"
+                                        >
+                                            보기
+                                        </button>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                        {createOpen && isOwner && (
+                            <div className="mt-4 rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface)] p-4 space-y-4">
+
+                                <div className="space-y-3">
+                                    <div className="flex items-center justify-between">
+                                        <p className="text-sm font-semibold text-[color:var(--text)]">리포트 타겟 설정</p>
+                                        <button
+                                            type="button"
+                                            disabled={!canRecommendTargets || targetRecommendLoading}
+                                            onClick={handleRecommendTargets}
+                                            className="px-3 py-1 rounded-lg border border-[color:var(--border)] text-xs text-[color:var(--text)] disabled:opacity-50"
+                                        >
+                                            {targetRecommendLoading ? '추천 중...' : 'AI 추천'}
+                                        </button>
+                                    </div>
+                                    <div className="space-y-2">
+                                        <label className="text-xs text-[color:var(--text-soft)]">국가</label>
+                                        <select
+                                            value={targetCountry}
+                                            onChange={(e) => setTargetCountry(e.target.value)}
+                                            className="w-full rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 py-2 text-sm"
+                                        >
+                                            {TARGET_COUNTRY_OPTIONS.map((option) => (
+                                                <option key={option.value} value={option.value}>
+                                                    {option.label}
+                                                </option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                    <div className="space-y-2">
+                                        <label className="text-xs text-[color:var(--text-soft)]">페르소나</label>
+                                        <select
+                                            value={targetPersona}
+                                            onChange={(e) => setTargetPersona(e.target.value)}
+                                            className="w-full rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 py-2 text-sm"
+                                        >
+                                            {TARGET_PERSONA_OPTIONS.map((option) => (
+                                                <option key={option} value={option}>
+                                                    {option}
+                                                </option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                    <div className="space-y-2">
+                                        <label className="text-xs text-[color:var(--text-soft)]">가격대</label>
+                                        <select
+                                            value={priceRange}
+                                            onChange={(e) => setPriceRange(e.target.value)}
+                                            className="w-full rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 py-2 text-sm"
+                                        >
+                                            {PRICE_RANGE_OPTIONS.map((option) => (
+                                                <option key={option} value={option}>
+                                                    {option}
+                                                </option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                </div>
+
+                                <div className="space-y-3">
+                                    <label className="text-xs text-[color:var(--text-soft)]">생성 옵션</label>
+                                    <select
+                                        value={generationOption}
+                                        onChange={(e) => handleGenerationOptionChange(e.target.value)}
+                                        className="w-full rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 py-2 text-sm"
+                                    >
+                                        {GENERATION_OPTIONS.map((option) => (
+                                            <option key={option.value} value={option.value}>
+                                                {option.label}
+                                            </option>
+                                        ))}
+                                    </select>
+                                </div>
+
+                                <div className="space-y-3">
+                                    <div className="flex items-center justify-between">
+                                        <p className="text-sm font-semibold text-[color:var(--text)]">리포트 생성 항목</p>
+                                        <span className="text-xs text-[color:var(--text-soft)]">필수 항목은 해제할 수 없습니다.</span>
+                                    </div>
+                                    <div className="grid grid-cols-2 gap-2">
+                                        {REPORT_SECTION_OPTIONS.map((item) => {
+                                            const checked = reportSections.includes(item.key);
+                                            const isRequired = item.required;
+                                            const disabled = isRequired || (item.key === 'influencerImage' && !reportSections.includes('influencer'));
+                                            return (
+                                                <label key={item.key} className="flex items-center gap-2 text-xs text-[color:var(--text)]">
+                                                    <input
+                                                        type="checkbox"
+                                                        className="h-3 w-3"
+                                                        checked={checked}
+                                                        disabled={disabled}
+                                                        onChange={() => toggleSection(item.key)}
+                                                    />
+                                                    <span>{item.label}{isRequired ? ' (필수)' : ''}</span>
+                                                </label>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+
+                                <div className="flex items-center justify-between">
+                                    <p className="text-sm font-semibold text-[color:var(--text)]">리포트 공개 여부</p>
+                                    <button
+                                        type="button"
+                                        onClick={() => setReportOpenYn((prev) => (prev === 'Y' ? 'N' : 'Y'))}
+                                        className="text-xs font-semibold text-[color:var(--accent)]"
+                                    >
+                                        {reportOpenYn === 'Y' ? '🔓 공개' : '🔒 비공개'}
+                                    </button>
+                                </div>
+
+                                <button
+                                    type="button"
+                                    onClick={handleCreateReport}
+                                    disabled={createLoading}
+                                    className="w-full py-2 rounded-xl bg-[color:var(--accent)] text-[color:var(--accent-contrast)] text-sm font-semibold hover:bg-[color:var(--accent-strong)] transition disabled:opacity-60 disabled:cursor-not-allowed"
+                                >
+                                    {createLoading ? '생성 중...' : '보고서 생성'}
+                                </button>
+                            </div>
+                        )}
                     </div>
                 </div>
             </div>

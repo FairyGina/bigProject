@@ -1,6 +1,5 @@
 package com.aivle0102.bigproject.dto;
 
-import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 
@@ -10,10 +9,11 @@ import java.util.Map;
 
 @Getter
 @AllArgsConstructor
-public class RecipeResponse {
-    private Long id;
-    private String title;
-    private String description;
+public class ReportDetailResponse {
+    private Long reportId;
+    private Long recipeId;
+    private String recipeTitle;
+    private String recipeDescription;
     private List<String> ingredients;
     private List<String> steps;
     private String imageBase64;
@@ -22,11 +22,10 @@ public class RecipeResponse {
     private String summary;
     private List<Map<String, Object>> influencers;
     private String influencerImageBase64;
-    private String status;
-    private String openYn;
-    @JsonProperty("user_id")
-    private String userId;
-    @JsonProperty("user_name")
-    private String userName;
+    private String reportType;
+    private String reportOpenYn;
+    private String recipeOpenYn;
+    private String recipeStatus;
+    private String recipeUserId;
     private LocalDateTime createdAt;
 }

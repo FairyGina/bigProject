@@ -43,6 +43,9 @@ public class Recipe {
     @Column(name = "status", nullable = false, length = 20)
     private String status;
 
+    @Column(name = "open_yn", nullable = false, length = 1, columnDefinition = "CHAR(1)")
+    private String openYn;
+
     @Column(name = "user_id", nullable = false, length = 50)
     private String userId;
 

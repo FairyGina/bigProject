@@ -81,6 +81,7 @@ const AppRoutes = () => {
                                 <Route path="recipes/:id" element={<RecipeReport />} />
                                 <Route path="recipes/:id/edit" element={<UserCreateRecipe />} />
                                 <Route path="recipes/:id/report" element={<RecipeAnalysis />} />
+                                <Route path="reports/:reportId" element={<RecipeAnalysis />} />
                                 <Route path="create/ai" element={<AICreateRecipe />} />
                                 <Route path="create/manual" element={<UserCreateRecipe />} />
                                 <Route path="settings/password-check" element={<PasswordCheckPage />} />

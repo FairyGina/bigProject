@@ -5,6 +5,7 @@ import com.aivle0102.bigproject.dto.RecipePublishRequest;
 import com.aivle0102.bigproject.dto.RecipeResponse;
 import com.aivle0102.bigproject.dto.RecipeTargetRecommendRequest;
 import com.aivle0102.bigproject.dto.RecipeTargetRecommendResponse;
+import com.aivle0102.bigproject.dto.VisibilityUpdateRequest;
 import com.aivle0102.bigproject.service.RecipeService;
 import com.aivle0102.bigproject.service.RecipeTargetRecommendationService;
 import lombok.RequiredArgsConstructor;
@@ -88,6 +89,18 @@ public class RecipeController {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
         }
         return ResponseEntity.ok(recipeService.update(id, principal.getName(), request));
+    }
+
+    @PutMapping("/{id}/visibility")
+    public ResponseEntity<RecipeResponse> updateVisibility(
+            @PathVariable("id") Long id,
+            @RequestBody(required = false) VisibilityUpdateRequest request,
+            Principal principal
+    ) {
+        if (principal == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+        return ResponseEntity.ok(recipeService.updateRecipeVisibility(id, principal.getName(), request));
     }
 
     @DeleteMapping("/{id}")

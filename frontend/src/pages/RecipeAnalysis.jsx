@@ -6,7 +6,7 @@ import axiosInstance from '../axiosConfig';
 const RecipeAnalysis = () => {
     const { user } = useAuth();
     const navigate = useNavigate();
-    const { id } = useParams();
+    const { id, reportId } = useParams();
     const location = useLocation();
     const rawName = user?.userName || localStorage.getItem('userName') || '게스트';
     const maskedName = rawName.length <= 1 ? '*' : `${rawName.slice(0, -1)}*`;
@@ -66,20 +66,41 @@ const RecipeAnalysis = () => {
         const fetchRecipe = async () => {
             try {
                 setLoading(true);
+                if (reportId) {
+                    const res = await axiosInstance.get(`/api/reports/${reportId}`);
+                    const data = res.data || {};
+                    setRecipe({
+                        id: data.recipeId,
+                        title: data.recipeTitle,
+                        description: data.recipeDescription,
+                        ingredients: data.ingredients || [],
+                        steps: data.steps || [],
+                        imageBase64: data.imageBase64 || '',
+                        report: data.report || {},
+                        allergen: data.allergen || {},
+                        summary: data.summary || '',
+                        influencers: data.influencers || [],
+                        influencerImageBase64: data.influencerImageBase64 || '',
+                        status: data.recipeStatus || 'PUBLISHED',
+                        user_id: data.recipeUserId || null,
+                        openYn: data.recipeOpenYn || null,
+                    });
+                    return;
+                }
                 const res = await axiosInstance.get(`/api/recipes/${id}`);
                 setRecipe(res.data);
             } catch (err) {
-                console.error('레시피를 불러오지 못했습니다', err);
+                console.error('Failed to fetch recipe', err);
                 setError('레시피 정보를 불러오지 못했습니다.');
             } finally {
                 setLoading(false);
             }
         };
 
-        if (id) {
+        if (reportId || id) {
             fetchRecipe();
         }
-    }, [id]);
+    }, [id, reportId]);
 
     const report = recipe?.report || null;
     const hasReport = report && Object.keys(report).length > 0;
@@ -284,30 +305,30 @@ const RecipeAnalysis = () => {
                     }
                 }
 
-            const top = recs.find((item) => item?.name && item?.imageUrl) || recs.find((item) => item?.name);
-            if (allowInfluencerImage && top?.name) {
-                const imageRes = await axiosInstance.post('/api/images/generate', {
-                    recipe: recipe.title,
-                    influencerName: top.name,
-                    influencerImageUrl: top.imageUrl || '',
-                    additionalStyle: 'clean studio, natural lighting',
-                });
-                setImageBase64(imageRes.data?.imageBase64 || '');
-                if (imageRes.data?.imageBase64) {
-                    try {
-                        sessionStorage.setItem(`recipeInfluencerImage:${recipe.id}`, imageRes.data.imageBase64);
-                    } catch (err) {
-                        // ignore cache errors
-                    }
-                    try {
-                        localStorage.setItem(`recipeInfluencerImage:${recipe.id}`, imageRes.data.imageBase64);
-                    } catch (err) {
-                        // ignore cache errors
+                const top = recs.find((item) => item?.name && item?.imageUrl) || recs.find((item) => item?.name);
+                if (allowInfluencerImage && top?.name) {
+                    const imageRes = await axiosInstance.post('/api/images/generate', {
+                        recipe: recipe.title,
+                        influencerName: top.name,
+                        influencerImageUrl: top.imageUrl || '',
+                        additionalStyle: 'clean studio, natural lighting',
+                    });
+                    setImageBase64(imageRes.data?.imageBase64 || '');
+                    if (imageRes.data?.imageBase64) {
+                        try {
+                            sessionStorage.setItem(`recipeInfluencerImage:${recipe.id}`, imageRes.data.imageBase64);
+                        } catch (err) {
+                            // ignore cache errors
+                        }
+                        try {
+                            localStorage.setItem(`recipeInfluencerImage:${recipe.id}`, imageRes.data.imageBase64);
+                        } catch (err) {
+                            // ignore cache errors
+                        }
                     }
                 }
-            }
             } catch (err) {
-                console.error('인플루언서 생성에 실패했습니다', err);
+                console.error('Influencer generation failed', err);
             } finally {
                 setInfluencerLoading(false);
             }
@@ -315,7 +336,6 @@ const RecipeAnalysis = () => {
 
         fetchInfluencers();
     }, [allowInfluencer, allowInfluencerImage, imageBase64, influencers.length, recipe]);
-
     const countryCoords = useMemo(
         () => ({
             '미국': { lat: 39.8283, lng: -98.5795 },
@@ -516,7 +536,6 @@ const RecipeAnalysis = () => {
             mapMarkersRef.current.push(marker);
         });
     };
-
     useEffect(() => {
         if (!mapReady || evaluationResults.length === 0) {
             return;
@@ -556,7 +575,7 @@ const RecipeAnalysis = () => {
                 });
                 setEvaluationResults(aggregateEvaluations(evalRes.data || []));
             } catch (err) {
-                console.error('페르소나 평가 실패했습니다', err);
+                console.error('Persona evaluation flow failed', err);
             }
         };
 
@@ -586,13 +605,12 @@ const RecipeAnalysis = () => {
             setRecipe(res.data);
             navigate(`/mainboard/recipes/${recipe.id}`);
         } catch (err) {
-            console.error('레시피 게시에 실패했습니다', err);
+            console.error('Failed to publish recipe', err);
             setError('레시피 등록 확정에 실패했습니다.');
         } finally {
             setPublishLoading(false);
         }
     };
-
     const showExec = Boolean(report?.executiveSummary);
     const showMarket = Boolean(report?.marketSnapshot);
     const showRisk = Boolean(report?.riskAssessment);
@@ -785,7 +803,6 @@ const RecipeAnalysis = () => {
 `
                 : '',
         ].filter(Boolean).join('');
-
         return `<!doctype html>
 <html lang="ko">
 <head>
@@ -866,7 +883,7 @@ const RecipeAnalysis = () => {
             <ul className="space-y-2 text-sm text-[color:var(--text)]">
                 {items.map((item, idx) => (
                     <li key={`${idx}-${item}`} className="flex gap-2">
-                        <span className="text-[color:var(--accent)]">•</span>
+                        <span className="text-[color:var(--accent)]">?</span>
                         <span>{item}</span>
                     </li>
                 ))}
@@ -929,7 +946,6 @@ const RecipeAnalysis = () => {
                         보고서 데이터가 없습니다.
                     </div>
                 )}
-
                 <div className="mt-8 grid grid-cols-1 lg:grid-cols-[1fr_1fr] gap-6">
                     {showMap && (
                         <div className="lg:col-span-2 rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[0_12px_30px_var(--shadow)] p-6">
