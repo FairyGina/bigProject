@@ -18,6 +18,7 @@ const labels = {
     confirmLogout: '\ub85c\uadf8\uc544\uc6c3 \ud558\uc2dc\uaca0\uc2b5\ub2c8\uae4c?',
     testVisual: 'testVisual',
     exportAnalysis: '\uc218\ucd9c\uc785 \ub370\uc774\ud130 \ubd84\uc11d',
+    consumerAnalysis: '사용자 데이터 분석',
 };
 
 const menuItems = [
@@ -140,6 +141,21 @@ const Sidebar = () => {
                                     }`}
                             >
                                 {labels.exportAnalysis}
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    if (!confirmNavigation()) {
+                                        return;
+                                    }
+                                    navigate('/mainboard/visual/consumer-analysis');
+                                }}
+                                className={`w-full text-left px-3 py-2 rounded-lg text-sm transition ${isActive('/mainboard/visual/consumer-analysis')
+                                    ? 'bg-[color:var(--surface-muted)] text-[color:var(--text)]'
+                                    : 'text-[color:var(--text-muted)] hover:bg-[color:var(--surface-muted)] hover:text-[color:var(--text)]'
+                                    }`}
+                            >
+                                {labels.consumerAnalysis}
                             </button>
                         </div>
                     )}
