@@ -9,8 +9,10 @@ const ExportAnalysisPage = () => {
     const [data, setData] = useState(null);
     const [filters, setFilters] = useState({
         country: 'US',
-        item: 'Kimchi'
+        item: '김치'
     });
+    const [availableItems, setAvailableItems] = useState([]);
+    const [error, setError] = useState(null);
 
     const countries = [
         { code: 'US', name: '미국' },
@@ -20,24 +22,47 @@ const ExportAnalysisPage = () => {
         { code: 'DE', name: '독일' }
     ];
 
-    const items = ['Kimchi', 'Ramen', 'K-BBQ', 'Tteokbokki', 'Gimbap'];
+    // Fetch available items on mount
+    useEffect(() => {
+        const fetchItems = async () => {
+            try {
+                // Base URL(/api) is already configured in axiosInstance
+                // Request becomes: /api/analysis/items
+                const response = await axiosInstance.get('/analysis/items');
+                if (response.data && response.data.items && response.data.items.length > 0) {
+                    setAvailableItems(response.data.items);
+                }
+            } catch (err) {
+                console.error("Failed to fetch items:", err);
+                // Fallback items if API fails
+                setAvailableItems(['김치', '라면', '만두', '소주', '비빔밥']);
+            }
+        };
+        fetchItems();
+    }, []);
 
     const fetchData = async () => {
         setLoading(true);
+        setError(null);
         try {
-            const response = await axiosInstance.get('/api/analysis', {
+            // Base URL(/api) is already configured in axiosInstance
+            // Request becomes: /api/analysis
+            const response = await axiosInstance.get('/analysis', {
                 params: filters
             });
             setData(response.data);
         } catch (error) {
             console.error('Failed to fetch analysis data', error);
+            setError("데이터를 불러오는 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.");
         } finally {
             setLoading(false);
         }
     };
 
     useEffect(() => {
-        fetchData();
+        if (filters.item) {
+            fetchData();
+        }
     }, [filters]);
 
     const ScoreCard = ({ title, score, icon: Icon, description, max = 10 }) => (
@@ -85,7 +110,7 @@ const ExportAnalysisPage = () => {
                 <div>
                     <h1 className="text-3xl font-bold text-[color:var(--text)] flex items-center gap-3">
                         <TrendingUp className="text-[color:var(--accent)]" size={32} />
-                        국가별 K-Food 수출潜力 분석
+                        국가별 K-Food 수출 잠재력 분석
                     </h1>
                     <p className="text-[color:var(--text-muted)] mt-2">
                         실시간 경제 지표와 검색 트렌드를 기반으로 최적의 수출 시장을 추천합니다.
@@ -105,11 +130,22 @@ const ExportAnalysisPage = () => {
                         value={filters.item}
                         onChange={(e) => setFilters({ ...filters, item: e.target.value })}
                         className="bg-transparent text-sm font-semibold text-[color:var(--text)] outline-none px-3 py-2 cursor-pointer"
+                        disabled={availableItems.length === 0}
                     >
-                        {items.map(i => <option key={i} value={i}>{i}</option>)}
+                        {availableItems.length === 0 ? (
+                            <option value="">Loading items...</option>
+                        ) : (
+                            availableItems.map(i => <option key={i} value={i}>{i}</option>)
+                        )}
                     </select>
                 </div>
             </div>
+
+            {error && (
+                <div className="bg-red-500 text-white p-4 rounded-lg">
+                    <p>{error}</p>
+                </div>
+            )}
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 {loading ? (
@@ -148,6 +184,10 @@ const ExportAnalysisPage = () => {
                     <h3 className="text-lg font-bold text-[color:var(--text)] mb-6">수출 금액 추이</h3>
                     {loading ? (
                         <Skeleton className="w-full h-[400px]" />
+                    ) : !data?.has_data ? (
+                        <div className="h-[400px] flex items-center justify-center text-[color:var(--text-soft)] italic">
+                            관련 데이터가 없습니다...
+                        </div>
                     ) : (
                         <Plot
                             data={data?.charts?.export_trend?.data || []}
@@ -170,6 +210,10 @@ const ExportAnalysisPage = () => {
                     <h3 className="text-lg font-bold text-[color:var(--text)] mb-6">수출액 vs 검색 트렌드 상관관계</h3>
                     {loading ? (
                         <Skeleton className="w-full h-[400px]" />
+                    ) : !data?.has_data ? (
+                        <div className="h-[400px] flex items-center justify-center text-[color:var(--text-soft)] italic">
+                            관련 데이터가 없습니다...
+                        </div>
                     ) : (
                         <Plot
                             data={data?.charts?.correlation?.data || []}

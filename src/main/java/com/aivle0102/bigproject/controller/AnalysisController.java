@@ -10,17 +10,21 @@ import org.springframework.web.bind.annotation.RestController;
 import reactor.core.publisher.Mono;
 
 @RestController
-@RequestMapping("/api/analysis")
+@RequestMapping("/api")
 @RequiredArgsConstructor
 public class AnalysisController {
 
     private final AnalysisServiceClient analysisServiceClient;
 
-    @GetMapping
+    @GetMapping("/analysis")
     @Cacheable(value = "analysis", key = "#country + '-' + #item")
-    public Mono<Object> getAnalysis(
-            @RequestParam String country,
-            @RequestParam String item) {
-        return analysisServiceClient.getAnalysis(country, item);
+    public Mono<String> analyze(@RequestParam String country, @RequestParam String item) {
+        return analysisServiceClient.analyze(country, item);
+    }
+
+    @GetMapping("/analysis/items")
+    @Cacheable(value = "analysis-items", key = "'all-items'")
+    public Mono<String> getItems() {
+        return analysisServiceClient.getAvailableItems();
     }
 }

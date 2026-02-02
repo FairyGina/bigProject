@@ -57,7 +57,7 @@ services:
       KAKAO_CLIENT_ID: ${KAKAO_CLIENT_ID}
       KAKAO_CLIENT_SECRET: ${KAKAO_CLIENT_SECRET}
       ANALYSIS_ENGINE_URL: http://analysis-engine:8000
-      OAUTH2_REDIRECT_URI: http://20.197.14.81/oauth/callback
+      OAUTH2_REDIRECT_URI: http://localhost:80/oauth/callback
     ports:
       - "${BACKEND_PORT:-8080}:8080"
     networks:
@@ -75,7 +75,7 @@ services:
       context: ./frontend
       dockerfile: Dockerfile
       args:
-        - VITE_API_URL=http://20.197.14.81/api
+        - VITE_API_URL=/api
     container_name: bigproject-frontend
     restart: unless-stopped
     depends_on:
@@ -100,7 +100,7 @@ services:
     container_name: bigproject-analysis
     restart: unless-stopped
     volumes:
-      - ./cleaned_merged_export_trends.csv:/app/cleaned_merged_export_trends.csv
+      - ./analysis-engine/cleaned_merged_export_trends.csv:/app/cleaned_merged_export_trends.csv
     ports:
       - "8000:8000"
     networks:
