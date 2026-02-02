@@ -344,7 +344,7 @@ const UserCreateRecipe = () => {
                 applyInitialState(data);
                 applyReportSelectionFromRecipe(data);
             } catch (err) {
-                console.error('Failed to load recipe', err);
+                console.error('레시피를 불러오지 못했습니다', err);
                 setError(labels.loadError);
                 setInitializing(false);
             }
@@ -375,7 +375,7 @@ const UserCreateRecipe = () => {
                     setShowReview(true);
                     setInitializing(false);
                 } catch (err) {
-                    console.error('Failed to load review recipe', err);
+                    console.error('리뷰 레시피를 불러오지 못했습니다', err);
                     setError(labels.loadError);
                     setShowReview(false);
                     setInitializing(false);
@@ -574,7 +574,7 @@ const UserCreateRecipe = () => {
             });
             applyAutoIngredients(res.data?.ingredients || []);
         } catch (err) {
-            console.error('Failed to auto extract ingredients', err);
+            console.error('재료 자동 추출에 실패했습니다', err);
             setError(labels.ingredientAutoFail);
         } finally {
             setAutoIngredientLoading(false);
@@ -803,7 +803,7 @@ const UserCreateRecipe = () => {
             setError(labels.influencerError);
             return { influencers: recs, imageBase64: '' };
         } catch (err) {
-            console.error('Influencer generation failed', err);
+            console.error('인플루언서 생성에 실패했습니다', err);
             setError(labels.influencerError);
             return null;
         }
@@ -819,7 +819,7 @@ const UserCreateRecipe = () => {
                 influencerImageBase64: includeImage ? assets?.imageBase64 || '' : '',
             });
         } catch (err) {
-            console.error('Failed to persist influencer assets', err);
+            console.error('인플루언서 에셋 저장에 실패했습니다', err);
         }
     };
 
@@ -911,7 +911,7 @@ const UserCreateRecipe = () => {
             }
             navigate(`/mainboard/recipes/${created.id}`);
         } catch (err) {
-            console.error('Failed to create recipe', err);
+            console.error('레시피 생성에 실패했습니다', err);
             if (isUpdate) {
                 setError(err.response?.data?.message || labels.updateError);
             } else {
@@ -948,7 +948,7 @@ const UserCreateRecipe = () => {
             });
             navigate(`/mainboard/recipes/${createdRecipe.id}`);
         } catch (err) {
-            console.error('Failed to publish recipe', err);
+            console.error('레시피 게시에 실패했습니다', err);
             setError('레시피 등록 확정에 실패했습니다.');
         } finally {
             setPublishLoading(false);
@@ -996,7 +996,7 @@ const UserCreateRecipe = () => {
                 setPriceRange(data.priceRange);
             }
         } catch (err) {
-            console.error('Failed to recommend targets', err);
+            console.error('타겟 추천에 실패했습니다', err);
             setError(labels.targetRecommendError);
         } finally {
             setTargetRecommendLoading(false);

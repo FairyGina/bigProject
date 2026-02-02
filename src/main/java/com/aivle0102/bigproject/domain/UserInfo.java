@@ -52,6 +52,9 @@ public class UserInfo {
     @Column(name = "providerid", length = 100)
     private String providerId;
 
+    @Column(name = "company_id")
+    private Long companyId;
+
     public void setUserState(String userState) {
         this.userState = userState;
     }

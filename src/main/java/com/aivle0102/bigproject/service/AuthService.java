@@ -7,8 +7,10 @@ import com.aivle0102.bigproject.dto.ResetPasswordRequest;
 import com.aivle0102.bigproject.dto.SignUpRequest;
 import com.aivle0102.bigproject.dto.UpdateProfileRequest;
 import com.aivle0102.bigproject.dto.UserResponse;
+import com.aivle0102.bigproject.domain.Company;
 import com.aivle0102.bigproject.domain.UserInfo;
 import com.aivle0102.bigproject.exception.CustomException;
+import com.aivle0102.bigproject.repository.CompanyRepository;
 import com.aivle0102.bigproject.repository.UserInfoRepository;
 import com.aivle0102.bigproject.security.JwtTokenProvider;
 import lombok.RequiredArgsConstructor;
@@ -31,6 +33,7 @@ import java.time.format.DateTimeFormatter;
 public class AuthService {
 
     private final UserInfoRepository userInfoRepository;
+    private final CompanyRepository companyRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtTokenProvider jwtTokenProvider;
     private final PasswordResetCodeService passwordResetCodeService;
@@ -53,6 +56,9 @@ public class AuthService {
             throw new CustomException("이미 존재하는 아이디입니다.", HttpStatus.CONFLICT, "DUPLICATE_USER_ID");
         }
 
+        Company company = resolveCompany(request);
+        Long companyId = company == null ? null : company.getCompanyId();
+
         String hashedPassword = passwordEncoder.encode(request.getPassword());
         UserInfo userInfo = UserInfo.builder()
                 .userId(request.getUserId())
@@ -63,11 +69,37 @@ public class AuthService {
                 .joinDate(LocalDateTime.now())
                 .loginFailCount(0)
                 .passwordChangedAt(OffsetDateTime.now())
+                .companyId(companyId)
                 .build();
 
         userInfoRepository.save(userInfo);
 
         return toUserResponse(userInfo, null);
+    }
+
+    private Company resolveCompany(SignUpRequest request) {
+        String companyName = trimToNull(request.getCompanyName());
+        if (companyName == null) {
+            return null;
+        }
+        return companyRepository.findFirstByCompanyNameIgnoreCase(companyName)
+                .orElseGet(() -> companyRepository.save(
+                        Company.builder()
+                                .companyName(companyName)
+                                .industry(trimToNull(request.getIndustry()))
+                                .targetCountry(trimToNull(request.getTargetCountry()))
+                                .createdAt(LocalDateTime.now())
+                                .updatedAt(LocalDateTime.now())
+                                .build()
+                ));
+    }
+
+    private String trimToNull(String value) {
+        if (value == null) {
+            return null;
+        }
+        String trimmed = value.trim();
+        return trimmed.isEmpty() ? null : trimmed;
     }
 
     @Transactional(noRollbackFor = CustomException.class)

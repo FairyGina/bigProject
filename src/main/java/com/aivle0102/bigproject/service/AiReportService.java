@@ -1,4 +1,4 @@
-package com.aivle0102.bigproject.service;
+﻿package com.aivle0102.bigproject.service;
 
 import java.util.List;
 import java.util.Map;
@@ -38,7 +38,7 @@ public class AiReportService {
                 "model", model,
                 "messages", List.of(
                         Map.of("role", "system", "content",
-                                "You are a global food/recipe business analyst. Respond only in Korean."),
+                                "당신은 글로벌 식품/레시피 비즈니스 분석가입니다. 한국어로만 답변하세요."),
                         Map.of("role", "user", "content", prompt)
                 ),
                 "temperature", 0.4
@@ -55,7 +55,7 @@ public class AiReportService {
                 "model", model,
                 "messages", List.of(
                         Map.of("role", "system", "content",
-                                "You are a global food/recipe business analyst. Respond only in Korean."),
+                                "당신은 글로벌 식품/레시피 비즈니스 분석가입니다. 한국어로만 답변하세요."),
                         Map.of("role", "user", "content", prompt)
                 ),
                 "temperature", 0.4
@@ -86,20 +86,20 @@ public class AiReportService {
     private String buildPrompt(ReportRequest r) {
         String schema = buildSchema(r.getSections());
         return """
-        ??? ??? ?? ?? ?? ??????.
-        ?? ??? ???? ?? ?? ?? ???? JSON?? ?????.
-        ?? ???? ???? ?????.
-        ??? JSON? ?????. ?????? ??? ???? ???.
+        아래 레시피를 기반으로 시장/소비자 분석 리포트를 작성해줘.
+        각 섹션은 아래 스키마를 따르는 JSON으로 작성해줘.
+        응답은 오직 JSON으로만 작성해줘.
+        마크다운, 코드펜스, 설명 문장은 포함하지 마.
 
-        ??? ???:
+        레시피 정보:
         %s
 
-        ?? ??:
+        타겟 정보:
         - targetCountry: %s
         - targetPersona: %s
         - priceRange: %s
 
-        JSON ???(?? ?? ??, ??? ? ??? ?? ? ?? ??):
+        JSON 스키마(키/형식 유지, 값은 실제 내용으로 채워서 작성):
         {
 %s
         }
@@ -134,11 +134,11 @@ public class AiReportService {
         return switch (key) {
             case "executiveSummary" -> """
           "executiveSummary": {
-            "decision": "?? | ?? | ??? ??",
+            "decision": "GO | HOLD | NO-GO",
             "marketFitScore": "0-100",
             "keyPros": ["..."],
             "topRisks": ["..."],
-            "successProbability": "0-100%%? ??? ??",
+            "successProbability": "0-100% 예상 성공확률",
             "recommendation": "..."
           }""";
             case "marketSnapshot" -> """
@@ -197,14 +197,17 @@ public class AiReportService {
 
     private String buildSummaryPrompt(String fullReport) {
         return """
-        Write a one-page executive summary in Korean based on the report JSON below.
-        Include market opportunity, key risks, expected impact, and recommended next steps.
-        Output only Korean prose or bullet points. Do NOT include JSON, keys, code fences, or arrays.
+        아래 리포트 JSON을 바탕으로 한글 요약(1페이지 분량)을 작성해 주세요.
+        시장 기회, 핵심 리스크, 기대 효과, 권장 다음 단계를 포함해 주세요.
+        출력은 한국어 문장 또는 불릿만 사용하세요. JSON/키/코드펜스/배열은 포함하지 마세요.
 
-        Report JSON:
+        리포트 JSON:
         %s
 
         """
         .formatted(fullReport);
     }
 }
+
+
+

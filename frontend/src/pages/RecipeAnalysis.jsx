@@ -69,7 +69,7 @@ const RecipeAnalysis = () => {
                 const res = await axiosInstance.get(`/api/recipes/${id}`);
                 setRecipe(res.data);
             } catch (err) {
-                console.error('Failed to fetch recipe', err);
+                console.error('레시피를 불러오지 못했습니다', err);
                 setError('레시피 정보를 불러오지 못했습니다.');
             } finally {
                 setLoading(false);
@@ -307,7 +307,7 @@ const RecipeAnalysis = () => {
                 }
             }
             } catch (err) {
-                console.error('Influencer generation failed', err);
+                console.error('인플루언서 생성에 실패했습니다', err);
             } finally {
                 setInfluencerLoading(false);
             }
@@ -556,7 +556,7 @@ const RecipeAnalysis = () => {
                 });
                 setEvaluationResults(aggregateEvaluations(evalRes.data || []));
             } catch (err) {
-                console.error('Persona evaluation flow failed', err);
+                console.error('페르소나 평가 실패했습니다', err);
             }
         };
 
@@ -586,7 +586,7 @@ const RecipeAnalysis = () => {
             setRecipe(res.data);
             navigate(`/mainboard/recipes/${recipe.id}`);
         } catch (err) {
-            console.error('Failed to publish recipe', err);
+            console.error('레시피 게시에 실패했습니다', err);
             setError('레시피 등록 확정에 실패했습니다.');
         } finally {
             setPublishLoading(false);

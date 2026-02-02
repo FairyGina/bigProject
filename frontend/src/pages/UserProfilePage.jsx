@@ -163,7 +163,7 @@ const UserProfilePage = () => {
                     birthDate: normalizeDate(data.birthDate),
                 }));
             } catch (error) {
-                console.error('Failed to load user profile:', error);
+                console.error('사용자 프로필을 불러오지 못했습니다:', error);
             }
         };
 

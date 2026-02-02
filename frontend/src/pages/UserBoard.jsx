@@ -21,7 +21,7 @@ const UserBoard = () => {
                 const res = await axiosInstance.get('/api/recipes/me');
                 setRecipes(res.data || []);
             } catch (err) {
-                console.error('Failed to fetch user recipes', err);
+                console.error('사용자 레시피를 불러오지 못했습니다', err);
                 setError('내 레시피 목록을 불러오지 못했습니다.');
             } finally {
                 setLoading(false);

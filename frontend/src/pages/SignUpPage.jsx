@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+﻿import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { X } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
@@ -7,6 +7,19 @@ import ThemeToggle from '../components/common/ThemeToggle';
 import Footer from '../components/common/Footer';
 import axiosInstance from '../axiosConfig';
 
+const TARGET_COUNTRY_OPTIONS = [
+    { value: 'KR', label: '한국' },
+    { value: 'US', label: '미국' },
+    { value: 'JP', label: '일본' },
+    { value: 'CN', label: '중국' },
+    { value: 'FR', label: '프랑스' },
+    { value: 'DE', label: '독일' },
+    { value: 'PL', label: '폴란드' },
+    { value: 'IN', label: '인도' },
+    { value: 'VN', label: '베트남' },
+    { value: 'TH', label: '태국' },
+];
+
 const SignUpPage = () => {
     const navigate = useNavigate();
     const [formData, setFormData] = useState({
@@ -14,7 +27,10 @@ const SignUpPage = () => {
         birthDate: '',
         userId: '',
         password: '',
-        confirmPassword: ''
+        confirmPassword: '',
+        companyName: '',
+        industry: '',
+        targetCountry: ''
     });
     const [consents, setConsents] = useState({
         terms: false,
@@ -134,8 +150,33 @@ const SignUpPage = () => {
     const handleSignup = async () => {
         setError('');
 
-        if (!consents.terms || !consents.privacy || !consents.thirdParty || !consents.uniqueId) {
-            showError('필수 약관에 모두 동의해주세요.');
+        if (!formData.userName) {
+            showError('이름(닉네임)을 입력해주세요');
+            return;
+        }
+
+        if (!formData.companyName) {
+            showError('기업명을 입력해주세요.');
+            return;
+        }
+
+        if (!formData.industry) {
+            showError('업종을 선택해주세요.');
+            return;
+        }
+
+        if (!formData.targetCountry) {
+            showError('주요 타겟국을 선택해주세요');
+            return;
+        }
+
+        if (!formData.birthDate) {
+            showError('생년월일을 입력해주세요.');
+            return;
+        }
+
+        if (!formData.userId) {
+            showError('이메일 주소(아이디)를 입력해주세요');
             return;
         }
 
@@ -155,8 +196,8 @@ const SignUpPage = () => {
             return;
         }
 
-        if (!formData.birthDate) {
-            showError('생년월일을 입력해주세요.');
+        if (!consents.terms || !consents.privacy || !consents.thirdParty || !consents.uniqueId) {
+            showError('필수 동의 항목을 체크해주세요');
             return;
         }
 
@@ -218,6 +259,9 @@ const SignUpPage = () => {
                     <div>
                         <h2 className="text-3xl font-bold mb-2">계정 생성</h2>
                         <p className="text-[color:var(--text-muted)]">필수 정보를 입력해 주세요.</p>
+                        <p className="mt-2 text-sm text-[color:var(--text-soft)]">
+                            소셜 회원가입을 원할 시, 필수 동의 항목 4가지 체크 후 맨 아래 소셜 회원가입 버튼을 클릭해주세요.
+                        </p>
                     </div>
                 </div>
 
@@ -242,6 +286,54 @@ const SignUpPage = () => {
                         onChange={handleChange}
                         className="w-full p-4 rounded-2xl bg-[color:var(--surface-muted)] border border-[color:var(--border)] text-[color:var(--text)] placeholder:text-[color:var(--text-soft)] focus:outline-none focus:ring-2 focus:ring-[color:var(--accent)]"
                     />
+                    <input
+                        type="text"
+                        name="companyName"
+                        placeholder="기업명"
+                        value={formData.companyName}
+                        onChange={handleChange}
+                        className="w-full p-4 rounded-2xl bg-[color:var(--surface-muted)] border border-[color:var(--border)] text-[color:var(--text)] placeholder:text-[color:var(--text-soft)] focus:outline-none focus:ring-2 focus:ring-[color:var(--accent)]"
+                    />
+
+                    <select
+                        name="industry"
+                        value={formData.industry}
+                        onChange={handleChange}
+                        className="w-full p-4 rounded-2xl bg-[color:var(--surface-muted)] border border-[color:var(--border)] text-[color:var(--text)] focus:outline-none focus:ring-2 focus:ring-[color:var(--accent)]"
+                    >
+                        <option value="" disabled>
+                            업종 선택
+                        </option>
+                        <option value="식품제조">식품제조</option>
+                        <option value="식품가공/조리식품">식품가공/조리식품</option>
+                        <option value="간편식/HMR">간편식/HMR</option>
+                        <option value="소스/양념/조미">소스/양념/조미</option>
+                        <option value="베이커리/디저트">베이커리/디저트</option>
+                        <option value="카페/음료">카페/음료</option>
+                        <option value="외식">외식</option>
+                        <option value="프랜차이즈">프랜차이즈</option>
+                        <option value="유통/리테일">유통/리테일</option>
+                        <option value="수출/무역">수출/무역</option>
+                        <option value="농수산물/원재료">농수산물/원재료</option>
+                        <option value="급식/케이터링">급식/케이터링</option>
+                        <option value="기타">기타</option>
+                    </select>
+
+                    <select
+                        name="targetCountry"
+                        value={formData.targetCountry}
+                        onChange={handleChange}
+                        className="w-full p-4 rounded-2xl bg-[color:var(--surface-muted)] border border-[color:var(--border)] text-[color:var(--text)] focus:outline-none focus:ring-2 focus:ring-[color:var(--accent)]"
+                    >
+                        <option value="" disabled>
+                            주요 타겟국
+                        </option>
+                        {TARGET_COUNTRY_OPTIONS.map((opt) => (
+                            <option key={opt.value} value={opt.value}>
+                                {opt.label}
+                            </option>
+                        ))}
+                    </select>
 
                     <input
                         type="date"
@@ -405,3 +497,11 @@ const SignUpPage = () => {
 };
 
 export default SignUpPage;
+
+
+
+
+
+
+
+

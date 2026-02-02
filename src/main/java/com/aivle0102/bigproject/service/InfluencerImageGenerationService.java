@@ -1,4 +1,4 @@
-package com.aivle0102.bigproject.service;
+﻿package com.aivle0102.bigproject.service;
 
 import com.aivle0102.bigproject.dto.ImageGenerateRequest;
 import com.aivle0102.bigproject.dto.ImageGenerateResponse;
@@ -42,7 +42,7 @@ public class InfluencerImageGenerationService {
 
     public ImageGenerateResponse generate(ImageGenerateRequest req) {
         if (req == null) {
-            return new ImageGenerateResponse("", "Request is empty");
+            return new ImageGenerateResponse("", "요청이 비어있습니다");
         }
         byte[] baseImage = null;
         String baseImageError = null;
@@ -50,14 +50,14 @@ public class InfluencerImageGenerationService {
             baseImage = downloadAndValidateImage(req.getInfluencerImageUrl());
         } catch (RuntimeException e) {
             baseImageError = e.getMessage();
-            log.warn("Base image download/validation failed: {}", baseImageError);
+            log.warn("기본 이미지 다운로드/검증에 실패했습니다: {}", baseImageError);
         }
 
         if (baseImage != null) {
             try {
                 return generateWithEdit(baseImage, req);
             } catch (RuntimeException e) {
-                log.warn("OpenAI images/edits failed, falling back to prompt-only generation: {}", e.getMessage());
+                log.warn("OpenAI 이미지 편집에 실패해 프롬프트 기반 생성으로 전환합니다: {}", e.getMessage());
             }
         }
 
@@ -73,16 +73,16 @@ public class InfluencerImageGenerationService {
             @Override public String getFilename() { return "influencer.png"; }
         });
 
-        // size: GPT ????? ????? 1024x1024/1536x1024/1024x1536/auto ????:contentReference[oaicite:3]{index=3}
+        // size: GPT 이미지 모델 지원 크기 1024x1024/1536x1024/1024x1536/auto
         form.add("size", "1024x1024");
 
-        // GPT ????? ?????? response_format???????????(??? b64_json ???) :contentReference[oaicite:4]{index=4}
+        // GPT 이미지 모델은 response_format 미지원 (b64_json 대신 output_format 사용)
         boolean isGptImageModel = imageModel != null && imageModel.startsWith("gpt-image-");
         if (!isGptImageModel) {
-            // dall-e-2????????????????:contentReference[oaicite:5]{index=5}
+            // dall-e-2는 response_format=b64_json 필요
             form.add("response_format", "b64_json");
         } else {
-            // GPT ??? ???: output_format ??? ????png/jpeg/webp) :contentReference[oaicite:6]{index=6}
+            // GPT 이미지 모델: output_format 사용(png/jpeg/webp)
             form.add("output_format", "png");
         }
 
@@ -94,11 +94,11 @@ public class InfluencerImageGenerationService {
                 .bodyToMono(Map.class)
                 .block();
 
-        // OpenAI Images ???: { data: [ { b64_json: "..." } ], ... } :contentReference[oaicite:7]{index=7}
+        // OpenAI Images 응답: { data: [ { b64_json: "..." } ], ... }
         String b64 = extractB64(res);
         return new ImageGenerateResponse(
                 b64,
-                "??????????????? ??? ????????????? ????? ?????????? ???????????? ????? ????????"
+                "이미지 생성 완료(기본 이미지 사용)"
         );
     }
 
@@ -127,12 +127,12 @@ public class InfluencerImageGenerationService {
             String bodyText = e.getResponseBodyAsString();
             return new ImageGenerateResponse(
                     "",
-                    "OpenAI images/generations failed: " + e.getStatusCode() + " body=" + bodyText
+                    "OpenAI 이미지 생성 요청에 실패했습니다: " + e.getStatusCode() + " body=" + bodyText
             );
         } catch (RuntimeException e) {
             return new ImageGenerateResponse(
                     "",
-                    "OpenAI images/generations failed: " + e.getMessage()
+                    "OpenAI 이미지 생성 요청에 실패했습니다: " + e.getMessage()
             );
         }
 
@@ -142,44 +142,44 @@ public class InfluencerImageGenerationService {
         } catch (RuntimeException e) {
             return new ImageGenerateResponse(
                     "",
-                    "OpenAI response invalid: " + e.getMessage()
+                    "OpenAI 응답이 올바르지 않습니다: " + e.getMessage()
             );
         }
         String note = baseImageError == null || baseImageError.isBlank()
-                ? "Generated without base image."
-                : "Generated without base image (fallback). reason=" + baseImageError;
+                ? "기본 이미지 없이 생성했습니다."
+                : "기본 이미지 없이 생성했습니다(대체 경로). 이유=" + baseImageError;
         return new ImageGenerateResponse(b64, note);
     }
 
     private String extractB64(Map<String, Object> res) {
-        if (res == null) throw new RuntimeException("OpenAI response is null");
+        if (res == null) throw new RuntimeException("OpenAI 응답이 null입니다.");
         Object dataObj = res.get("data");
         if (!(dataObj instanceof List<?> data) || data.isEmpty()) {
-            throw new RuntimeException("OpenAI response missing data: " + res);
+            throw new RuntimeException("OpenAI 응답에 data가 없습니다: " + res);
         }
         Object first = data.get(0);
         if (!(first instanceof Map<?, ?> firstMap)) {
-            throw new RuntimeException("OpenAI response data[0] invalid: " + first);
+            throw new RuntimeException("OpenAI 응답 data[0] 형식이 올바르지 않습니다: " + first);
         }
         Object b64 = firstMap.get("b64_json");
         if (!(b64 instanceof String s) || s.isBlank()) {
-            throw new RuntimeException("OpenAI response missing b64_json: " + firstMap);
+            throw new RuntimeException("OpenAI 응답에 b64_json이 없습니다: " + firstMap);
         }
         return s;
     }
 
     private String buildEditPrompt(ImageGenerateRequest req) {
         String style = (req.getAdditionalStyle() == null || req.getAdditionalStyle().isBlank())
-                ? "clean, natural lighting, realistic"
+                ? "깔끔하고, 자연스럽게, 밝고 따뜻한 톤, 사실적인 스타일"
                 : req.getAdditionalStyle();
 
         return """
-                Edit the provided photo.
-                Keep the person's identity and face consistent, natural, and photorealistic.
-                Add a freshly prepared dish that matches this recipe: %s.
-                The person (%s) is holding the finished dish naturally with both hands, smiling slightly.
-                Do not add text, logos, or watermarks.
-                Style: %s.
+                제공된 사진을 편집해 주세요.
+                인물의 정체성과 얼굴을 자연스럽고 사실적으로 유지해 주세요.
+                다음 레시피와 어울리는 갓 완성된 요리를 추가해 주세요: %s.
+                인물(%s)은 완성된 요리를 두 손으로 자연스럽게 들고, 살짝 미소를 짓는 모습으로 해 주세요.
+                텍스트, 로고, 워터마크는 넣지 마세요.
+                스타일: %s.
                 """.formatted(
                 safe(req.getRecipe()),
                 safe(req.getInfluencerName()),
@@ -189,15 +189,15 @@ public class InfluencerImageGenerationService {
 
     private String buildGenerationPrompt(ImageGenerateRequest req) {
         String style = (req.getAdditionalStyle() == null || req.getAdditionalStyle().isBlank())
-                ? "clean, natural lighting, realistic"
+                ? "깔끔하고, 자연스럽게, 밝고 따뜻한 톤, 사실적인 스타일"
                 : req.getAdditionalStyle();
 
         return """
-                Create a photorealistic portrait of a food influencer.
-                The person is holding a freshly prepared dish that matches this recipe: %s.
-                Keep the image natural and professional, no text, logos, or watermarks.
-                Influencer name reference: %s.
-                Style: %s.
+                푸드 인플루언서의 사실적인 인물 사진을 생성해 주세요.
+                인물은 다음 레시피와 어울리는 갓 완성된 요리를 들고 있어야 합니다: %s.
+                이미지는 자연스럽고 프로페셔널하게, 텍스트/로고/워터마크 없이 생성해 주세요.
+                인플루언서 이름 참고: %s.
+                스타일: %s.
                 """.formatted(
                 safe(req.getRecipe()),
                 safe(req.getInfluencerName()),
@@ -213,7 +213,7 @@ public class InfluencerImageGenerationService {
         byte[] bytes = downloadImage(url);
 
         if (bytes == null || bytes.length < 16) {
-            throw new RuntimeException("Downloaded image is too small or empty. len=" + (bytes == null ? 0 : bytes.length));
+            throw new RuntimeException("다운로드한 이미지가 비어있거나 너무 작습니다. len=" + (bytes == null ? 0 : bytes.length));
         }
 
         boolean isJpeg = (bytes[0] & 0xFF) == 0xFF && (bytes[1] & 0xFF) == 0xD8;
@@ -221,10 +221,10 @@ public class InfluencerImageGenerationService {
         boolean isWebp = bytes.length > 12 && bytes[0] == 'R' && bytes[1] == 'I' && bytes[2] == 'F' && bytes[3] == 'F'
                 && bytes[8] == 'W' && bytes[9] == 'E' && bytes[10] == 'B' && bytes[11] == 'P';
 
-        // GPT image edits는 png/webp/jpg 허용 :contentReference[oaicite:8]{index=8}
+        // GPT image edits 지원 포맷: png/webp/jpg
         if (!isJpeg && !isPng && !isWebp) {
             String head = new String(bytes, 0, Math.min(200, bytes.length), StandardCharsets.UTF_8);
-            throw new RuntimeException("Downloaded bytes are not JPG/PNG/WEBP. head=" + head);
+            throw new RuntimeException("다운로드한 파일이 JPG/PNG/WEBP 형식이 아닙니다. head=" + head);
         }
 
         return bytes;
@@ -232,7 +232,7 @@ public class InfluencerImageGenerationService {
 
     private byte[] downloadImage(String url) {
         if (url == null || url.isBlank()) {
-            throw new IllegalArgumentException("influencerImageUrl is empty");
+            throw new IllegalArgumentException("influencerImageUrl이 비어있습니다");
         }
         if (url.startsWith("data:image/")) {
             return decodeDataUrl(url);
@@ -258,13 +258,15 @@ public class InfluencerImageGenerationService {
     private byte[] decodeDataUrl(String url) {
         int commaIdx = url.indexOf(",");
         if (commaIdx < 0) {
-            throw new IllegalArgumentException("Invalid data URL");
+            throw new IllegalArgumentException("잘못된 data URL입니다");
         }
         String meta = url.substring(0, commaIdx);
         String data = url.substring(commaIdx + 1);
         if (!meta.contains(";base64")) {
-            throw new IllegalArgumentException("Data URL is not base64");
+            throw new IllegalArgumentException("Data URL이 base64 형식이 아닙니다");
         }
         return Base64.getDecoder().decode(data);
     }
 }
+
+

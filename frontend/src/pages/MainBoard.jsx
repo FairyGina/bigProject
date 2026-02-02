@@ -21,7 +21,7 @@ const MainBoard = () => {
                 const res = await axiosInstance.get('/api/recipes');
                 setRecipes(res.data || []);
             } catch (err) {
-                console.error('Failed to fetch recipes', err);
+                console.error('레시피 목록을 불러오지 못했습니다', err);
                 setError('레시피 목록을 불러오지 못했습니다.');
             } finally {
                 setLoading(false);

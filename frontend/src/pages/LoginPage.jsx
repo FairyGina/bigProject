@@ -76,7 +76,7 @@ const LoginPage = () => {
 
             navigate('/mainboard');
         } catch (err) {
-            console.error('Login error:', err);
+            console.error('로그인 오류:', err);
             const errorCode = err.response?.data?.errorCode;
             const backendMessage = err.response?.data?.message;
             if (errorCode === 'PASSWORD_RESET_REQUIRED') {

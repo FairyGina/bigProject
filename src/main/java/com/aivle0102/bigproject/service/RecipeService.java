@@ -85,6 +85,7 @@ public class RecipeService {
     @Transactional
     public RecipeResponse create(String authorId, RecipeCreateRequest request) {
         String authorName = resolveUserName(authorId);
+        Long companyId = resolveCompanyId(authorId);
         String rawTargetCountry = defaultIfBlank(request.getTargetCountry(), "US");
         String normalizedTargetCountry = normalizeCountryCode(rawTargetCountry);
 
@@ -144,6 +145,7 @@ public class RecipeService {
                 .steps(joinSteps(request.getSteps()))
                 .status(request.isDraft() ? STATUS_DRAFT : STATUS_PUBLISHED)
                 .userId(authorId)
+                .companyId(companyId)
                 .targetCountry(rawTargetCountry)
                 .createdAt(LocalDateTime.now())
                 .updatedAt(LocalDateTime.now())
@@ -871,5 +873,11 @@ public class RecipeService {
         return userInfoRepository.findByUserId(userId)
                 .map(UserInfo::getUserName)
                 .orElse(userId);
+    }
+
+    private Long resolveCompanyId(String userId) {
+        return userInfoRepository.findByUserId(userId)
+                .map(UserInfo::getCompanyId)
+                .orElse(null);
     }
 }

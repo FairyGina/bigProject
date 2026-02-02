@@ -39,7 +39,7 @@ const RecipeReport = () => {
                 const res = await axiosInstance.get(`/api/recipes/${id}`);
                 setRecipe(res.data);
             } catch (err) {
-                console.error('Failed to fetch recipe', err);
+                console.error('레시피를 불러오지 못했습니다', err);
                 setError('레시피 정보를 불러오지 못했습니다.');
             } finally {
                 setLoading(false);
@@ -145,8 +145,8 @@ const RecipeReport = () => {
             setRecipe(res.data);
             navigate(`/mainboard/recipes/${recipe.id}`);
         } catch (err) {
-            console.error('Failed to publish recipe', err);
-            setError('??? ?? ??? ??????.');
+            console.error('레시피 게시에 실패했습니다', err);
+            setError('리포트를 불러오지 못했습니다.');
         } finally {
             setPublishLoading(false);
         }
@@ -165,7 +165,7 @@ const RecipeReport = () => {
             await axiosInstance.delete(`/api/recipes/${recipe.id}`);
             navigate('/mainboard');
         } catch (err) {
-            console.error('Failed to delete recipe', err);
+            console.error('레시피 삭제에 실패했습니다', err);
             setError('레시피 삭제에 실패했습니다.');
         } finally {
             setDeleteLoading(false);

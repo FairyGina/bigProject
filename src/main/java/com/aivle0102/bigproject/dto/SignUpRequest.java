@@ -11,21 +11,31 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 public class SignUpRequest {
 
-    @NotBlank(message = "아이디는 필수입니다.")
-    @Size(min = 4, max = 50, message = "아이디는 4~50자여야 합니다.")
+    @NotBlank(message = "아이디는 필수입니다")
+    @Size(min = 4, max = 50, message = "아이디는 4~50자여야 합니다")
     private String userId;
 
-    @NotBlank(message = "비밀번호는 필수입니다.")
-    @Size(min = 8, max = 100, message = "비밀번호는 8자 이상이어야 합니다.")
+    @NotBlank(message = "비밀번호는 필수입니다")
+    @Size(min = 8, max = 100, message = "비밀번호는 8자 이상이어야 합니다")
     private String password;
 
-    @NotBlank(message = "이름은 필수입니다.")
-    @Size(max = 50, message = "이름은 50자 이하여야 합니다.")
+    @NotBlank(message = "이름은 필수입니다")
+    @Size(max = 50, message = "이름은 50자 이하여야 합니다")
     private String userName;
 
-    @NotBlank(message = "생년월일은 필수입니다.")
+    @NotBlank(message = "생년월일은 필수입니다")
     private String birthDate;
 
-    @NotBlank(message = "비밀번호 확인은 필수입니다.")
+    @NotBlank(message = "비밀번호 확인은 필수입니다")
     private String confirmPassword;
+
+    @NotBlank(message = "기업명은 필수입니다")
+    @Size(max = 255, message = "기업명은 255자 이하여야 합니다")
+    private String companyName;
+
+    @Size(max = 100, message = "업종은 100자 이하여야 합니다")
+    private String industry;
+
+    @Size(max = 100, message = "타겟 국가는 100자 이하여야 합니다")
+    private String targetCountry;
 }
