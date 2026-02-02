@@ -24,7 +24,7 @@ actions_test/
 
 ## 🚀 빠른 시작
 
-### 로컬 실행 (Docker Compose)
+#### 로컬 실행 (Docker Compose)
 
 ```bash
 # 1. 환경 변수 설정
