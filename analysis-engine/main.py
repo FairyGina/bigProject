@@ -3,13 +3,16 @@ from fastapi.middleware.cors import CORSMiddleware
 import pandas as pd
 import numpy as np
 import json
+import re
 import plotly.express as px
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
-from typing import Optional
+from typing import Optional, List, Dict, Any
 from contextlib import asynccontextmanager
 import os
 from scipy.stats import linregress
+from sklearn.feature_extraction.text import CountVectorizer
+from collections import Counter
 
 # 국가 매핑
 COUNTRY_MAPPING = {
@@ -76,6 +79,169 @@ ITEM_TO_TREND_MAPPING = {
 df = None
 growth_summary_df = None
 df_consumer = None
+GLOBAL_MEAN_SENTIMENT = 0.5
+GLOBAL_STD_SENTIMENT = 0.3
+GLOBAL_MEAN_RATING = 3.0
+
+# =============================================================================
+# 헬퍼 함수: 텍스트 전처리 및 분석 지표 계산
+# =============================================================================
+
+def remove_pos_tags(text: str) -> str:
+    """cleaned_text에서 _NOUN, _ADJ, _VERB 등 품사 태그 제거
+    
+    Example: 'taste_NOUN good_ADJ' -> 'taste good'
+    """
+    if not isinstance(text, str):
+        return ""
+    return re.sub(r'_[A-Z]+', '', text)
+
+
+def extract_bigrams_with_metrics(
+    texts: pd.Series, 
+    ratings: pd.Series, 
+    original_texts: pd.Series,
+    top_n: int = 15,
+    adj_priority: bool = True,
+    min_df: int = 5
+) -> List[Dict[str, Any]]:
+    """
+    Bigram 추출 후 Impact Score, Positivity Rate 계산.
+    형용사(_ADJ) 포함 조합을 우선순위로 제안.
+    
+    Args:
+        texts: cleaned_text 컬럼 (품사 태그 포함)
+        ratings: rating 컬럼
+        original_texts: original_text 컬럼 (Drill-down용)
+        top_n: 반환할 상위 키워드 수
+        adj_priority: 형용사 포함 Bigram만 노출할지 여부 (False면 모든 Bigram 노출)
+        min_df: CountVectorizer의 최소 등장 빈도
+    
+    Returns:
+        List of keyword analysis dicts with impact_score, positivity_rate, sample_reviews
+    """
+    if texts.empty:
+        return []
+    
+    # 1. Bigram 추출
+    try:
+        # 품사 태그 제거된 텍스트로 Bigram 추출
+        cleaned_texts_no_tags = texts.apply(remove_pos_tags).fillna('')
+        
+        vectorizer = CountVectorizer(
+            ngram_range=(2, 2),
+            min_df=min_df,
+            max_features=500,
+            stop_words='english',
+            token_pattern=r'\b[a-zA-Z]{3,}\b'
+        )
+        
+        bigram_matrix = vectorizer.fit_transform(cleaned_texts_no_tags)
+        bigram_names = vectorizer.get_feature_names_out()
+        bigram_counts = bigram_matrix.sum(axis=0).A1
+        
+    except Exception as e:
+        print(f"Bigram 추출 오류: {e}")
+        return []
+    
+    # 2. 형용사 포함 Bigram 필터링 (원본 텍스트에서 _ADJ 태그 확인)
+    adj_bigrams = set()
+    if adj_priority:
+        # 주석: texts는 태그가 포함된 cleaned_text 컬럼임
+        try:
+            all_text = " ".join(texts.dropna().astype(str))
+            for bigram in bigram_names:
+                words = bigram.split()
+                if len(words) == 2:
+                    if f"{words[0]}_ADJ" in all_text or f"{words[1]}_ADJ" in all_text:
+                        adj_bigrams.add(bigram)
+        except Exception as e:
+            print(f"형용사 필터링 오류: {e}")
+
+    # 3. 각 Bigram에 대해 Impact Score, Positivity Rate 계산
+    results = []
+    
+    for idx, bigram in enumerate(bigram_names):
+        count = int(bigram_counts[idx])
+        if count < min_df: # min_df보다 적으면 pass (CountVectorizer에서 이미 걸러졌겠지만 안전장치)
+            continue
+            
+        # 해당 Bigram을 포함하는 리뷰 필터링
+        # cleaned_texts_no_tags를 사용해야 함
+        mask = cleaned_texts_no_tags.str.contains(bigram, case=False, na=False, regex=False)
+        matching_ratings = ratings[mask]
+        matching_originals = original_texts[mask]
+        
+        if len(matching_ratings) == 0:
+            continue
+        
+        # Impact Score = 해당 키워드 포함 평균 - 전체 평균(3.0)
+        avg_rating = matching_ratings.mean()
+        impact_score = round(avg_rating - 3.0, 2)
+        
+        # Positivity Rate = 4-5점 비율 (%)
+        positive_count = (matching_ratings >= 4).sum()
+        positivity_rate = round((positive_count / len(matching_ratings)) * 100, 1)
+        
+        # Satisfaction Index = (5점 리뷰 비율) / 0.2 (전체 5점 확률)
+        five_star_ratio = (matching_ratings == 5).mean()
+        satisfaction_index = round(five_star_ratio / 0.2, 2)
+        
+        # Sample Reviews (최대 3개)
+        sample_reviews = matching_originals.dropna().head(3).tolist()
+        
+        # 형용사 포함 여부
+        has_adj = bigram in adj_bigrams
+        
+        results.append({
+            "keyword": bigram,
+            "impact_score": impact_score,
+            "positivity_rate": positivity_rate, # 하위 호환성 유지 (API 쓰는 다른 곳이 있을 수 있음)
+            "satisfaction_index": satisfaction_index,
+            "mention_count": count,
+            "sample_reviews": sample_reviews,
+            "has_adjective": has_adj
+        })
+    
+    # 4. 정렬: 형용사 포함 우선, 그 다음 언급 횟수
+    if adj_priority:
+        # 형용사 포함 조합이 있다면 그것들만 필터링해서 상위권에 배치
+        adj_results = [r for r in results if r["has_adjective"]]
+        if adj_results:
+            results = sorted(adj_results, key=lambda x: -x["mention_count"])
+        else:
+            results = sorted(results, key=lambda x: -x["mention_count"])
+    else:
+        results = sorted(results, key=lambda x: -x["mention_count"])
+    
+    return results[:top_n]
+
+
+def get_diverging_keywords(keywords_analysis: List[Dict], top_n: int = 10, threshold: float = 0.3) -> Dict[str, List[Dict]]:
+    """
+    Impact Score 기준으로 부정/긍정 키워드 분리
+    
+    Args:
+        keywords_analysis: 분석 결과 리스트
+        top_n: 결과당 최대 개수
+        threshold: 필터링할 Impact Score의 절대값 문턱 (데이터 적으면 0.0)
+    
+    Returns:
+        {"negative": [...], "positive": [...]}
+    """
+    # 부정 키워드: impact_score < -threshold
+    negative = sorted(
+        [k for k in keywords_analysis if k["impact_score"] < -threshold],
+        key=lambda x: x["impact_score"]
+    )[:top_n]
+    
+    # 긍정 키워드: impact_score > threshold
+    positive = sorted(
+        [k for k in keywords_analysis if k["impact_score"] > threshold],
+        key=lambda x: -x["impact_score"]
+    )[:top_n]
+    
+    return {"negative": negative, "positive": positive}
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -223,6 +389,22 @@ async def lifespan(app: FastAPI):
                     df_consumer[col] = df_consumer[col].apply(parse_list)
             
             print("소비자 데이터 로드 완료.")
+            
+            # --- [중요] 전역 통계 계산 (Z-Score용) ---
+            # 1. 평점 숫자 변환
+            if 'rating' in df_consumer.columns:
+                df_consumer['rating'] = pd.to_numeric(df_consumer['rating'], errors='coerce').fillna(3.0)
+            
+            # 2. 감성 점수 생성 (없으면 평점 기반)
+            if 'sentiment_score' not in df_consumer.columns:
+                df_consumer['sentiment_score'] = (df_consumer['rating'] - 1) / 4
+                
+            GLOBAL_MEAN_SENTIMENT = df_consumer['sentiment_score'].mean()
+            GLOBAL_STD_SENTIMENT = df_consumer['sentiment_score'].std()
+            GLOBAL_MEAN_RATING = df_consumer['rating'].mean()
+            
+            print(f"Global Stats - Sentiment Mean: {GLOBAL_MEAN_SENTIMENT:.3f}, Std: {GLOBAL_STD_SENTIMENT:.3f}, Rating Mean: {GLOBAL_MEAN_RATING:.3f}")
+
         else:
             print(f"경고: {consumer_csv_path} 파일을 찾을 수 없습니다.")
             df_consumer = pd.DataFrame()
@@ -445,11 +627,53 @@ async def analyze(country: str = Query(...), item: str = Query(...)):
 
 @app.get("/analyze/consumer")
 async def analyze_consumer(item_id: str = Query(None, description="ASIN"), item_name: str = Query(None, description="제품명/키워드")):
-    global df_consumer
+    global df_consumer, GLOBAL_MEAN_SENTIMENT, GLOBAL_STD_SENTIMENT, GLOBAL_MEAN_RATING
     
-    if df_consumer is None or df_consumer.empty:
-        return {"has_data": False, "message": "소비자 데이터가 로드되지 않았습니다."}
-    
+    try:
+        if df_consumer is None or df_consumer.empty:
+            print("데이터가 로드되지 않았습니다. 재로딩 시도...")
+            # 비상용 로드 로직 (lifespan 실패 시)
+            csv_path = 'amz_insight_data.csv'
+            if not os.path.exists(csv_path):
+                 parent_consumer_path = os.path.join('..', csv_path)
+                 if os.path.exists(parent_consumer_path):
+                     csv_path = parent_consumer_path
+            
+            if os.path.exists(csv_path):
+                df_consumer = pd.read_csv(csv_path, low_memory=False)
+                # 리스트 컬럼 파싱 (약식)
+                list_cols = ['quality_issues_semantic', 'packaging_keywords', 'ingredients']
+                import ast
+                for col in list_cols:
+                    if col in df_consumer.columns:
+                        try:
+                            df_consumer[col] = df_consumer[col].apply(lambda x: ast.literal_eval(x) if isinstance(x, str) and x.startswith('[') else [])
+                        except: pass
+            else:
+                return JSONResponse(status_code=503, content={"has_data": False, "message": "Consumer data is not currently available."})
+        
+        # 전역 통계 Lazy Init (변수가 없거나 초기값인 경우)
+        try:
+            if 'GLOBAL_MEAN_SENTIMENT' not in globals() or (GLOBAL_STD_SENTIMENT == 0.3 and GLOBAL_MEAN_SENTIMENT == 0.5):
+                 print("전역 통계 재계산 중...")
+                 if 'rating' in df_consumer.columns:
+                     df_consumer['rating'] = pd.to_numeric(df_consumer['rating'], errors='coerce').fillna(3.0)
+                 if 'sentiment_score' not in df_consumer.columns:
+                     if 'rating' in df_consumer.columns:
+                         df_consumer['sentiment_score'] = (df_consumer['rating'] - 1) / 4
+                     else:
+                         df_consumer['sentiment_score'] = 0.5
+                 
+                 GLOBAL_MEAN_SENTIMENT = df_consumer['sentiment_score'].mean()
+                 GLOBAL_STD_SENTIMENT = df_consumer['sentiment_score'].std()
+                 GLOBAL_MEAN_RATING = df_consumer['rating'].mean()
+        except Exception as e:
+            print(f"전역 통계 계산 오류: {e}")
+
+    except Exception as e:
+        return JSONResponse(status_code=500, content={"has_data": False, "message": f"Server Initialization Error: {str(e)}"})
+
+    # 메인 로직 실행
     # 1. 필터링 로직
     filtered = pd.DataFrame()
     
@@ -503,97 +727,165 @@ async def analyze_consumer(item_id: str = Query(None, description="ASIN"), item_
     total_count = filtered.shape[0]
     
     # =========================================================
-    # 2. 시장 감성 및 주요 점수 (요약 보기)
+    # 2. 시장 감성 및 주요 점수 (상대적 지표로 전면 교체)
     # =========================================================
-    
-    # NSS (Net Sentiment Score: 순 감성 지수)
-    pos_count = filtered[filtered['sentiment_score'] >= 0.75].shape[0]
-    neg_count = filtered[filtered['sentiment_score'] <= 0.25].shape[0]
-    nss_score = ((pos_count - neg_count) / total_count * 100) if total_count > 0 else 0
-    
-    # CAS (Customer Advocacy Score: 고객 옹호 지수)
-    advocates = filtered[
-        (filtered['repurchase_intent_hybrid'] == True) & 
-        (filtered['recommendation_intent_hybrid'] == True)
-    ].shape[0]
-    cas_score = (advocates / total_count * 100) if total_count > 0 else 0
-    
-    # =========================================================
-    # 3. 상세 분석: 불만족(Pain) vs 만족(Delight) 요인
-    # =========================================================
-    
-    # 키워드 추출 헬퍼 함수
-    def extract_top_keywords(series, top_n=5):
-        try:
-            all_terms = []
-            for item in series.dropna():
-                if isinstance(item, str):
-                    clean_item = item.replace("[", "").replace("]", "").replace("'", "")
-                    terms = [t.strip() for t in clean_item.split(',')]
-                    all_terms.extend(terms)
-            
-            if not all_terms:
-                return {}, []
-                
-            from collections import Counter
-            counts = Counter(all_terms)
-            common = counts.most_common(top_n)
-            return dict(common), [term for term, count in common]
-        except Exception as e:
-            print(f"키워드 추출 오류: {e}")
-            return {}, []
-
-    # 평점 기반 데이터 분리 (1-2점: 불만, 4-5점: 만족)
-    neg_reviews = filtered[filtered['rating'] <= 2]
-    pos_reviews = filtered[filtered['rating'] >= 4]
-    
-    # 키워드 분석 대상 컬럼 선정
-    target_col = 'review_text_keywords'
-    
-    # 키워드 데이터가 없을 경우 리뷰 본문에서 직접 추출 시도
-    use_text_extraction = False
-    if filtered[target_col].isna().all():
-        use_text_extraction = True
+    try:
+        # 1. Impact Score (Rating Lift)
+        avg_rating = filtered['rating'].mean()
+        if pd.isna(avg_rating): avg_rating = 3.0
+        item_impact_score = round(avg_rating - 3.0, 2)
         
-    if use_text_extraction:
-        def get_simple_keywords(text_series):
-            from collections import Counter
-            if text_series.empty: return {}
-            all_text = " ".join(text_series.dropna().astype(str).tolist()).lower()
-            words = [w for w in all_text.split() if len(w) > 3]
-            return dict(Counter(words).most_common(5))
+        # 2. Relative Sentiment Z-Score
+        target_mean_sent = filtered['sentiment_score'].mean()
+        if pd.isna(target_mean_sent): target_mean_sent = 0.5
+        
+        if GLOBAL_STD_SENTIMENT > 0:
+            sentiment_z_score = round((target_mean_sent - GLOBAL_MEAN_SENTIMENT) / GLOBAL_STD_SENTIMENT, 2)
+        else:
+            sentiment_z_score = 0.0
             
-        pain_points = get_simple_keywords(neg_reviews['cleaned_text'])
-        delight_points = get_simple_keywords(pos_reviews['cleaned_text'])
-    else:
-        pain_points, pain_labels = extract_top_keywords(neg_reviews[target_col], top_n=5)
-        delight_points, delight_labels = extract_top_keywords(pos_reviews[target_col], top_n=5)
+        # 3. Satisfaction Index (Likelihood Ratio)
+        target_five_star_ratio = (filtered['rating'] == 5).mean()
+        if pd.isna(target_five_star_ratio): target_five_star_ratio = 0.0
+        satisfaction_index = round(target_five_star_ratio / 0.2, 2)
+        
+        # 요약 메트릭 업데이트
+        metrics = {
+            "impact_score": item_impact_score,
+            "sentiment_z_score": sentiment_z_score,
+            "satisfaction_index": satisfaction_index,
+            "total_reviews": total_count
+        }
+    except Exception as e:
+        print(f"메트릭 계산 오류: {e}")
+        metrics = {
+            "impact_score": 0, "sentiment_z_score": 0, "satisfaction_index": 0, "total_reviews": total_count
+        }
     
-    # 시각화: 불만족 vs 만족 요인 가로 막대 차트
-    fig_pain = px.bar(
-        x=list(pain_points.values()),
-        y=list(pain_points.keys()),
-        orientation='h',
-        title=f"소비자 불만족 요인 (Pain Points)",
-        labels={'x': '언급 횟수', 'y': '키워드'},
-        color_discrete_sequence=['#ff4d4f']
-    )
-    if list(pain_points.keys()):
-         fig_pain.update_layout(yaxis={'categoryorder':'total ascending'})
-
-    fig_delight = px.bar(
-        x=list(delight_points.values()),
-        y=list(delight_points.keys()),
-        orientation='h',
-        title=f"소비자 만족 요인 (Delight Points)",
-        labels={'x': '언급 횟수', 'y': '키워드'},
-        color_discrete_sequence=['#52c41a']
-    )
-    if list(delight_points.keys()):
-        fig_delight.update_layout(yaxis={'categoryorder':'total ascending'})
-
     # =========================================================
-    # 4. 핵심 가치 드라이버 (Radar Chart)
+    # 3. 상세 분석: Bigram 기반 키워드 분석 (가변 임계값 적용)
+    # =========================================================
+    
+    # 데이터 규모에 따른 가변 파라미터 결정
+    is_small_sample = total_count < 50
+    adj_priority_val = not is_small_sample # 50개 미만이면 False (모든 키워드 허용)
+    min_df_val = 1 if is_small_sample else 2 # 50개 미만이면 1번만 나와도 추출
+    impact_threshold_val = 0.0 if is_small_sample else 0.3 # 50개 미만이면 모든 차이 노출
+    
+    # Bigram 추출 및 Impact Score, Positivity Rate 계산
+    keywords_analysis = []
+    diverging_keywords = {"negative": [], "positive": []}
+    
+    try:
+        if 'cleaned_text' in filtered.columns and 'original_text' in filtered.columns:
+            keywords_analysis = extract_bigrams_with_metrics(
+                texts=filtered['cleaned_text'],
+                ratings=filtered['rating'],
+                original_texts=filtered['original_text'],
+                top_n=20,
+                adj_priority=adj_priority_val,
+                min_df=min_df_val
+            )
+        
+        # 긍정/부정 키워드 분리 (가변 임계값 기준)
+        diverging_keywords = get_diverging_keywords(
+            keywords_analysis, 
+            top_n=8, 
+            threshold=impact_threshold_val
+        )
+    except Exception as e:
+        print(f"키워드 분석 오류: {e}")
+    
+    # =========================================================
+    # 4. Diverging Bar Chart (감성 영향도 시각화)
+    # =========================================================
+    
+    # 부정 키워드 (Impact Score < 0)
+    neg_keywords = diverging_keywords["negative"]
+    pos_keywords = diverging_keywords["positive"]
+    
+    # Diverging Bar Chart 생성 (x축 기준 0)
+    fig_diverging = go.Figure()
+    
+    # 긍정 영향 키워드 (왼쪽, 빨간색)
+    if neg_keywords:
+        fig_diverging.add_trace(go.Bar(
+            y=[k["keyword"] for k in neg_keywords],
+            x=[k["impact_score"] for k in neg_keywords],
+            orientation='h',
+            name='부정 영향',
+            marker_color='#ef4444',
+            text=[f'SI: {k["satisfaction_index"]}' for k in neg_keywords],
+            textposition='inside',
+            hovertemplate='<b>%{y}</b><br>감성 영향도: %{x}<br>만족도 지수: %{text}<extra></extra>'
+        ))
+    
+    # 긍정 영향 키워드 (오른쪽, 녹색)
+    if pos_keywords:
+        fig_diverging.add_trace(go.Bar(
+            y=[k["keyword"] for k in pos_keywords],
+            x=[k["impact_score"] for k in pos_keywords],
+            orientation='h',
+            name='긍정 영향',
+            marker_color='#22c55e',
+            text=[f'SI: {k["satisfaction_index"]}' for k in pos_keywords],
+            textposition='inside',
+            hovertemplate='<b>%{y}</b><br>감성 영향도: %{x}<br>만족도 지수: %{text}<extra></extra>'
+        ))
+    
+    fig_diverging.update_layout(
+        title="키워드별 감성 영향도 (Impact Score)",
+        xaxis_title="감성 영향도 (Impact Score: 0 = 평균)",
+        yaxis_title="키워드 (Bigram)",
+        template="plotly_white",
+        height=500,
+        showlegend=True,
+        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
+        xaxis=dict(zeroline=True, zerolinewidth=2, zerolinecolor='#64748b'),
+        barmode='relative'
+    )
+    
+    # =========================================================
+    # 5. Satisfaction Index Chart (만족도 확률 지수 시각화)
+    # =========================================================
+    
+    # 상위 10개 키워드
+    top_keywords_for_si = sorted(keywords_analysis, key=lambda x: -x["mention_count"])[:10]
+    
+    fig_positivity = go.Figure()
+    if top_keywords_for_si:
+        fig_positivity.add_trace(go.Bar(
+            x=[k["keyword"] for k in top_keywords_for_si],
+            y=[k["satisfaction_index"] for k in top_keywords_for_si],
+            marker_color=[
+                '#22c55e' if k["satisfaction_index"] >= 1.2 else '#f59e0b' if k["satisfaction_index"] >= 0.8 else '#ef4444'
+                for k in top_keywords_for_si
+            ],
+            text=[f'{k["satisfaction_index"]}' for k in top_keywords_for_si],
+            textposition='outside',
+            hovertemplate='<b>%{x}</b><br>만족도 지수: %{y}<br>언급 횟수: %{customdata}<extra></extra>',
+            customdata=[k["mention_count"] for k in top_keywords_for_si]
+        ))
+        
+        # 기준선 1.0 추가
+        fig_positivity.add_shape(
+            type="line",
+            x0=-0.5, y0=1.0, x1=len(top_keywords_for_si)-0.5, y1=1.0,
+            line=dict(color="Red", width=2, dash="dash"),
+        )
+    
+    fig_positivity.update_layout(
+        title="키워드별 만족도 확률 지수 (Satisfaction Index)",
+        xaxis_title="키워드 (Bigram)",
+        yaxis_title="Index (기준 1.0)",
+        template="plotly_white",
+        height=400,
+        # y축 범위는 데이터에 따라 자동 조정되지만 0부터 시작하게 설정
+        yaxis=dict(rangemode='tozero') 
+    )
+    
+    # =========================================================
+    # 6. 핵심 가치 드라이버 (Radar Chart) - 기존 유지
     # =========================================================
     
     # 한국어 라벨 매핑용 metrics
@@ -602,8 +894,8 @@ async def analyze_consumer(item_id: str = Query(None, description="ASIN"), item_
     }
     raw_metrics = {k: 0 for k in metrics_map.keys()}
     
-    # 리뷰 본문 키워드 매칭 분석
-    all_text_combined = " ".join(filtered['cleaned_text'].dropna().astype(str).tolist()).lower()
+    # 리뷰 본문 키워드 매칭 분석 (품사 태그 제거 후)
+    all_text_combined = " ".join(filtered['cleaned_text'].apply(remove_pos_tags).dropna().astype(str).tolist()).lower()
     
     raw_metrics['Taste'] = all_text_combined.count('taste') + all_text_combined.count('flavor') + all_text_combined.count('delicious')
     raw_metrics['Price'] = all_text_combined.count('price') + all_text_combined.count('expensive') + all_text_combined.count('cheap') + all_text_combined.count('value')
@@ -632,28 +924,23 @@ async def analyze_consumer(item_id: str = Query(None, description="ASIN"), item_
     # 결과 반환
     # =========================================================
     
-    # NSS 게이지 차트
-    fig_nss = go.Figure(go.Indicator(
-        mode = "gauge+number",
-        value = nss_score,
-        title = {'text': "시장 감성 지표 (NSS)"},
-        gauge = {'axis': {'range': [-100, 100]}, 'bar': {'color': "darkblue"}}
-    ))
+    # =========================================================
+    # 결과 반환
+    # =========================================================
     
     return {
         "has_data": True,
         "search_term": item_name if item_name else item_id,
-        "total_reviews": int(total_count),
-        "metrics": {
-            "nss": round(nss_score, 2),
-            "cas": round(cas_score, 2),
-            "avg_rating": round(filtered['rating'].mean(), 2) if 'rating' in filtered.columns else 0
+        "metrics": metrics,
+        "keywords_analysis": keywords_analysis[:50], # 상위 50개까지만 반환
+        "diverging_summary": {
+            "negative_keywords": [{"keyword": k["keyword"], "impact_score": k["impact_score"], "satisfaction_index": k.get("satisfaction_index", 0), "positivity_rate": k.get("positivity_rate", 0)} for k in neg_keywords],
+            "positive_keywords": [{"keyword": k["keyword"], "impact_score": k["impact_score"], "satisfaction_index": k.get("satisfaction_index", 0), "positivity_rate": k.get("positivity_rate", 0)} for k in pos_keywords]
         },
         "charts": {
-            "pain_points": json.loads(fig_pain.to_json()),
-            "delight_points": json.loads(fig_delight.to_json()),
-            "value_radar": json.loads(fig_radar.to_json()),
-            "nss_gauge": json.loads(fig_nss.to_json())
+            "impact_diverging_bar": json.loads(fig_diverging.to_json()),
+            "positivity_bar": json.loads(fig_positivity.to_json()), # Satisfaction Index Bar
+            "value_radar": json.loads(fig_radar.to_json())
         }
     }
     
