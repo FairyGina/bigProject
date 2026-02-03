@@ -96,8 +96,11 @@ const UserBoard = () => {
                             type="button"
                             key={recipe.id}
                             onClick={() => navigate(`/mainboard/recipes/${recipe.id}`)}
-                            className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[0_12px_30px_var(--shadow)] overflow-hidden text-left"
+                            className="relative rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[0_12px_30px_var(--shadow)] overflow-hidden text-left"
                         >
+                            <div className="absolute top-2 right-2 text-xs">
+                                {recipe.openYn === 'Y' ? '🔓' : '🔒'}
+                            </div>
                             <div className="h-32 bg-[color:var(--surface-muted)] flex items-center justify-center text-sm text-[color:var(--text-soft)] overflow-hidden">
                                 {recipe.imageBase64 ? (
                                     <img src={recipe.imageBase64} alt={recipe.title} className="h-full w-full object-cover" />

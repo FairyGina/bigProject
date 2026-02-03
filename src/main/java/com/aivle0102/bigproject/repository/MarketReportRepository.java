@@ -9,4 +9,6 @@ import java.util.Optional;
 public interface MarketReportRepository extends JpaRepository<MarketReport, Long> {
     Optional<MarketReport> findTopByRecipe_IdOrderByCreatedAtDesc(Long recipeId);
     List<MarketReport> findByRecipe_IdOrderByCreatedAtDesc(Long recipeId);
+    List<MarketReport> findByRecipe_IdAndOpenYnOrderByCreatedAtDesc(Long recipeId, String openYn);
+    boolean existsByRecipe_IdAndOpenYn(Long recipeId, String openYn);
 }

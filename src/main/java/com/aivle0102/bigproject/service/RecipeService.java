@@ -13,7 +13,11 @@ import com.aivle0102.bigproject.dto.IngredientEvidence;
 import com.aivle0102.bigproject.dto.RecipeCreateRequest;
 import com.aivle0102.bigproject.dto.RecipePublishRequest;
 import com.aivle0102.bigproject.dto.RecipeResponse;
+import com.aivle0102.bigproject.dto.ReportCreateRequest;
+import com.aivle0102.bigproject.dto.ReportDetailResponse;
+import com.aivle0102.bigproject.dto.ReportListItem;
 import com.aivle0102.bigproject.dto.ReportRequest;
+import com.aivle0102.bigproject.dto.VisibilityUpdateRequest;
 import com.aivle0102.bigproject.domain.VirtualConsumer;
 import com.aivle0102.bigproject.repository.InfluencerRepository;
 import com.aivle0102.bigproject.repository.MarketReportRepository;
@@ -47,6 +51,8 @@ public class RecipeService {
 
     private static final String STATUS_DRAFT = "DRAFT";
     private static final String STATUS_PUBLISHED = "PUBLISHED";
+    private static final String OPEN_YN_Y = "Y";
+    private static final String OPEN_YN_N = "N";
     private static final String REPORT_TYPE_AI = "AI";
     private static final String ANALYSIS_REF_DIRECT = "DIRECT_MATCH";
     private static final List<String> VIRTUAL_CONSUMER_COUNTRIES = List.of(
@@ -138,12 +144,18 @@ public class RecipeService {
             allergenResponse = allergenAnalysisService.analyzeIngredients(request.getIngredients(), normalizedTargetCountry);
         }
 
+        String openYn = normalizeOpenYn(request.getOpenYn());
+        if (openYn == null) {
+            openYn = OPEN_YN_N;
+        }
+
         Recipe recipe = Recipe.builder()
                 .recipeName(request.getTitle())
                 .description(request.getDescription())
                 .imageBase64(request.getImageBase64())
                 .steps(joinSteps(request.getSteps()))
                 .status(request.isDraft() ? STATUS_DRAFT : STATUS_PUBLISHED)
+                .openYn(openYn)
                 .userId(authorId)
                 .companyId(companyId)
                 .targetCountry(rawTargetCountry)
@@ -161,6 +173,7 @@ public class RecipeService {
                     .reportType(REPORT_TYPE_AI)
                     .content(reportJson)
                     .summary(summary)
+                    .openYn(OPEN_YN_N)
                     .build());
         }
 
@@ -192,6 +205,10 @@ public class RecipeService {
         String rawTargetCountry = defaultIfBlank(request.getTargetCountry(), recipe.getTargetCountry());
         String normalizedTargetCountry = normalizeCountryCode(rawTargetCountry);
         recipe.setTargetCountry(rawTargetCountry);
+        String openYn = normalizeOpenYn(request.getOpenYn());
+        if (openYn != null) {
+            recipe.setOpenYn(openYn);
+        }
         recipe.setUpdatedAt(LocalDateTime.now());
 
         Recipe saved = recipeRepository.save(recipe);
@@ -264,6 +281,9 @@ public class RecipeService {
                     .orElseGet(() -> MarketReport.builder().recipe(saved).reportType(REPORT_TYPE_AI).build());
             marketReport.setContent(reportJson);
             marketReport.setSummary(summary);
+            if (marketReport.getOpenYn() == null || marketReport.getOpenYn().isBlank()) {
+                marketReport.setOpenYn(OPEN_YN_N);
+            }
             marketReportRepository.save(marketReport);
             if (marketReport.getId() != null) {
                 influencerRepository.deleteByReport_Id(marketReport.getId());
@@ -304,15 +324,16 @@ public class RecipeService {
 
     @Transactional(readOnly = true)
     public List<RecipeResponse> getAll() {
-        return recipeRepository.findByStatusOrderByCreatedAtDesc(STATUS_PUBLISHED)
+        return recipeRepository.findAllByOrderByCreatedAtDesc()
                 .stream()
+                .filter(this::isRecipeVisibleForHub)
                 .map(this::toResponse)
                 .toList();
     }
 
     @Transactional(readOnly = true)
     public List<RecipeResponse> getByAuthor(String authorId) {
-        return recipeRepository.findByUserIdAndStatusOrderByCreatedAtDesc(authorId, STATUS_PUBLISHED)
+        return recipeRepository.findByUserIdOrderByCreatedAtDesc(authorId)
                 .stream()
                 .map(this::toResponse)
                 .toList();
@@ -322,9 +343,185 @@ public class RecipeService {
     public RecipeResponse getOne(Long id, String requesterId) {
         Recipe recipe = recipeRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Recipe not found"));
-        if (STATUS_DRAFT.equalsIgnoreCase(recipe.getStatus())
-                && (requesterId == null || !requesterId.equals(recipe.getUserId()))) {
+        boolean isOwner = requesterId != null && requesterId.equals(recipe.getUserId());
+        if (STATUS_DRAFT.equalsIgnoreCase(recipe.getStatus()) && !isOwner) {
             throw new IllegalArgumentException("Recipe not found");
+        }
+        if (!isOwner && !isRecipeVisibleForHub(recipe)) {
+            throw new IllegalArgumentException("Recipe not found");
+        }
+        return toResponse(recipe);
+    }
+
+    @Transactional(readOnly = true)
+    public List<ReportListItem> getReports(Long recipeId, String requesterId) {
+        Recipe recipe = recipeRepository.findById(recipeId)
+                .orElseThrow(() -> new IllegalArgumentException("Recipe not found"));
+        boolean isOwner = requesterId != null && requesterId.equals(recipe.getUserId());
+        if (!isOwner && !isRecipeVisibleForHub(recipe)) {
+            throw new IllegalArgumentException("Recipe not found");
+        }
+        List<MarketReport> reports = isOwner
+                ? marketReportRepository.findByRecipe_IdOrderByCreatedAtDesc(recipeId)
+                : marketReportRepository.findByRecipe_IdAndOpenYnOrderByCreatedAtDesc(recipeId, OPEN_YN_Y);
+        return reports.stream()
+                .map(report -> new ReportListItem(
+                        report.getId(),
+                        report.getReportType(),
+                        report.getSummary(),
+                        defaultIfBlank(report.getOpenYn(), OPEN_YN_N),
+                        report.getCreatedAt()
+                ))
+                .toList();
+    }
+
+    @Transactional
+    public ReportDetailResponse createReport(Long recipeId, String requesterId, ReportCreateRequest request) {
+        Recipe recipe = recipeRepository.findById(recipeId)
+                .orElseThrow(() -> new IllegalArgumentException("Recipe not found"));
+        if (!recipe.getUserId().equals(requesterId)) {
+            throw new IllegalArgumentException("Recipe not found");
+        }
+
+        List<RecipeIngredient> ingredients = recipeIngredientRepository.findByRecipe_IdOrderByIdAsc(recipe.getId());
+        List<String> ingredientNames = ingredients.stream()
+                .map(RecipeIngredient::getIngredientName)
+                .toList();
+        List<String> steps = splitSteps(recipe.getSteps());
+
+        List<String> reportSections = normalizeReportSections(request == null ? null : request.getReportSections());
+        boolean hasSelection = request != null && request.getReportSections() != null;
+        boolean includeReportJson = hasSelection ? hasAnyReportJsonSection(reportSections) : true;
+        boolean includeSummary = hasSelection ? reportSections.contains(SECTION_SUMMARY) : true;
+        boolean includeAllergen = hasSelection ? reportSections.contains(SECTION_ALLERGEN) : true;
+        boolean includeEvaluation = hasSelection ? reportSections.contains(SECTION_GLOBAL_MAP) : true;
+        if (!includeReportJson) {
+            includeSummary = false;
+            includeEvaluation = false;
+        }
+
+        ReportRequest reportRequest = null;
+        String reportJson = null;
+        String summary = null;
+        if (includeReportJson) {
+            reportRequest = buildReportRequestFromRecipe(recipe, ingredientNames, steps, request);
+            reportRequest.setSections(filterReportSectionsForPrompt(reportSections));
+            try {
+                var report = aiReportService.generateReport(reportRequest);
+                Map<String, Object> filtered = filterReportContent(report, reportSections);
+                reportJson = writeJsonMap(filtered);
+                if (includeSummary) {
+                    summary = aiReportService.generateSummary(reportJson);
+                }
+            } catch (Exception e) {
+                throw new IllegalStateException("Failed to generate report for recipe", e);
+            }
+        }
+
+        String openYn = normalizeOpenYn(request == null ? null : request.getOpenYn());
+        if (openYn == null) {
+            openYn = OPEN_YN_N;
+        }
+
+        MarketReport marketReport = null;
+        if (includeReportJson) {
+            marketReport = marketReportRepository.save(MarketReport.builder()
+                    .recipe(recipe)
+                    .reportType(REPORT_TYPE_AI)
+                    .content(reportJson)
+                    .summary(summary)
+                    .openYn(openYn)
+                    .build());
+        }
+
+        if (includeAllergen) {
+            boolean hasExistingAllergens =
+                    !recipeAllergenRepository.findByRecipe_IdOrderByIdAsc(recipe.getId()).isEmpty();
+            if (!hasExistingAllergens) {
+                String targetCountry = defaultIfBlank(
+                        request == null ? null : request.getTargetCountry(),
+                        recipe.getTargetCountry()
+                );
+                String normalizedTargetCountry = normalizeCountryCode(targetCountry);
+                AllergenAnalysisResponse allergenResponse = allergenAnalysisService.analyzeIngredients(
+                        ingredientNames,
+                        normalizedTargetCountry
+                );
+                saveAllergens(recipe, ingredients, allergenResponse);
+            }
+        }
+
+        if (includeEvaluation && includeReportJson && marketReport != null && reportRequest != null) {
+            List<VirtualConsumer> consumers = saveVirtualConsumers(marketReport, reportRequest.getRecipe(), summary, reportJson);
+            evaluationService.evaluateAndSave(marketReport, consumers, reportJson);
+        }
+
+        if (OPEN_YN_Y.equalsIgnoreCase(openYn) && !OPEN_YN_Y.equalsIgnoreCase(resolveRecipeOpenYn(recipe))) {
+            recipe.setOpenYn(OPEN_YN_Y);
+            recipe.setUpdatedAt(LocalDateTime.now());
+            recipeRepository.save(recipe);
+        }
+
+        if (marketReport == null) {
+            throw new IllegalStateException("Report was not created");
+        }
+        return toReportDetailResponse(recipe, marketReport);
+    }
+
+    @Transactional(readOnly = true)
+    public ReportDetailResponse getReportDetail(Long reportId, String requesterId) {
+        MarketReport report = marketReportRepository.findById(reportId)
+                .orElseThrow(() -> new IllegalArgumentException("Report not found"));
+        Recipe recipe = report.getRecipe();
+        boolean isOwner = requesterId != null && requesterId.equals(recipe.getUserId());
+        boolean reportPublic = OPEN_YN_Y.equalsIgnoreCase(report.getOpenYn());
+        if (STATUS_DRAFT.equalsIgnoreCase(recipe.getStatus()) && !isOwner) {
+            throw new IllegalArgumentException("Report not found");
+        }
+        if (!isOwner && !reportPublic) {
+            throw new IllegalArgumentException("Report not found");
+        }
+        return toReportDetailResponse(recipe, report);
+    }
+
+    @Transactional
+    public ReportDetailResponse updateReportVisibility(Long reportId, String requesterId, VisibilityUpdateRequest request) {
+        MarketReport report = marketReportRepository.findById(reportId)
+                .orElseThrow(() -> new IllegalArgumentException("Report not found"));
+        Recipe recipe = report.getRecipe();
+        if (!recipe.getUserId().equals(requesterId)) {
+            throw new IllegalArgumentException("Report not found");
+        }
+        String openYn = normalizeOpenYn(request == null ? null : request.getOpenYn());
+        if (openYn == null) {
+            openYn = OPEN_YN_N;
+        }
+        report.setOpenYn(openYn);
+        marketReportRepository.save(report);
+        if (OPEN_YN_Y.equalsIgnoreCase(openYn) && !OPEN_YN_Y.equalsIgnoreCase(resolveRecipeOpenYn(recipe))) {
+            recipe.setOpenYn(OPEN_YN_Y);
+            recipe.setUpdatedAt(LocalDateTime.now());
+            recipeRepository.save(recipe);
+        }
+        return toReportDetailResponse(recipe, report);
+    }
+
+    @Transactional
+    public RecipeResponse updateRecipeVisibility(Long recipeId, String requesterId, VisibilityUpdateRequest request) {
+        Recipe recipe = recipeRepository.findById(recipeId)
+                .orElseThrow(() -> new IllegalArgumentException("Recipe not found"));
+        if (!recipe.getUserId().equals(requesterId)) {
+            throw new IllegalArgumentException("Recipe not found");
+        }
+        String openYn = normalizeOpenYn(request == null ? null : request.getOpenYn());
+        if (openYn != null) {
+            if (OPEN_YN_N.equalsIgnoreCase(openYn)
+                    && marketReportRepository.existsByRecipe_IdAndOpenYn(recipe.getId(), OPEN_YN_Y)) {
+                openYn = OPEN_YN_Y;
+            }
+            recipe.setOpenYn(openYn);
+            recipe.setUpdatedAt(LocalDateTime.now());
+            recipe = recipeRepository.save(recipe);
         }
         return toResponse(recipe);
     }
@@ -465,9 +662,54 @@ public class RecipeService {
                 influencers,
                 influencerImage,
                 recipe.getStatus(),
+                resolveRecipeOpenYn(recipe),
                 recipe.getUserId(),
                 authorName,
                 recipe.getCreatedAt()
+        );
+    }
+
+    private ReportDetailResponse toReportDetailResponse(Recipe recipe, MarketReport report) {
+        List<RecipeIngredient> ingredients = recipeIngredientRepository.findByRecipe_IdOrderByIdAsc(recipe.getId());
+        List<String> ingredientNames = ingredients == null ? List.of()
+                : ingredients.stream().map(RecipeIngredient::getIngredientName).toList();
+        Map<String, Object> reportMap = report == null ? Collections.emptyMap() : readJsonMap(report.getContent());
+        if (report != null) {
+            reportMap.put("evaluationResults", readEvaluationResults(report));
+        }
+        Map<String, Object> allergenMap = buildAllergenResponse(recipe);
+        List<Map<String, Object>> influencers = readInfluencers(report);
+        String influencerImage = influencers.isEmpty() ? null : readInfluencerImage(report);
+        List<String> sections = reportMap.get("_sections") instanceof List<?> list
+                ? list.stream().filter(String.class::isInstance).map(String.class::cast).toList()
+                : List.of();
+        if (!sections.isEmpty()) {
+            boolean allowInfluencer = sections.contains(SECTION_INFLUENCER) || sections.contains(SECTION_INFLUENCER_IMAGE);
+            if (!allowInfluencer) {
+                influencers = List.of();
+                influencerImage = null;
+            }
+        }
+
+        return new ReportDetailResponse(
+                report == null ? null : report.getId(),
+                recipe.getId(),
+                recipe.getRecipeName(),
+                recipe.getDescription(),
+                ingredientNames,
+                splitSteps(recipe.getSteps()),
+                recipe.getImageBase64(),
+                reportMap,
+                allergenMap,
+                report == null ? null : report.getSummary(),
+                influencers,
+                influencerImage,
+                report == null ? null : report.getReportType(),
+                report == null ? OPEN_YN_N : defaultIfBlank(report.getOpenYn(), OPEN_YN_N),
+                resolveRecipeOpenYn(recipe),
+                recipe.getStatus(),
+                recipe.getUserId(),
+                report == null ? null : report.getCreatedAt()
         );
     }
 
@@ -562,6 +804,41 @@ public class RecipeService {
         );
     }
 
+    private ReportRequest buildReportRequestFromRecipe(
+            Recipe recipe,
+            List<String> ingredients,
+            List<String> steps,
+            ReportCreateRequest request
+    ) {
+        ReportRequest reportRequest = new ReportRequest();
+        reportRequest.setRecipe(buildReportRecipeFromRecipe(recipe, ingredients, steps));
+        reportRequest.setTargetCountry(defaultIfBlank(
+                request == null ? null : request.getTargetCountry(),
+                defaultIfBlank(recipe.getTargetCountry(), "US")
+        ));
+        reportRequest.setTargetPersona(defaultIfBlank(
+                request == null ? null : request.getTargetPersona(),
+                "20~30s office workers"
+        ));
+        reportRequest.setPriceRange(defaultIfBlank(
+                request == null ? null : request.getPriceRange(),
+                "USD 6~9"
+        ));
+        return reportRequest;
+    }
+
+    private String buildReportRecipeFromRecipe(Recipe recipe, List<String> ingredients, List<String> steps) {
+        String ingredientsText = ingredients == null ? "" : String.join(", ", ingredients);
+        String stepsText = steps == null ? "" : String.join("\n", steps);
+        return String.format(
+                "%s\n%s\n재료: %s\n조리 순서:\n%s",
+                defaultIfBlank(recipe == null ? null : recipe.getRecipeName(), ""),
+                defaultIfBlank(recipe == null ? null : recipe.getDescription(), ""),
+                ingredientsText,
+                stepsText
+        );
+    }
+
     private List<RecipeIngredient> saveIngredients(Recipe recipe, List<String> ingredients) {
         if (ingredients == null || ingredients.isEmpty()) {
             return List.of();
@@ -638,7 +915,11 @@ public class RecipeService {
     }
 
     private String personaKey(String country, String ageGroup) {
-        return String.format("%s|%s", country == null ? "" : country.trim(), ageGroup == null ? "" : ageGroup.trim());
+        return String.format(
+                "%s|%s",
+                country == null ? "" : country.trim(),
+                ageGroup == null ? "" : ageGroup.trim()
+        );
     }
 
     private List<Map<String, Object>> readEvaluationResults(MarketReport report) {
@@ -841,6 +1122,44 @@ public class RecipeService {
         return value;
     }
 
+    private String normalizeOpenYn(String raw) {
+        if (raw == null || raw.isBlank()) {
+            return null;
+        }
+        String upper = raw.trim().toUpperCase();
+        if (OPEN_YN_Y.equals(upper)) {
+            return OPEN_YN_Y;
+        }
+        if (OPEN_YN_N.equals(upper)) {
+            return OPEN_YN_N;
+        }
+        return OPEN_YN_N;
+    }
+
+    private String resolveRecipeOpenYn(Recipe recipe) {
+        if (recipe == null) {
+            return OPEN_YN_N;
+        }
+        String normalized = normalizeOpenYn(recipe.getOpenYn());
+        if (normalized != null) {
+            return normalized;
+        }
+        if (STATUS_PUBLISHED.equalsIgnoreCase(recipe.getStatus())) {
+            return OPEN_YN_Y;
+        }
+        return OPEN_YN_N;
+    }
+
+    private boolean isRecipeVisibleForHub(Recipe recipe) {
+        if (recipe == null) {
+            return false;
+        }
+        if (OPEN_YN_Y.equalsIgnoreCase(resolveRecipeOpenYn(recipe))) {
+            return true;
+        }
+        return marketReportRepository.existsByRecipe_IdAndOpenYn(recipe.getId(), OPEN_YN_Y);
+    }
+
     private String normalizeCountryCode(String raw) {
         if (raw == null || raw.isBlank()) {
             return "";
@@ -881,3 +1200,6 @@ public class RecipeService {
                 .orElse(null);
     }
 }
+
+
+

@@ -56,6 +56,7 @@ CREATE TABLE IF NOT EXISTS recipe (
     image_base64 TEXT,
     steps TEXT,
     status VARCHAR(20) NOT NULL DEFAULT 'DRAFT',
+    open_yn CHAR(1) NOT NULL DEFAULT 'Y' CHECK (open_yn IN ('Y','N')),
     user_id VARCHAR(50) NOT NULL REFERENCES userinfo(userId),
     company_id BIGINT REFERENCES company(company_id),
 
@@ -118,6 +119,7 @@ CREATE TABLE IF NOT EXISTS market_report (
     report_type VARCHAR(20) NOT NULL, -- SWOT / KPI 등
     content TEXT NOT NULL,
     summary TEXT,
+    open_yn CHAR(1) NOT NULL DEFAULT 'Y' CHECK (open_yn IN ('Y','N')),
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
