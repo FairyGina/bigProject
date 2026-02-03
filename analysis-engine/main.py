@@ -444,40 +444,218 @@ async def analyze(country: str = Query(...), item: str = Query(...)):
     }
 
 @app.get("/analyze/consumer")
-async def analyze_consumer(item_id: str = Query(None, description="ASIN"), item_name: str = Query(None, description="제품명")):
+async def analyze_consumer(item_id: str = Query(None, description="ASIN"), item_name: str = Query(None, description="제품명/키워드")):
     global df_consumer
     
     if df_consumer is None or df_consumer.empty:
         return {"has_data": False, "message": "소비자 데이터가 로드되지 않았습니다."}
     
-    # 필터링: ASIN 우선, 없으면 제품명 부분 일치
+    # 1. 필터링 로직
     filtered = pd.DataFrame()
-    if item_id:
-        filtered = df_consumer[df_consumer['asin'] == item_id].copy()
-    elif item_name:
-        if 'title' in df_consumer.columns:
-            # 대소문자 무시 부분 일치
-            filtered = df_consumer[df_consumer['title'].str.contains(item_name, case=False, na=False)].copy()
-        else:
-             return {"has_data": False, "message": "제품명 검색은 지원되지 않습니다 (title 컬럼 없음). ASIN으로만 검색 가능합니다."}
-        
-    if filtered.empty:
-        # 데이터가 없으면 전체 데이터로 Fallback 하거나 예외 처리
-        # 여기서는 데이터가 없으면 빈 응답 리턴
-        return {"has_data": False, "message": "해당 품목의 데이터가 없습니다."}
-
-    # =========================================================
-    # 1. Executive View: 브랜드 건전성 및 성장 지표 (NSS & CAS)
-    # =========================================================
     
-    # NSS (Net Sentiment Score)
-    # Sentiment Score: 0~1 (0, 0.25, 0.5, 0.75, 1)
-    # Positive >= 0.75, Negative <= 0.25
-    pos_count = filtered[filtered['sentiment_score'] >= 0.75].shape[0]
-    neg_count = filtered[filtered['sentiment_score'] <= 0.25].shape[0]
+    # 모드 A: 키워드/카테고리 분석 (권장)
+    try:
+        # Mode A: Keyword/Category Analysis
+        if item_name:
+            # Fallback to searching in review text if title is missing
+            target_col = 'title' if 'title' in df_consumer.columns else 'cleaned_text'
+            
+            if target_col in df_consumer.columns:
+                filtered = df_consumer[df_consumer[target_col].str.contains(item_name, case=False, na=False)].copy()
+            else:
+                 return {"has_data": False, "message": "Search unavailable (missing text columns)."}
+        # Mode B: Specific ASIN Analysis
+        elif item_id:
+            filtered = df_consumer[df_consumer['asin'] == item_id].copy()
+            
+        if filtered.empty:
+            return {"has_data": False, "message": "해당 조건의 데이터가 없습니다."}
+
+        # === [중요] 데이터 결측치 처리 및 대체 로직 ===
+        # 평점 데이터 숫자 변환
+        if 'rating' in filtered.columns:
+            filtered['rating'] = pd.to_numeric(filtered['rating'], errors='coerce').fillna(3.0)
+
+        # 1. 감성 점수 (sentiment_score 없을 경우 평점 기반 생성)
+        if 'sentiment_score' not in filtered.columns:
+            if 'rating' in filtered.columns:
+                # 1->0.0, 5->1.0 형태로 매핑
+                filtered['sentiment_score'] = (filtered['rating'] - 1) / 4
+            else:
+                filtered['sentiment_score'] = 0.5
+    except Exception as e:
+        print(f"필터링/전처리 오류: {e}")
+        import traceback
+        traceback.print_exc()
+        return {"has_data": False, "message": f"서버 오류: {str(e)}"}
+
+    # 2. 구매/추천 의도 (데이터 없을 경우 고평점 기반 추론)
+    if 'repurchase_intent_hybrid' not in filtered.columns:
+         filtered['repurchase_intent_hybrid'] = filtered['rating'] >= 4
+    if 'recommendation_intent_hybrid' not in filtered.columns:
+         filtered['recommendation_intent_hybrid'] = filtered['rating'] >= 4
+         
+    # 3. 키워드 컬럼 (데이터 없을 경우 빈 값 생성)
+    for col in ['review_text_keywords', 'title_keywords', 'flavor_terms', 'price', 'quality_issues_semantic', 'delivery_issues_semantic']:
+        if col not in filtered.columns:
+            filtered[col] = None
+            
     total_count = filtered.shape[0]
     
+    # =========================================================
+    # 2. 시장 감성 및 주요 점수 (요약 보기)
+    # =========================================================
+    
+    # NSS (Net Sentiment Score: 순 감성 지수)
+    pos_count = filtered[filtered['sentiment_score'] >= 0.75].shape[0]
+    neg_count = filtered[filtered['sentiment_score'] <= 0.25].shape[0]
     nss_score = ((pos_count - neg_count) / total_count * 100) if total_count > 0 else 0
+    
+    # CAS (Customer Advocacy Score: 고객 옹호 지수)
+    advocates = filtered[
+        (filtered['repurchase_intent_hybrid'] == True) & 
+        (filtered['recommendation_intent_hybrid'] == True)
+    ].shape[0]
+    cas_score = (advocates / total_count * 100) if total_count > 0 else 0
+    
+    # =========================================================
+    # 3. 상세 분석: 불만족(Pain) vs 만족(Delight) 요인
+    # =========================================================
+    
+    # 키워드 추출 헬퍼 함수
+    def extract_top_keywords(series, top_n=5):
+        try:
+            all_terms = []
+            for item in series.dropna():
+                if isinstance(item, str):
+                    clean_item = item.replace("[", "").replace("]", "").replace("'", "")
+                    terms = [t.strip() for t in clean_item.split(',')]
+                    all_terms.extend(terms)
+            
+            if not all_terms:
+                return {}, []
+                
+            from collections import Counter
+            counts = Counter(all_terms)
+            common = counts.most_common(top_n)
+            return dict(common), [term for term, count in common]
+        except Exception as e:
+            print(f"키워드 추출 오류: {e}")
+            return {}, []
+
+    # 평점 기반 데이터 분리 (1-2점: 불만, 4-5점: 만족)
+    neg_reviews = filtered[filtered['rating'] <= 2]
+    pos_reviews = filtered[filtered['rating'] >= 4]
+    
+    # 키워드 분석 대상 컬럼 선정
+    target_col = 'review_text_keywords'
+    
+    # 키워드 데이터가 없을 경우 리뷰 본문에서 직접 추출 시도
+    use_text_extraction = False
+    if filtered[target_col].isna().all():
+        use_text_extraction = True
+        
+    if use_text_extraction:
+        def get_simple_keywords(text_series):
+            from collections import Counter
+            if text_series.empty: return {}
+            all_text = " ".join(text_series.dropna().astype(str).tolist()).lower()
+            words = [w for w in all_text.split() if len(w) > 3]
+            return dict(Counter(words).most_common(5))
+            
+        pain_points = get_simple_keywords(neg_reviews['cleaned_text'])
+        delight_points = get_simple_keywords(pos_reviews['cleaned_text'])
+    else:
+        pain_points, pain_labels = extract_top_keywords(neg_reviews[target_col], top_n=5)
+        delight_points, delight_labels = extract_top_keywords(pos_reviews[target_col], top_n=5)
+    
+    # 시각화: 불만족 vs 만족 요인 가로 막대 차트
+    fig_pain = px.bar(
+        x=list(pain_points.values()),
+        y=list(pain_points.keys()),
+        orientation='h',
+        title=f"소비자 불만족 요인 (Pain Points)",
+        labels={'x': '언급 횟수', 'y': '키워드'},
+        color_discrete_sequence=['#ff4d4f']
+    )
+    if list(pain_points.keys()):
+         fig_pain.update_layout(yaxis={'categoryorder':'total ascending'})
+
+    fig_delight = px.bar(
+        x=list(delight_points.values()),
+        y=list(delight_points.keys()),
+        orientation='h',
+        title=f"소비자 만족 요인 (Delight Points)",
+        labels={'x': '언급 횟수', 'y': '키워드'},
+        color_discrete_sequence=['#52c41a']
+    )
+    if list(delight_points.keys()):
+        fig_delight.update_layout(yaxis={'categoryorder':'total ascending'})
+
+    # =========================================================
+    # 4. 핵심 가치 드라이버 (Radar Chart)
+    # =========================================================
+    
+    # 한국어 라벨 매핑용 metrics
+    metrics_map = {
+        "Taste": "맛", "Price": "가격", "Package": "포장", "Quality": "품질", "Delivery": "배송", "Texture": "식감"
+    }
+    raw_metrics = {k: 0 for k in metrics_map.keys()}
+    
+    # 리뷰 본문 키워드 매칭 분석
+    all_text_combined = " ".join(filtered['cleaned_text'].dropna().astype(str).tolist()).lower()
+    
+    raw_metrics['Taste'] = all_text_combined.count('taste') + all_text_combined.count('flavor') + all_text_combined.count('delicious')
+    raw_metrics['Price'] = all_text_combined.count('price') + all_text_combined.count('expensive') + all_text_combined.count('cheap') + all_text_combined.count('value')
+    raw_metrics['Package'] = all_text_combined.count('package') + all_text_combined.count('box') + all_text_combined.count('broken')
+    raw_metrics['Quality'] = all_text_combined.count('quality') + all_text_combined.count('good') + all_text_combined.count('bad')
+    raw_metrics['Delivery'] = all_text_combined.count('delivery') + all_text_combined.count('shipping') + all_text_combined.count('arrive')
+    raw_metrics['Texture'] = all_text_combined.count('texture') + all_text_combined.count('soft') + all_text_combined.count('hard')
+         
+    # 정규화 (0-100)
+    max_val = max(raw_metrics.values()) if max(raw_metrics.values()) > 0 else 1
+    r_values = [v/max_val*100 for v in raw_metrics.values()]
+    theta_values = [metrics_map[k] for k in raw_metrics.keys()]
+    
+    fig_radar = go.Figure(data=go.Scatterpolar(
+        r=r_values,
+        theta=theta_values,
+        fill='toself',
+        name='핵심 가치 요인'
+    ))
+    fig_radar.update_layout(
+        polar=dict(radialaxis=dict(visible=True, range=[0, 100])),
+        title="핵심 구매 결정 요인 (언급 빈도)"
+    )
+
+    # =========================================================
+    # 결과 반환
+    # =========================================================
+    
+    # NSS 게이지 차트
+    fig_nss = go.Figure(go.Indicator(
+        mode = "gauge+number",
+        value = nss_score,
+        title = {'text': "시장 감성 지표 (NSS)"},
+        gauge = {'axis': {'range': [-100, 100]}, 'bar': {'color': "darkblue"}}
+    ))
+    
+    return {
+        "has_data": True,
+        "search_term": item_name if item_name else item_id,
+        "total_reviews": int(total_count),
+        "metrics": {
+            "nss": round(nss_score, 2),
+            "cas": round(cas_score, 2),
+            "avg_rating": round(filtered['rating'].mean(), 2) if 'rating' in filtered.columns else 0
+        },
+        "charts": {
+            "pain_points": json.loads(fig_pain.to_json()),
+            "delight_points": json.loads(fig_delight.to_json()),
+            "value_radar": json.loads(fig_radar.to_json()),
+            "nss_gauge": json.loads(fig_nss.to_json())
+        }
+    }
     
     # CAS (Customer Advocacy Score)
     # 재구매의사(repurchase) + 추천의사(recommendation) 모두 True인 비율

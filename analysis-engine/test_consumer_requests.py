@@ -15,9 +15,8 @@ def test_analyze_consumer():
 
     url = base_url + "/analyze/consumer"
     # ... rest of code uses url
-    item_id = "B00AF7XMYY"
-    # item_name search is not supported by dataset currently
-    params = {"item_id": item_id}
+    item_name = "Gochujang"
+    params = {"item_name": item_name}
     
     # Wait for server to be ready (naive wait)
     max_retries = 5
