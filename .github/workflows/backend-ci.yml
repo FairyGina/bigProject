@@ -26,18 +26,6 @@ jobs:
       run: chmod +x gradlew
       
     - name: Build and Test with Gradle
-      # src/test/resources/application.properties 덕분에 Secrets 없이도 테스트 통과 가능
-      # 하지만 통합 테스트를 위해 Secret 매핑도 유지
-      env:
-        OPENAI_API_KEY: ${{ secrets.BPBACKENDAPP_OPENAI_API_KEY }}
-        SERPAPI_API_KEY: ${{ secrets.BPBACKENDAPP_SERPAPI_API_KEY }}
-        HACCP_SERVICE_KEY: ${{ secrets.BPBACKENDAPP_HACCP_SERVICE_KEY }}
-        JWT_SECRET: ${{ secrets.BPBACKENDAPP_JWT_SECRET }}
-        MAIL_USERNAME: ${{ secrets.BPBACKENDAPP_MAIL_USERNAME }}
-        MAIL_PASSWORD: ${{ secrets.BPBACKENDAPP_MAIL_PASSWORD }}
-        NAVER_MAIL_USERNAME: ${{ secrets.BPBACKENDAPP_NAVER_MAIL_USERNAME }}
-        NAVER_MAIL_PASSWORD: ${{ secrets.BPBACKENDAPP_NAVER_MAIL_PASSWORD }}
-        SPRING_DATASOURCE_URL: ${{ secrets.BPBACKENDAPP_SPRING_DATASOURCE_URL }}
-        SPRING_DATASOURCE_USERNAME: ${{ secrets.BPBACKENDAPP_SPRING_DATASOURCE_USERNAME }}
-        SPRING_DATASOURCE_PASSWORD: ${{ secrets.BPBACKENDAPP_SPRING_DATASOURCE_PASSWORD }}
+      # src/test/resources/application.properties에 설정된 더미 값들을 사용하여 테스트를 진행합니다.
+      # 우선순위가 높은 환경 변수 설정으로 인해 테스트 파일의 설정이 무시되는 현상을 방지합니다.
       run: ./gradlew build
