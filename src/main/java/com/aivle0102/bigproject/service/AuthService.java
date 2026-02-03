@@ -109,10 +109,10 @@ public class AuthService {
         UserInfo userInfo = userInfoRepository.findByUserIdAndUserState(request.getUserId(), "1")
                 .orElseThrow(() -> new CustomException("아이디를 다시 확인해주세요.", HttpStatus.UNAUTHORIZED, "INVALID_USER_ID"));
 
-        log.info("Login attempt userId={} loginFailCount={}", userInfo.getUserId(), userInfo.getLoginFailCount());
+        log.info("Login 시도 userId={} loginFailCount={}", userInfo.getUserId(), userInfo.getLoginFailCount());
 
         if (userInfo.getLoginFailCount() >= MAX_LOGIN_FAILURES) {
-            log.warn("Login blocked (failCount>=max) userId={} failCount={}", userInfo.getUserId(), userInfo.getLoginFailCount());
+            log.warn("Login 차단 (failCount>=max) userId={} failCount={}", userInfo.getUserId(), userInfo.getLoginFailCount());
             throw new CustomException("비밀번호 재설정이 필요합니다.", HttpStatus.FORBIDDEN, "PASSWORD_RESET_REQUIRED");
         }
 
@@ -120,7 +120,7 @@ public class AuthService {
             int nextFailCount = userInfo.getLoginFailCount() + 1;
             userInfo.setLoginFailCount(nextFailCount);
             userInfoRepository.save(userInfo);
-            log.warn("Login failed userId={} nextFailCount={}", userInfo.getUserId(), nextFailCount);
+            log.warn("Login 실패 userId={} nextFailCount={}", userInfo.getUserId(), nextFailCount);
             if (nextFailCount >= MAX_LOGIN_FAILURES) {
                 throw new CustomException("비밀번호 재설정이 필요합니다.", HttpStatus.FORBIDDEN, "PASSWORD_RESET_REQUIRED");
             }
@@ -144,7 +144,7 @@ public class AuthService {
     }
 
     public void logout() {
-        // No server-side state to clear.
+        // 서버 측에서 체크할 부분은 없음..
     }
 
     public void verifyPassword(String userId, String password) {

@@ -39,7 +39,7 @@ public class SerpApiClient {
         try {
             return objectMapper.readTree(raw);
         } catch (Exception e) {
-            throw new RuntimeException("Failed to parse SerpApi response", e);
+            throw new RuntimeException("SerpApi 응답 파싱에 실패했습니다.", e);
         }
     }
 }

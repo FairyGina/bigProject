@@ -134,7 +134,7 @@ const NoticeBoard = () => {
         try {
             await axiosInstance.get('/api/csrf');
         } catch (error) {
-            // ignore csrf refresh failures
+            // CSRF 갱신 실패는 무시
         }
     }, []);
 

@@ -90,7 +90,7 @@ const RecipeAnalysis = () => {
                 const res = await axiosInstance.get(`/api/recipes/${id}`);
                 setRecipe(res.data);
             } catch (err) {
-                console.error('Failed to fetch recipe', err);
+                console.error('레시피를 불러오지 못했습니다.', err);
                 setError('레시피 정보를 불러오지 못했습니다.');
             } finally {
                 setLoading(false);
@@ -130,7 +130,7 @@ const RecipeAnalysis = () => {
         }
         const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
         if (!apiKey) {
-            setMapError('Google Maps API key is missing.');
+            setMapError('Google Maps API 키가 없습니다.');
             return;
         }
 
@@ -139,7 +139,7 @@ const RecipeAnalysis = () => {
                 if (retry < 10) {
                     setTimeout(() => initMap(retry + 1), 100);
                 } else {
-                    setMapError('Failed to initialize the map.');
+                    setMapError('지도 초기화에 실패했습니다.');
                 }
                 return;
             }
@@ -147,7 +147,7 @@ const RecipeAnalysis = () => {
                 if (retry < 20) {
                     setTimeout(() => initMap(retry + 1), 150);
                 } else {
-                    setMapError('Google Maps failed to load. Check API key and settings.');
+                    setMapError('Google Maps 로딩에 실패했습니다. API 키와 설정을 확인하세요.');
                 }
                 return;
             }
@@ -176,7 +176,7 @@ const RecipeAnalysis = () => {
                 initMap();
             } else {
                 existing.addEventListener('load', () => initMap(), { once: true });
-                existing.addEventListener('error', () => setMapError('Google Maps script failed to load.'), { once: true });
+                existing.addEventListener('error', () => setMapError('Google Maps 스크립트 로딩에 실패했습니다.'), { once: true });
                 initMap();
             }
             return;
@@ -188,7 +188,7 @@ const RecipeAnalysis = () => {
         script.async = true;
         script.defer = true;
         script.dataset.googleMaps = 'true';
-        script.onerror = () => setMapError('Google Maps script failed to load.');
+        script.onerror = () => setMapError('Google Maps 스크립트 로딩에 실패했습니다.');
         document.body.appendChild(script);
     }, [showMap]);
 
@@ -258,7 +258,7 @@ const RecipeAnalysis = () => {
                         setInfluencers(parsed);
                     }
                 } catch (e) {
-                    // ignore cache parse errors
+                    // 캐시 파싱 오류는 무시
                 }
             }
             if (cachedImage && !imageBase64 && allowInfluencerImage) {
@@ -295,13 +295,13 @@ const RecipeAnalysis = () => {
                         sessionStorage.setItem(influencerMetaKey(recipe.id), metaJson);
                         sessionStorage.setItem(`recipeInfluencers:${recipe.id}`, JSON.stringify(recs));
                     } catch (err) {
-                        // ignore cache errors
+                        // 캐시 오류는 무시
                     }
                     try {
                         localStorage.setItem(influencerMetaKey(recipe.id), metaJson);
                         localStorage.setItem(`recipeInfluencers:${recipe.id}`, JSON.stringify(recs));
                     } catch (err) {
-                        // ignore cache errors
+                        // 캐시 오류는 무시
                     }
                 }
 
@@ -318,17 +318,17 @@ const RecipeAnalysis = () => {
                         try {
                             sessionStorage.setItem(`recipeInfluencerImage:${recipe.id}`, imageRes.data.imageBase64);
                         } catch (err) {
-                            // ignore cache errors
+                            // 캐시 오류는 무시
                         }
                         try {
                             localStorage.setItem(`recipeInfluencerImage:${recipe.id}`, imageRes.data.imageBase64);
                         } catch (err) {
-                            // ignore cache errors
+                            // 캐시 오류는 무시
                         }
                     }
                 }
             } catch (err) {
-                console.error('Influencer generation failed', err);
+                console.error('인플루언서 생성에 실패했습니다.', err);
             } finally {
                 setInfluencerLoading(false);
             }
@@ -575,7 +575,7 @@ const RecipeAnalysis = () => {
                 });
                 setEvaluationResults(aggregateEvaluations(evalRes.data || []));
             } catch (err) {
-                console.error('Persona evaluation flow failed', err);
+                console.error('페르소나 평가를 실패했습니다.', err);
             }
         };
 
@@ -605,7 +605,7 @@ const RecipeAnalysis = () => {
             setRecipe(res.data);
             navigate(`/mainboard/recipes/${recipe.id}`);
         } catch (err) {
-            console.error('Failed to publish recipe', err);
+            console.error('레시피 공개 처리에 실패했습니다.', err);
             setError('레시피 등록 확정에 실패했습니다.');
         } finally {
             setPublishLoading(false);

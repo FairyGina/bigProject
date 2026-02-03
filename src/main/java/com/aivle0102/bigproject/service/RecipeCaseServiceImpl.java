@@ -198,7 +198,7 @@ public class RecipeCaseServiceImpl implements RecipeCaseService {
                 rows.add(row);
             }
         } catch (IOException e) {
-            throw new IllegalStateException("search CSV load failed", e);
+            throw new IllegalStateException("search CSV 로드에 실패했습니다.", e);
         }
         return rows;
     }
@@ -283,7 +283,7 @@ public class RecipeCaseServiceImpl implements RecipeCaseService {
                 rows.put(row.caseId, row);
             }
         } catch (IOException e) {
-            throw new IllegalStateException("info CSV load failed", e);
+            throw new IllegalStateException("info CSV 로드에 실패했습니다.", e);
         }
         return rows;
     }

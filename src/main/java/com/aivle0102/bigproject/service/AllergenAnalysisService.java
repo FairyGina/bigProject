@@ -2,6 +2,25 @@
 // 원재료/가공식품 분류, HACCP 검색, AI 보조 추출을 순차적으로 수행한다.
 package com.aivle0102.bigproject.service;
 
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
+import java.util.logging.Logger;
+
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
+import org.springframework.stereotype.Service;
+import org.springframework.web.client.RestTemplate;
+
 import com.aivle0102.bigproject.client.HaccpCertImgClient;
 import com.aivle0102.bigproject.config.AllergenCatalogLoader;
 import com.aivle0102.bigproject.config.ProcessedFoodsCatalogLoader;
@@ -13,25 +32,8 @@ import com.aivle0102.bigproject.dto.ReportRequest;
 import com.aivle0102.bigproject.util.RecipeIngredientExtractor;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import lombok.RequiredArgsConstructor;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.http.HttpEntity;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.MediaType;
-import org.springframework.http.ResponseEntity;
-import org.springframework.stereotype.Service;
-import org.springframework.web.client.RestTemplate;
 
-import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.LinkedHashMap;
-import java.util.LinkedHashSet;
-import java.util.List;
-import java.util.Locale;
-import java.util.Map;
-import java.util.Optional;
-import java.util.Set;
-import java.util.logging.Logger;
+import lombok.RequiredArgsConstructor;
 
 @Service
 @RequiredArgsConstructor
@@ -252,7 +254,7 @@ public class AllergenAnalysisService {
             List<String> prdkindCandidates = plan.prdkindCandidates();
             List<String> prdlstNmCandidates = plan.prdlstNmCandidates();
 
-            LOGGER.info(() -> "STEP3 catalog fallback for ingredient=" + ingredient
+            LOGGER.info(() -> "STEP3 카탈로그 폴백: 재료=" + ingredient
                     + " prdkindCandidates=" + prdkindCandidates
                     + " prdlstNmCandidates=" + prdlstNmCandidates);
 
@@ -260,7 +262,7 @@ public class AllergenAnalysisService {
             strategy = "CATALOG_PRDKIND_SIMILARITY";
 
             if (items.isEmpty()) {
-                LOGGER.info(() -> "STEP3 prdkind search empty; switching to prdlstNm for ingredient=" + ingredient);
+                LOGGER.info(() -> "STEP3 prdkind 검색 결과 없음; prdlstNm으로 전환: 재료=" + ingredient);
                 items = searchItemsByPrdlstNmQueries(prdlstNmCandidates);
                 strategy = "CATALOG_PRDLSTNM_SIMILARITY";
                 items = filterExactPrdlstNmMatches(items, prdlstNmCandidates, true);
@@ -274,7 +276,7 @@ public class AllergenAnalysisService {
                     List.of()
             );
             if (!aiCandidates.isEmpty()) {
-                LOGGER.info(() -> "STEP3 AI fallback for ingredient=" + ingredient + " prdlstNmCandidates=" + aiCandidates);
+                LOGGER.info(() -> "STEP3 AI 폴백: 재료=" + ingredient + " prdlstNmCandidates=" + aiCandidates);
                 items = searchItemsByPrdlstNmQueries(aiCandidates);
                 strategy = "AI_PRDLSTNM_EXPANSION|AI_AGENT_USED";
                 items = filterExactPrdlstNmMatches(items, aiCandidates, true);
@@ -285,7 +287,7 @@ public class AllergenAnalysisService {
     }
 
     private IngredientEvidence buildEvidenceFromItems(String ingredient, List<JsonNode> items, List<String> obligation, String strategy) {
-        // HACCP results: allergy/rawmtrl based matching
+        // HACCP 결과: 알레르기/원재료 기반 매칭
         if (items == null || items.isEmpty()) {
             return IngredientEvidence.builder()
                     .ingredient(ingredient)
@@ -330,7 +332,7 @@ public class AllergenAnalysisService {
                 } else if (exactProductMatch && !unknownAllergy) {
                     canonicalCandidates.addAll(allergenMatcher.extractCanonicalFromHaccpAllergyText(allergyRaw));
                 } else {
-                    // Avoid over-matching for non-exact products.
+                    // 정확하지 않은 제품에 대한 과도한 매칭은 제외 처리..
                 }
             }
 
@@ -414,7 +416,7 @@ public class AllergenAnalysisService {
             }
         }
         if (!exact.isEmpty()) {
-            LOGGER.info(() -> "STEP3 prdlstNm exact matches=" + exact.size());
+            LOGGER.info(() -> "STEP3 prdlstNm 정확 일치 개수=" + exact.size());
             return exact;
         }
         List<JsonNode> contains = new ArrayList<>();
@@ -429,7 +431,7 @@ public class AllergenAnalysisService {
             }
         }
         if (!contains.isEmpty()) {
-            LOGGER.info(() -> "STEP3 prdlstNm contains matches=" + contains.size());
+            LOGGER.info(() -> "STEP3 prdlstNm 포함 일치 개수=" + contains.size());
             return contains;
         }
         return requireExact ? List.of() : items;

@@ -46,7 +46,7 @@ public class AuthController {
     @PostMapping("/auth/login")
     public ResponseEntity<UserResponse> login(@Valid @RequestBody LoginRequest request) {
         UserResponse response = authService.login(request);
-        log.info("Login response for {} -> passwordChangedAt={}, passwordExpired={}, passwordExpiryAt={}",
+        log.info("Login 응답 {} -> passwordChangedAt={}, passwordExpired={}, passwordExpiryAt={}",
                 response.getUserId(),
                 response.getPasswordChangedAt(),
                 response.isPasswordExpired(),
