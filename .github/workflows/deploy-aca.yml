@@ -17,6 +17,8 @@ env:
   BACKEND_APP_NAME: "bp-backend-app"
   FRONTEND_IMAGE_NAME: "frontend"
   FRONTEND_APP_NAME: "bp-frontend-app"
+  ANALYSIS_IMAGE_NAME: "analysis-engine"
+  ANALYSIS_APP_NAME: "bp-analysis-app"
 
 jobs:
   build-and-deploy:
@@ -57,18 +59,33 @@ jobs:
             ./frontend
           docker push ${{ env.FRONTEND_ACR }}.azurecr.io/${{ env.FRONTEND_IMAGE_NAME }}:${{ github.sha }}
 
-      # 5. Backend Container App 업데이트 (이미지만)
+      # 5. Analysis Engine 이미지 빌드 및 푸시
+      - name: Build and Push Analysis Image
+        run: |
+          docker build -t ${{ env.BACKEND_ACR }}.azurecr.io/${{ env.ANALYSIS_IMAGE_NAME }}:${{ github.sha }} ./analysis-engine
+          docker push ${{ env.BACKEND_ACR }}.azurecr.io/${{ env.ANALYSIS_IMAGE_NAME }}:${{ github.sha }}
+
+      # 6. Backend Container App 업데이트
       - name: Deploy Backend to ACA
         run: |
           az containerapp update \
             --name ${{ env.BACKEND_APP_NAME }} \
             --resource-group ${{ env.RESOURCE_GROUP }} \
-            --image ${{ env.BACKEND_ACR }}.azurecr.io/${{ env.BACKEND_IMAGE_NAME }}:${{ github.sha }}
+            --image ${{ env.BACKEND_ACR }}.azurecr.io/${{ env.BACKEND_IMAGE_NAME }}:${{ github.sha }} \
+            --set-env-vars ANALYSIS_ENGINE_URL=https://${{ env.ANALYSIS_APP_NAME }}.wittymushroom-76c80f0d.centralindia.azurecontainerapps.io
 
-      # 6. Frontend Container App 업데이트 (이미지만)
+      # 7. Frontend Container App 업데이트
       - name: Deploy Frontend to ACA
         run: |
           az containerapp update \
             --name ${{ env.FRONTEND_APP_NAME }} \
             --resource-group ${{ env.RESOURCE_GROUP }} \
             --image ${{ env.FRONTEND_ACR }}.azurecr.io/${{ env.FRONTEND_IMAGE_NAME }}:${{ github.sha }}
+
+      # 8. Analysis Container App 업데이트
+      - name: Deploy Analysis Engine to ACA
+        run: |
+          az containerapp update \
+            --name ${{ env.ANALYSIS_APP_NAME }} \
+            --resource-group ${{ env.RESOURCE_GROUP }} \
+            --image ${{ env.BACKEND_ACR }}.azurecr.io/${{ env.ANALYSIS_IMAGE_NAME }}:${{ github.sha }}
