@@ -10,9 +10,8 @@ public class InfluencerRecommendRequest {
     private String targetCountry;
     private String targetPersona;
     private String priceRange;
-
-    // optional
-    private String platform;   // "TikTok" / "Instagram" / "YouTube" etc
-    private String tone;       // "Professional" / "Trendy" / "Humorous"
-    private String constraints; // brand safety, avoid alcohol, etc
+ 
+    private String platform;   // "TikTok" / "Instagram" / "YouTube" 등
+    private String tone;       // "프로페셔널" / "트렌디" / "유머러스"
+    private String constraints; // 브랜드 안전성, 알코올 제외 등
 }

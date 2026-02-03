@@ -1,4 +1,4 @@
-import React from 'react';
+﻿import React from 'react';
 import { ChevronDown, ChevronRight, LogOut } from 'lucide-react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
@@ -7,6 +7,8 @@ const labels = {
     brand: '빈 레시피',
     notice: '공지사항',
     hub: '레시피 허브',
+    finalSelection: '최종 레시피 선정',
+    remoteMeeting: '비대면 회의',
     userHub: '유저 허브',
     userRecipes: '유저 레시피',
     profileEdit: '내 정보 수정',
@@ -29,8 +31,14 @@ const Sidebar = () => {
     const { logout } = useAuth();
     const userHubActive = location.pathname.startsWith('/mainboard/user-hub');
     const createActive = location.pathname.startsWith('/mainboard/create');
+    const finalSelectionActive = location.pathname.startsWith('/mainboard/final-selection');
+    const isExactPath = (path) => location.pathname === path || location.pathname === `${path}/`;
+    const userHubSelected = isExactPath('/mainboard/user-hub');
+    const createSelected = isExactPath('/mainboard/create');
+    const finalSelectionSelected = isExactPath('/mainboard/final-selection');
     const [userHubOpen, setUserHubOpen] = React.useState(userHubActive);
     const [createOpen, setCreateOpen] = React.useState(createActive);
+    const [finalSelectionOpen, setFinalSelectionOpen] = React.useState(finalSelectionActive);
 
     React.useEffect(() => {
         if (userHubActive) {
@@ -39,7 +47,10 @@ const Sidebar = () => {
         if (createActive) {
             setCreateOpen(true);
         }
-    }, [userHubActive, createActive]);
+        if (finalSelectionActive) {
+            setFinalSelectionOpen(true);
+        }
+    }, [userHubActive, createActive, finalSelectionActive]);
 
     const isActive = (path) => {
         if (!path) {
@@ -106,7 +117,7 @@ const Sidebar = () => {
                     <button
                         type="button"
                         onClick={() => setUserHubOpen((prev) => !prev)}
-                        className={`w-full text-left px-4 py-3 rounded-xl transition ${userHubActive
+                        className={`w-full text-left px-4 py-3 rounded-xl transition ${userHubSelected
                             ? 'bg-[color:var(--surface)] shadow-[0_10px_30px_var(--shadow)] text-[color:var(--text)]'
                             : 'text-[color:var(--text-muted)] hover:bg-[color:var(--surface-muted)] hover:text-[color:var(--text)]'
                             }`}
@@ -153,7 +164,7 @@ const Sidebar = () => {
                     <button
                         type="button"
                         onClick={() => setCreateOpen((prev) => !prev)}
-                        className={`w-full text-left px-4 py-3 rounded-xl transition ${createActive
+                        className={`w-full text-left px-4 py-3 rounded-xl transition ${createSelected
                             ? 'bg-[color:var(--surface)] shadow-[0_10px_30px_var(--shadow)] text-[color:var(--text)]'
                             : 'text-[color:var(--text-muted)] hover:bg-[color:var(--surface-muted)] hover:text-[color:var(--text)]'
                             }`}
@@ -197,6 +208,55 @@ const Sidebar = () => {
                             </button>
                         </div>
                     )}
+                    <button
+                        type="button"
+                        onClick={() => setFinalSelectionOpen((prev) => !prev)}
+                        className={`w-full text-left px-4 py-3 rounded-xl transition ${finalSelectionSelected
+                            ? 'bg-[color:var(--surface)] shadow-[0_10px_30px_var(--shadow)] text-[color:var(--text)]'
+                            : 'text-[color:var(--text-muted)] hover:bg-[color:var(--surface-muted)] hover:text-[color:var(--text)]'
+                            }`}
+                    >
+                        <div className="flex items-center justify-between">
+                            <span className="text-sm font-semibold">{labels.finalSelection}</span>
+                            {finalSelectionOpen ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+                        </div>
+                    </button>
+                    {finalSelectionOpen && (
+                        <div className="ml-4 space-y-1">
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    if (!confirmNavigation()) {
+                                        return;
+                                    }
+                                    navigate('/mainboard/final-selection');
+                                }}
+                                className={`w-full text-left px-3 py-2 rounded-lg text-sm transition ${isExactPath('/mainboard/final-selection')
+                                    ? 'bg-[color:var(--surface-muted)] text-[color:var(--text)]'
+                                    : 'text-[color:var(--text-muted)] hover:bg-[color:var(--surface-muted)] hover:text-[color:var(--text)]'
+                                    }`}
+                            >
+                                {labels.finalSelection}
+                            </button>
+                            {/*
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    if (!confirmNavigation()) {
+                                        return;
+                                    }
+                                    navigate('/mainboard/final-selection/meeting');
+                                }}
+                                className={`w-full text-left px-3 py-2 rounded-lg text-sm transition ${isActive('/mainboard/final-selection/meeting')
+                                    ? 'bg-[color:var(--surface-muted)] text-[color:var(--text)]'
+                                    : 'text-[color:var(--text-muted)] hover:bg-[color:var(--surface-muted)] hover:text-[color:var(--text)]'
+                                    }`}
+                            >
+                                {labels.remoteMeeting}
+                            </button>
+                            */}
+                        </div>
+                    )}
                 </nav>
 
                 <div className="mt-auto">
@@ -214,3 +274,5 @@ const Sidebar = () => {
 };
 
 export default Sidebar;
+
+

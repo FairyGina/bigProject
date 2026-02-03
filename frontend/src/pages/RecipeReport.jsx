@@ -178,7 +178,7 @@ const RecipeReport = () => {
             setRecipe(res.data || null);
             setRecipeOpenYn(res.data?.openYn || 'N');
         } catch (err) {
-            console.error('Failed to fetch recipe', err);
+            console.error('레시피를 불러오지 못했습니다.', err);
             setError('레시피 정보를 불러오지 못했습니다.');
         } finally {
             setLoading(false);
@@ -192,7 +192,7 @@ const RecipeReport = () => {
             const res = await axiosInstance.get(`/api/recipes/${id}/reports`);
             setReports(res.data || []);
         } catch (err) {
-            console.error('Failed to fetch reports', err);
+            console.error('보고서 목록을 불러오지 못했습니다.', err);
             setError('리포트 목록을 불러오지 못했습니다.');
         } finally {
             setListLoading(false);
@@ -252,7 +252,7 @@ const RecipeReport = () => {
                 navigate(`/mainboard/reports/${res.data.reportId}`);
             }
         } catch (err) {
-            console.error('Failed to create report', err);
+            console.error('보고서 생성에 실패했습니다.', err);
             setError('리포트 생성에 실패했습니다.');
         } finally {
             setCreateLoading(false);
@@ -282,7 +282,7 @@ const RecipeReport = () => {
                 setPriceRange(data.priceRange);
             }
         } catch (err) {
-            console.error('Failed to recommend targets', err);
+            console.error('추천 대상 생성에 실패했습니다.', err);
             setError('타겟 추천에 실패했습니다.');
         } finally {
             setTargetRecommendLoading(false);
@@ -296,7 +296,7 @@ const RecipeReport = () => {
             const res = await axiosInstance.put(`/api/recipes/${id}/visibility`, { openYn: next });
             setRecipeOpenYn(res.data?.openYn || next);
         } catch (err) {
-            console.error('Failed to update recipe openYn', err);
+            console.error('레시피 공개 여부 변경에 실패했습니다.', err);
             setError('레시피 공개 여부 변경에 실패했습니다.');
         }
     };
@@ -314,7 +314,7 @@ const RecipeReport = () => {
                 setRecipeOpenYn(res.data.recipeOpenYn);
             }
         } catch (err) {
-            console.error('Failed to update report openYn', err);
+            console.error('보고서 공개 여부 변경에 실패했습니다.', err);
             setError('리포트 공개 여부 변경에 실패했습니다.');
         }
     };

@@ -233,7 +233,7 @@ const SignUpPage = () => {
             sessionStorage.setItem('oauthFlow', 'signup');
             localStorage.setItem('oauthFlow', 'signup');
         } catch (storageError) {
-            console.warn('OAuth flow storage unavailable:', storageError);
+            console.warn('oauthFlow 스토리지 사용 불가:', storageError);
         }
         const baseUrl = (import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080').replace(/\/$/, '');
         window.location.assign(`${baseUrl}/oauth2/authorization/${provider}`);

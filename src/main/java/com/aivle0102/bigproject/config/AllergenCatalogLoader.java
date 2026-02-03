@@ -2,15 +2,24 @@
 // 국가명/규정 문구도 함께 관리한다.
 package com.aivle0102.bigproject.config;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import lombok.Getter;
+import java.io.InputStream;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Iterator;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.Set;
+
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.Resource;
 import org.springframework.stereotype.Component;
 
-import java.io.InputStream;
-import java.util.*;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+
+import lombok.Getter;
 
 @Component
 public class AllergenCatalogLoader {
@@ -20,19 +29,19 @@ public class AllergenCatalogLoader {
 
     private final ObjectMapper objectMapper = new ObjectMapper();
 
-    // countryCode -> canonical allergen names (e.g., "US" -> ["Milk","Egg",...])
+    // countryCode -> 표준 알레르겐 이름 (예: "US" -> ["Milk","Egg",...])
     @Getter
     private Map<String, List<String>> countryToAllergens = new HashMap<>();
 
-    // countryCode -> country display name
+    // countryCode -> 국가 표시명
     @Getter
     private Map<String, String> countryToName = new HashMap<>();
 
-    // countryCode -> legal basis list
+    // countryCode -> 법적 근거 목록
     @Getter
     private Map<String, List<String>> countryToLegalBasis = new HashMap<>();
 
-    // gluten cereals reference list (e.g., Wheat, Barley, Rye, Oats, Kamut)
+    // 글루텐 곡류 참고 목록 (예: Wheat, Barley, Rye, Oats, Kamut)
     @Getter
     private List<String> glutenCereals = new ArrayList<>();
 
@@ -88,7 +97,7 @@ public class AllergenCatalogLoader {
             this.countryToName = countryNames;
             this.countryToLegalBasis = basisMap;
         } catch (Exception e) {
-            throw new IllegalStateException("Failed to load allergen catalog from " + allergenCatalogResource, e);
+            throw new IllegalStateException("알레르겐 카탈로그 로드에 실패했습니다: " + allergenCatalogResource, e);
         }
     }
 }

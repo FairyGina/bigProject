@@ -64,7 +64,7 @@ public class ProcessedFoodsCatalogLoader {
                 }
             }
         } catch (Exception e) {
-            throw new IllegalStateException("Failed to load processed foods catalog from " + catalogResource, e);
+            throw new IllegalStateException("가공식품 카탈로그 로드에 실패했습니다: " + catalogResource, e);
         }
 
         this.entries = out;

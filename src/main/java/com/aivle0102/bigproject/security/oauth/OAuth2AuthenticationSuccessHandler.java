@@ -47,11 +47,11 @@ public class OAuth2AuthenticationSuccessHandler implements AuthenticationSuccess
                 .toUriString();
 
         try {
-            log.info("OAuth2 success redirectUri={}, targetUrl={}", redirectUri, targetUrl);
+            log.info("OAuth2 성공 redirectUri={}, targetUrl={}", redirectUri, targetUrl);
             String safeTargetUrl = RedirectValidator.sanitizeAndValidateSameOrigin(redirectUri, targetUrl);
             response.sendRedirect(safeTargetUrl);
         } catch (IllegalArgumentException ex) {
-            log.warn("OAuth2 redirect blocked: {}", ex.getMessage());
+            log.warn("OAuth2 리다이렉트 차단: {}", ex.getMessage());
             response.sendError(HttpServletResponse.SC_BAD_REQUEST);
         }
     }

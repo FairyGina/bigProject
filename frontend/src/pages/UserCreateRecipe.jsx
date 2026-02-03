@@ -563,7 +563,7 @@ const UserCreateRecipe = () => {
             try {
                 await axiosInstance.get('/api/csrf');
             } catch (err) {
-                // ignore csrf refresh failures
+                // CSRF 갱신 실패는 무시
             }
             const res = await axiosInstance.post('/api/ingredients/extract', {
                 steps: stepInputs,
@@ -652,7 +652,7 @@ const UserCreateRecipe = () => {
         try {
             sessionStorage.removeItem(key);
         } catch (err) {
-            // ignore remove errors
+            // 삭제 오류는 무시
         }
     };
 
@@ -660,7 +660,7 @@ const UserCreateRecipe = () => {
         try {
             localStorage.removeItem(key);
         } catch (err) {
-            // ignore remove errors
+            // 삭제 오류는 무시
         }
     };
 
@@ -741,7 +741,7 @@ const UserCreateRecipe = () => {
                     return { influencers: parsed, imageBase64: includeImage ? cachedImage || '' : '' };
                 }
             } catch (err) {
-                // ignore cache parse errors
+                // 캐시 파싱 오류는 무시
             }
             if (includeImage) {
                 setCreatedInfluencerImage(cachedImage || '');
@@ -856,7 +856,7 @@ const UserCreateRecipe = () => {
             try {
                 await axiosInstance.get('/api/csrf');
             } catch (err) {
-                // ignore csrf refresh failures
+                // CSRF 갱신 실패는 무시
             }
             if (shouldRegenerate && recipeId) {
                 clearInfluencerCache(recipeId);
@@ -937,7 +937,7 @@ const UserCreateRecipe = () => {
             try {
                 await axiosInstance.get('/api/csrf');
             } catch (err) {
-                // ignore csrf refresh failures
+                // CSRF 갱신 실패는 무시
             }
             await axiosInstance.put(`/api/recipes/${createdRecipe.id}/publish`, {
                 influencers: includesReport ? createdInfluencers : [],

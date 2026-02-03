@@ -23,8 +23,9 @@ public class NoticeController {
     private final NoticeService noticeService;
 
     @GetMapping
-    public ResponseEntity<List<NoticeResponse>> getNotices() {
-        return ResponseEntity.ok(noticeService.getNotices());
+    public ResponseEntity<List<NoticeResponse>> getNotices(Principal principal) {
+        String userId = principal == null ? null : principal.getName();
+        return ResponseEntity.ok(noticeService.getNotices(userId));
     }
 
     @GetMapping("/{noticeId}")

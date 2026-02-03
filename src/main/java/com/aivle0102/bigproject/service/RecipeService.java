@@ -138,7 +138,7 @@ public class RecipeService {
                     allergenResponse = allergenAnalysisService.analyzeIngredients(request.getIngredients(), normalizedTargetCountry);
                 }
             } catch (Exception e) {
-                throw new IllegalStateException("Failed to generate report for recipe", e);
+                throw new IllegalStateException("레시피 보고서 생성에 실패했습니다.", e);
             }
         } else if (includeAllergen) {
             allergenResponse = allergenAnalysisService.analyzeIngredients(request.getIngredients(), normalizedTargetCountry);
@@ -191,9 +191,9 @@ public class RecipeService {
     @Transactional
     public RecipeResponse update(Long id, String authorId, RecipeCreateRequest request) {
         Recipe recipe = recipeRepository.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException("Recipe not found"));
+                .orElseThrow(() -> new IllegalArgumentException("레시피를 찾을 수 없습니다."));
         if (!recipe.getUserId().equals(authorId)) {
-            throw new IllegalArgumentException("Recipe not found");
+            throw new IllegalArgumentException("레시피를 찾을 수 없습니다.");
         }
 
         boolean ingredientsChanged = request.getIngredients() != null;
@@ -216,7 +216,7 @@ public class RecipeService {
         List<RecipeIngredient> ingredients;
         List<String> ingredientsForAnalysis;
         if (ingredientsChanged) {
-            // Delete existing allergen rows before removing ingredients to avoid dangling references.
+            // 레퍼가 끊기지 않도록 재료 삭제 전에 알레르겐 행을 먼저 삭제
             recipeAllergenRepository.deleteByRecipe_Id(saved.getId());
             ingredients = replaceIngredients(saved, request.getIngredients());
             ingredientsForAnalysis = request.getIngredients();
@@ -274,7 +274,7 @@ public class RecipeService {
                     summary = aiReportService.generateSummary(reportJson);
                 }
             } catch (Exception e) {
-                throw new IllegalStateException("Failed to generate report for recipe", e);
+                throw new IllegalStateException("레시피 보고서 생성에 실패했습니다.", e);
             }
 
             MarketReport marketReport = marketReportRepository.findTopByRecipe_IdOrderByCreatedAtDesc(saved.getId())
@@ -323,9 +323,12 @@ public class RecipeService {
 
 
     @Transactional(readOnly = true)
-    public List<RecipeResponse> getAll() {
-        return recipeRepository.findAllByOrderByCreatedAtDesc()
-                .stream()
+    public List<RecipeResponse> getAll(String requesterId) {
+        Long companyId = requesterId == null ? null : resolveCompanyId(requesterId);
+        List<Recipe> recipes = companyId == null
+                ? recipeRepository.findAllByOrderByCreatedAtDesc()
+                : recipeRepository.findByCompanyIdOrderByCreatedAtDesc(companyId);
+        return recipes.stream()
                 .filter(this::isRecipeVisibleForHub)
                 .map(this::toResponse)
                 .toList();
@@ -342,13 +345,13 @@ public class RecipeService {
     @Transactional(readOnly = true)
     public RecipeResponse getOne(Long id, String requesterId) {
         Recipe recipe = recipeRepository.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException("Recipe not found"));
+                .orElseThrow(() -> new IllegalArgumentException("레시피를 찾을 수 없습니다."));
         boolean isOwner = requesterId != null && requesterId.equals(recipe.getUserId());
         if (STATUS_DRAFT.equalsIgnoreCase(recipe.getStatus()) && !isOwner) {
-            throw new IllegalArgumentException("Recipe not found");
+            throw new IllegalArgumentException("레시피를 찾을 수 없습니다.");
         }
         if (!isOwner && !isRecipeVisibleForHub(recipe)) {
-            throw new IllegalArgumentException("Recipe not found");
+            throw new IllegalArgumentException("레시피를 찾을 수 없습니다.");
         }
         return toResponse(recipe);
     }
@@ -356,15 +359,16 @@ public class RecipeService {
     @Transactional(readOnly = true)
     public List<ReportListItem> getReports(Long recipeId, String requesterId) {
         Recipe recipe = recipeRepository.findById(recipeId)
-                .orElseThrow(() -> new IllegalArgumentException("Recipe not found"));
+                .orElseThrow(() -> new IllegalArgumentException("레시피를 찾을 수 없습니다."));
         boolean isOwner = requesterId != null && requesterId.equals(recipe.getUserId());
         if (!isOwner && !isRecipeVisibleForHub(recipe)) {
-            throw new IllegalArgumentException("Recipe not found");
+            throw new IllegalArgumentException("레시피를 찾을 수 없습니다.");
         }
         List<MarketReport> reports = isOwner
                 ? marketReportRepository.findByRecipe_IdOrderByCreatedAtDesc(recipeId)
                 : marketReportRepository.findByRecipe_IdAndOpenYnOrderByCreatedAtDesc(recipeId, OPEN_YN_Y);
         return reports.stream()
+                .filter(report -> REPORT_TYPE_AI.equalsIgnoreCase(defaultIfBlank(report.getReportType(), "")))
                 .map(report -> new ReportListItem(
                         report.getId(),
                         report.getReportType(),
@@ -376,11 +380,57 @@ public class RecipeService {
     }
 
     @Transactional
+    public void ensureEvaluationForReports(List<MarketReport> reports) {
+        if (reports == null || reports.isEmpty()) {
+            return;
+        }
+        for (MarketReport report : reports) {
+            ensureEvaluationForReport(report);
+        }
+    }
+
+    private void ensureEvaluationForReport(MarketReport report) {
+        if (report == null) {
+            return;
+        }
+        Recipe recipe = report.getRecipe();
+        if (recipe == null || recipe.getId() == null) {
+            return;
+        }
+        MarketReport evalReport = resolveEvaluationReport(report, recipe.getId());
+        if (evalReport == null || evalReport.getId() == null) {
+            return;
+        }
+        if (evalReport.getContent() == null || evalReport.getContent().isBlank()) {
+            return;
+        }
+        List<ConsumerFeedback> existing = consumerFeedbackRepository.findByReport_IdOrderByIdAsc(evalReport.getId());
+        if (existing != null && !existing.isEmpty()) {
+            return;
+        }
+        List<RecipeIngredient> ingredients = recipeIngredientRepository.findByRecipe_IdOrderByIdAsc(recipe.getId());
+        List<String> ingredientNames = ingredients == null
+                ? List.of()
+                : ingredients.stream().map(RecipeIngredient::getIngredientName).toList();
+        String recipeText = buildReportRecipeFromRecipe(recipe, ingredientNames, splitSteps(recipe.getSteps()));
+        List<VirtualConsumer> consumers = saveVirtualConsumers(
+                evalReport,
+                recipeText,
+                evalReport.getSummary(),
+                evalReport.getContent()
+        );
+        if (consumers == null || consumers.isEmpty()) {
+            return;
+        }
+        evaluationService.evaluateAndSave(evalReport, consumers, evalReport.getContent());
+    }
+
+    @Transactional
     public ReportDetailResponse createReport(Long recipeId, String requesterId, ReportCreateRequest request) {
         Recipe recipe = recipeRepository.findById(recipeId)
-                .orElseThrow(() -> new IllegalArgumentException("Recipe not found"));
+                .orElseThrow(() -> new IllegalArgumentException("레시피를 찾을 수 없습니다."));
         if (!recipe.getUserId().equals(requesterId)) {
-            throw new IllegalArgumentException("Recipe not found");
+            throw new IllegalArgumentException("레시피를 찾을 수 없습니다.");
         }
 
         List<RecipeIngredient> ingredients = recipeIngredientRepository.findByRecipe_IdOrderByIdAsc(recipe.getId());
@@ -414,7 +464,7 @@ public class RecipeService {
                     summary = aiReportService.generateSummary(reportJson);
                 }
             } catch (Exception e) {
-                throw new IllegalStateException("Failed to generate report for recipe", e);
+                throw new IllegalStateException("레시피 보고서 생성에 실패했습니다.", e);
             }
         }
 
@@ -463,7 +513,7 @@ public class RecipeService {
         }
 
         if (marketReport == null) {
-            throw new IllegalStateException("Report was not created");
+            throw new IllegalStateException("보고서가 생성되지 않았습니다.");
         }
         return toReportDetailResponse(recipe, marketReport);
     }
@@ -471,15 +521,15 @@ public class RecipeService {
     @Transactional(readOnly = true)
     public ReportDetailResponse getReportDetail(Long reportId, String requesterId) {
         MarketReport report = marketReportRepository.findById(reportId)
-                .orElseThrow(() -> new IllegalArgumentException("Report not found"));
+                .orElseThrow(() -> new IllegalArgumentException("보고서를 찾을 수 없습니다."));
         Recipe recipe = report.getRecipe();
         boolean isOwner = requesterId != null && requesterId.equals(recipe.getUserId());
         boolean reportPublic = OPEN_YN_Y.equalsIgnoreCase(report.getOpenYn());
         if (STATUS_DRAFT.equalsIgnoreCase(recipe.getStatus()) && !isOwner) {
-            throw new IllegalArgumentException("Report not found");
+            throw new IllegalArgumentException("보고서를 찾을 수 없습니다.");
         }
         if (!isOwner && !reportPublic) {
-            throw new IllegalArgumentException("Report not found");
+            throw new IllegalArgumentException("보고서를 찾을 수 없습니다.");
         }
         return toReportDetailResponse(recipe, report);
     }
@@ -487,10 +537,10 @@ public class RecipeService {
     @Transactional
     public ReportDetailResponse updateReportVisibility(Long reportId, String requesterId, VisibilityUpdateRequest request) {
         MarketReport report = marketReportRepository.findById(reportId)
-                .orElseThrow(() -> new IllegalArgumentException("Report not found"));
+                .orElseThrow(() -> new IllegalArgumentException("보고서를 찾을 수 없습니다."));
         Recipe recipe = report.getRecipe();
         if (!recipe.getUserId().equals(requesterId)) {
-            throw new IllegalArgumentException("Report not found");
+            throw new IllegalArgumentException("보고서를 찾을 수 없습니다.");
         }
         String openYn = normalizeOpenYn(request == null ? null : request.getOpenYn());
         if (openYn == null) {
@@ -509,14 +559,18 @@ public class RecipeService {
     @Transactional
     public RecipeResponse updateRecipeVisibility(Long recipeId, String requesterId, VisibilityUpdateRequest request) {
         Recipe recipe = recipeRepository.findById(recipeId)
-                .orElseThrow(() -> new IllegalArgumentException("Recipe not found"));
+                .orElseThrow(() -> new IllegalArgumentException("레시피를 찾을 수 없습니다."));
         if (!recipe.getUserId().equals(requesterId)) {
-            throw new IllegalArgumentException("Recipe not found");
+            throw new IllegalArgumentException("레시피를 찾을 수 없습니다.");
         }
         String openYn = normalizeOpenYn(request == null ? null : request.getOpenYn());
         if (openYn != null) {
-            if (OPEN_YN_N.equalsIgnoreCase(openYn)
-                    && marketReportRepository.existsByRecipe_IdAndOpenYn(recipe.getId(), OPEN_YN_Y)) {
+        if (OPEN_YN_N.equalsIgnoreCase(openYn)
+                    && marketReportRepository.existsByRecipe_IdAndReportTypeAndOpenYn(
+                            recipe.getId(),
+                            REPORT_TYPE_AI,
+                            OPEN_YN_Y
+                    )) {
                 openYn = OPEN_YN_Y;
             }
             recipe.setOpenYn(openYn);
@@ -529,9 +583,9 @@ public class RecipeService {
     @Transactional
     public RecipeResponse publish(Long id, String requesterId, RecipePublishRequest request) {
         Recipe recipe = recipeRepository.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException("Recipe not found"));
+                .orElseThrow(() -> new IllegalArgumentException("레시피를 찾을 수 없습니다."));
         if (!recipe.getUserId().equals(requesterId)) {
-            throw new IllegalArgumentException("Recipe not found");
+            throw new IllegalArgumentException("레시피를 찾을 수 없습니다.");
         }
 
         if (request != null) {
@@ -567,9 +621,9 @@ public class RecipeService {
     @Transactional
     public RecipeResponse saveInfluencers(Long id, String requesterId, RecipePublishRequest request) {
         Recipe recipe = recipeRepository.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException("Recipe not found"));
+                .orElseThrow(() -> new IllegalArgumentException("레시피를 찾을 수 없습니다."));
         if (!recipe.getUserId().equals(requesterId)) {
-            throw new IllegalArgumentException("Recipe not found");
+            throw new IllegalArgumentException("레시피를 찾을 수 없습니다.");
         }
         if (request == null) {
             return toResponse(recipe);
@@ -603,11 +657,11 @@ public class RecipeService {
     @Transactional
     public void delete(Long id, String requesterId) {
         Recipe recipe = recipeRepository.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException("Recipe not found"));
+                .orElseThrow(() -> new IllegalArgumentException("레시피를 찾을 수 없습니다."));
         if (!recipe.getUserId().equals(requesterId)) {
-            throw new IllegalArgumentException("Recipe not found");
+            throw new IllegalArgumentException("레시피를 찾을 수 없습니다.");
         }
-        // Delete child rows in FK-safe order to avoid constraint violations.
+        // FK 제약 위반 => 연관되는 행 안전하게 삭제
         recipeAllergenRepository.deleteByRecipe_Id(id);
         recipeIngredientRepository.deleteByRecipe_Id(id);
 
@@ -631,9 +685,10 @@ public class RecipeService {
     private RecipeResponse toResponse(Recipe recipe, List<RecipeIngredient> ingredients, MarketReport report, String authorName) {
         List<String> ingredientNames = ingredients == null ? List.of()
                 : ingredients.stream().map(RecipeIngredient::getIngredientName).toList();
-        Map<String, Object> reportMap = report == null ? Collections.emptyMap() : readJsonMap(report.getContent());
-        if (report != null) {
-            reportMap.put("evaluationResults", readEvaluationResults(report));
+        Map<String, Object> reportMap = report == null ? new LinkedHashMap<>() : new LinkedHashMap<>(readJsonMap(report.getContent()));
+        MarketReport evalReport = resolveEvaluationReport(report, recipe.getId());
+        if (evalReport != null) {
+            reportMap.put("evaluationResults", readEvaluationResults(evalReport));
         }
         Map<String, Object> allergenMap = buildAllergenResponse(recipe);
         List<Map<String, Object>> influencers = readInfluencers(report);
@@ -673,9 +728,10 @@ public class RecipeService {
         List<RecipeIngredient> ingredients = recipeIngredientRepository.findByRecipe_IdOrderByIdAsc(recipe.getId());
         List<String> ingredientNames = ingredients == null ? List.of()
                 : ingredients.stream().map(RecipeIngredient::getIngredientName).toList();
-        Map<String, Object> reportMap = report == null ? Collections.emptyMap() : readJsonMap(report.getContent());
-        if (report != null) {
-            reportMap.put("evaluationResults", readEvaluationResults(report));
+        Map<String, Object> reportMap = report == null ? new LinkedHashMap<>() : new LinkedHashMap<>(readJsonMap(report.getContent()));
+        MarketReport evalReport = resolveEvaluationReport(report, recipe.getId());
+        if (evalReport != null) {
+            reportMap.put("evaluationResults", readEvaluationResults(evalReport));
         }
         Map<String, Object> allergenMap = buildAllergenResponse(recipe);
         List<Map<String, Object>> influencers = readInfluencers(report);
@@ -702,6 +758,7 @@ public class RecipeService {
                 reportMap,
                 allergenMap,
                 report == null ? null : report.getSummary(),
+                report == null ? null : report.getContent(),
                 influencers,
                 influencerImage,
                 report == null ? null : report.getReportType(),
@@ -731,6 +788,18 @@ public class RecipeService {
                 .filter(v -> v != null && !v.isBlank())
                 .map(this::readJsonMap)
                 .toList();
+    }
+
+    private MarketReport resolveEvaluationReport(MarketReport currentReport, Long recipeId) {
+        if (currentReport != null && REPORT_TYPE_AI.equalsIgnoreCase(defaultIfBlank(currentReport.getReportType(), ""))) {
+            return currentReport;
+        }
+        if (recipeId == null) {
+            return null;
+        }
+        return marketReportRepository
+                .findTopByRecipe_IdAndReportTypeOrderByCreatedAtDesc(recipeId, REPORT_TYPE_AI)
+                .orElse(null);
     }
 
     private Map<String, Object> buildAllergenResponse(Recipe recipe) {
@@ -787,7 +856,7 @@ public class RecipeService {
         ReportRequest reportRequest = new ReportRequest();
         reportRequest.setRecipe(buildReportRecipe(request, ingredients, steps));
         reportRequest.setTargetCountry(defaultIfBlank(targetCountry, "US"));
-        reportRequest.setTargetPersona(defaultIfBlank(request.getTargetPersona(), "20~30s office workers"));
+        reportRequest.setTargetPersona(defaultIfBlank(request.getTargetPersona(), "20~30대 직장인"));
         reportRequest.setPriceRange(defaultIfBlank(request.getPriceRange(), "USD 6~9"));
         return reportRequest;
     }
@@ -818,7 +887,7 @@ public class RecipeService {
         ));
         reportRequest.setTargetPersona(defaultIfBlank(
                 request == null ? null : request.getTargetPersona(),
-                "20~30s office workers"
+                "20~30대 직장인"
         ));
         reportRequest.setPriceRange(defaultIfBlank(
                 request == null ? null : request.getPriceRange(),
@@ -862,7 +931,7 @@ public class RecipeService {
         if (report == null || report.getId() == null) {
             return List.of();
         }
-        // Ensure unique constraint (report_id, personaName, country, ageGroup) doesn't collide
+        // 유니크 제약(report_id, personaName, country, ageGroup)이 충돌하지 않도록 
         virtualConsumerRepository.deleteByReport_Id(report.getId());
         if (recipeText == null || recipeText.isBlank()) {
             return List.of();
@@ -909,7 +978,7 @@ public class RecipeService {
                 return virtualConsumerRepository.saveAll(rows);
             }
         } catch (Exception e) {
-            System.err.println("Failed to save virtual consumers for report " + report.getId() + ": " + e.getMessage());
+            System.err.println("보고서 가상 소비자 저장에 실패했습니다: " + report.getId() + " - " + e.getMessage());
         }
         return List.of();
     }
@@ -927,6 +996,20 @@ public class RecipeService {
             return List.of();
         }
         List<ConsumerFeedback> feedbacks = consumerFeedbackRepository.findByReport_IdOrderByIdAsc(report.getId());
+        if ((feedbacks == null || feedbacks.isEmpty()) && report.getRecipe() != null && report.getRecipe().getId() != null) {
+            Long recipeId = report.getRecipe().getId();
+            List<MarketReport> candidates = marketReportRepository
+                    .findByRecipe_IdAndReportTypeOrderByCreatedAtDesc(recipeId, REPORT_TYPE_AI);
+            for (MarketReport candidate : candidates) {
+                if (candidate == null || candidate.getId() == null || candidate.getId().equals(report.getId())) {
+                    continue;
+                }
+                feedbacks = consumerFeedbackRepository.findByReport_IdOrderByIdAsc(candidate.getId());
+                if (feedbacks != null && !feedbacks.isEmpty()) {
+                    break;
+                }
+            }
+        }
         if (feedbacks == null || feedbacks.isEmpty()) {
             return List.of();
         }
@@ -941,6 +1024,18 @@ public class RecipeService {
                 agg.totalScoreSum += feedback.getTotalScore();
                 agg.totalScoreCount += 1;
             }
+            if (feedback.getTasteScore() != null) {
+                agg.tasteScoreSum += feedback.getTasteScore();
+                agg.tasteScoreCount += 1;
+            }
+            if (feedback.getPriceScore() != null) {
+                agg.priceScoreSum += feedback.getPriceScore();
+                agg.priceScoreCount += 1;
+            }
+            if (feedback.getHealthScore() != null) {
+                agg.healthScoreSum += feedback.getHealthScore();
+                agg.healthScoreCount += 1;
+            }
             if (agg.feedbacks.size() < 10) {
                 Map<String, Object> item = new LinkedHashMap<>();
                 item.put("personaName", feedback.getPersonaName());
@@ -954,9 +1049,18 @@ public class RecipeService {
                     FeedbackAggregate agg = entry.getValue();
                     int avgScore = agg.totalScoreCount == 0 ? 0
                             : (int) Math.round((double) agg.totalScoreSum / agg.totalScoreCount);
+                    int avgTaste = agg.tasteScoreCount == 0 ? 0
+                            : (int) Math.round((double) agg.tasteScoreSum / agg.tasteScoreCount);
+                    int avgPrice = agg.priceScoreCount == 0 ? 0
+                            : (int) Math.round((double) agg.priceScoreSum / agg.priceScoreCount);
+                    int avgHealth = agg.healthScoreCount == 0 ? 0
+                            : (int) Math.round((double) agg.healthScoreSum / agg.healthScoreCount);
                     return Map.<String, Object>of(
                             "country", entry.getKey(),
                             "totalScore", avgScore,
+                            "tasteScore", avgTaste,
+                            "priceScore", avgPrice,
+                            "healthScore", avgHealth,
                             "feedbacks", agg.feedbacks
                     );
                 })
@@ -966,6 +1070,12 @@ public class RecipeService {
     private static final class FeedbackAggregate {
         private int totalScoreSum;
         private int totalScoreCount;
+        private int tasteScoreSum;
+        private int tasteScoreCount;
+        private int priceScoreSum;
+        private int priceScoreCount;
+        private int healthScoreSum;
+        private int healthScoreCount;
         private final List<Map<String, Object>> feedbacks = new ArrayList<>();
     }
 
@@ -1054,7 +1164,7 @@ public class RecipeService {
         try {
             return objectMapper.writeValueAsString(value);
         } catch (Exception e) {
-            throw new IllegalStateException("Failed to serialize report", e);
+            throw new IllegalStateException("보고서 직렬화에 실패했습니다.", e);
         }
     }
 
@@ -1106,12 +1216,12 @@ public class RecipeService {
 
     private Map<String, Object> readJsonMap(String value) {
         if (value == null || value.isBlank()) {
-            return Collections.emptyMap();
+            return new LinkedHashMap<>();
         }
         try {
             return objectMapper.readValue(value, new TypeReference<>() {});
         } catch (Exception e) {
-            return Collections.emptyMap();
+            return new LinkedHashMap<>();
         }
     }
 
@@ -1154,10 +1264,11 @@ public class RecipeService {
         if (recipe == null) {
             return false;
         }
-        if (OPEN_YN_Y.equalsIgnoreCase(resolveRecipeOpenYn(recipe))) {
-            return true;
-        }
-        return marketReportRepository.existsByRecipe_IdAndOpenYn(recipe.getId(), OPEN_YN_Y);
+        return marketReportRepository.existsByRecipe_IdAndReportTypeAndOpenYn(
+                recipe.getId(),
+                REPORT_TYPE_AI,
+                OPEN_YN_Y
+        );
     }
 
     private String normalizeCountryCode(String raw) {

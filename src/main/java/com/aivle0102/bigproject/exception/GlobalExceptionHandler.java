@@ -33,7 +33,7 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(DateTimeParseException.class)
     public ResponseEntity<Map<String, Object>> handleDateTimeParseException(DateTimeParseException e) {
-        log.warn("Date format error: {}", e.getMessage());
+        log.warn("날짜 형식 오류: {}", e.getMessage());
         Map<String, Object> response = new HashMap<>();
         response.put("status", HttpStatus.BAD_REQUEST.value());
         response.put("error", "Invalid date format");
@@ -43,7 +43,7 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(CustomException.class)
     public ResponseEntity<Map<String, Object>> handleCustomException(CustomException e) {
-        log.warn("CustomException: {} - {}", e.getErrorCode(), e.getMessage());
+        log.warn("커스텀 예외: {} - {}", e.getErrorCode(), e.getMessage());
         Map<String, Object> response = new HashMap<>();
         response.put("status", e.getStatus().value());
         response.put("message", e.getMessage());
@@ -53,7 +53,7 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<Map<String, Object>> handleValidationException(MethodArgumentNotValidException e) {
-        log.warn("Validation error: {}", e.getMessage());
+        log.warn("검증 오류: {}", e.getMessage());
         Map<String, String> errors = new HashMap<>();
         e.getBindingResult().getAllErrors().forEach(error -> {
             String fieldName = ((FieldError) error).getField();
@@ -72,7 +72,7 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ErrorResponse> handleException(Exception e) {
-        log.error("Internal server error: ", e);
+        log.error("내부 서버 오류: ", e);
         ErrorResponse response = ErrorResponse.builder()
                 .timestamp(LocalDateTime.now())
                 .status(HttpStatus.INTERNAL_SERVER_ERROR.value())

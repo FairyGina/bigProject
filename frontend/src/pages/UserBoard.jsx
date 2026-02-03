@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+﻿import React, { useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import axiosInstance from '../axiosConfig';
@@ -13,6 +13,7 @@ const UserBoard = () => {
     const [searchTerm, setSearchTerm] = useState('');
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
+    const [publishLoadingId, setPublishLoadingId] = useState(null);
 
     useEffect(() => {
         const fetchRecipes = async () => {
@@ -21,8 +22,8 @@ const UserBoard = () => {
                 const res = await axiosInstance.get('/api/recipes/me');
                 setRecipes(res.data || []);
             } catch (err) {
-                console.error('사용자 레시피를 불러오지 못했습니다', err);
-                setError('내 레시피 목록을 불러오지 못했습니다.');
+                console.error('레시피 목록을 불러오지 못했습니다.', err);
+                setError('레시피 목록을 불러오지 못했습니다.');
             } finally {
                 setLoading(false);
             }
@@ -30,6 +31,25 @@ const UserBoard = () => {
 
         fetchRecipes();
     }, []);
+
+    const handlePublish = async (recipe) => {
+        if (!recipe || recipe.status === 'PUBLISHED') {
+            return;
+        }
+        setPublishLoadingId(recipe.id);
+        try {
+            const res = await axiosInstance.put(`/api/recipes/${recipe.id}/publish`, {});
+            const updated = res.data || recipe;
+            setRecipes((prev) =>
+                prev.map((item) => (item.id === recipe.id ? { ...item, ...updated } : item))
+            );
+        } catch (err) {
+            console.error('레시피 공개 처리에 실패했습니다.', err);
+            setError('레시피 등록 확정에 실패했습니다.');
+        } finally {
+            setPublishLoadingId(null);
+        }
+    };
 
     const normalizedSearch = searchTerm.trim().toLowerCase();
     const filteredRecipes = normalizedSearch
@@ -60,14 +80,14 @@ const UserBoard = () => {
 
                 <div className="mt-6">
                     <label className="block text-xs font-semibold uppercase tracking-[0.3em] text-[color:var(--text-soft)] mb-2">
-                        제목 검색
+                        레시피 검색
                     </label>
                     <div className="flex items-center gap-2 rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface)] px-4 py-3 shadow-[0_10px_25px_var(--shadow)]">
                         <input
                             type="text"
                             value={searchTerm}
                             onChange={(event) => setSearchTerm(event.target.value)}
-                            placeholder="제목으로 레시피를 검색합니다"
+                            placeholder="레시피 이름으로 검색합니다"
                             className="w-full bg-transparent text-sm text-[color:var(--text)] placeholder:text-[color:var(--text-soft)] focus:outline-none"
                         />
                         {searchTerm && (
@@ -91,28 +111,43 @@ const UserBoard = () => {
                 )}
 
                 <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {filteredRecipes.map((recipe) => (
-                        <button
-                            type="button"
-                            key={recipe.id}
-                            onClick={() => navigate(`/mainboard/recipes/${recipe.id}`)}
-                            className="relative rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[0_12px_30px_var(--shadow)] overflow-hidden text-left"
-                        >
-                            <div className="absolute top-2 right-2 text-xs">
-                                {recipe.openYn === 'Y' ? '🔓' : '🔒'}
-                            </div>
-                            <div className="h-32 bg-[color:var(--surface-muted)] flex items-center justify-center text-sm text-[color:var(--text-soft)] overflow-hidden">
-                                {recipe.imageBase64 ? (
-                                    <img src={recipe.imageBase64} alt={recipe.title} className="h-full w-full object-cover" />
-                                ) : (
-                                    '이미지 영역'
+                    {filteredRecipes.map((recipe) => {
+                        const isDraft = recipe.status === 'DRAFT';
+                        const isPublishing = publishLoadingId === recipe.id;
+                        return (
+                            <div key={recipe.id} className="flex flex-col gap-2">
+                                <button
+                                    type="button"
+                                    onClick={() => navigate(`/mainboard/recipes/${recipe.id}`)}
+                                    className="relative rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[0_12px_30px_var(--shadow)] overflow-hidden text-left"
+                                >
+                                    <div className="absolute top-2 right-2 text-xs">
+                                        {recipe.openYn === 'Y' ? '공개' : '비공개'}
+                                    </div>
+                                    <div className="h-32 bg-[color:var(--surface-muted)] flex items-center justify-center text-sm text-[color:var(--text-soft)] overflow-hidden">
+                                        {recipe.imageBase64 ? (
+                                            <img src={recipe.imageBase64} alt={recipe.title} className="h-full w-full object-cover" />
+                                        ) : (
+                                            '이미지 영역'
+                                        )}
+                                    </div>
+                                    <div className="bg-[color:var(--accent)] text-[color:var(--accent-contrast)] text-center text-sm font-semibold py-2">
+                                        {recipe.title}
+                                    </div>
+                                </button>
+                                {isDraft && (
+                                    <button
+                                        type="button"
+                                        onClick={() => handlePublish(recipe)}
+                                        disabled={isPublishing}
+                                        className="w-full py-2 rounded-xl bg-emerald-500 text-white text-sm font-semibold hover:bg-emerald-600 transition disabled:opacity-60 disabled:cursor-not-allowed"
+                                    >
+                                        {isPublishing ? '등록 중...' : '등록 확정'}
+                                    </button>
                                 )}
                             </div>
-                            <div className="bg-[color:var(--accent)] text-[color:var(--accent-contrast)] text-center text-sm font-semibold py-2">
-                                {recipe.title}
-                            </div>
-                        </button>
-                    ))}
+                        );
+                    })}
                 </div>
 
                 {!loading && recipes.length === 0 && (

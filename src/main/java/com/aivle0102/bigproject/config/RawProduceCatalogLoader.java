@@ -62,7 +62,7 @@ public class RawProduceCatalogLoader {
                 addIfNotBlank(text(node, "식품소분류명"));
             }
         } catch (Exception e) {
-            throw new IllegalStateException("Failed to load raw produce catalog from " + catalogResource, e);
+            throw new IllegalStateException("원물 카탈로그 로드에 실패했습니다: " + catalogResource, e);
         }
     }
 
@@ -86,7 +86,7 @@ public class RawProduceCatalogLoader {
             addSeafoodCategoryNames(fish, SeafoodCategory.FISH);
             addSeafoodCategoryNames(others, SeafoodCategory.OTHER);
         } catch (Exception e) {
-            throw new IllegalStateException("Failed to load raw seafood categories from " + seafoodCategoryResource, e);
+            throw new IllegalStateException("원물 해산물 분류 로드에 실패했습니다: " + seafoodCategoryResource, e);
         }
     }
 

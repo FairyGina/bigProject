@@ -64,7 +64,7 @@ public class JwtTokenProvider {
                     .parseSignedClaims(token);
             return true;
         } catch (Exception e) {
-            log.error("Invalid JWT token: {}", e.getMessage());
+            log.error("유효하지 않은 JWT 토큰: {}", e.getMessage());
             return false;
         }
     }

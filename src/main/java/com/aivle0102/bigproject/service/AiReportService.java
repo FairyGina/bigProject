@@ -64,6 +64,20 @@ public class AiReportService {
         return openAiClient.chatCompletion(body);
     }
 
+    public String generateFinalEvaluation(List<Map<String, Object>> reportInputs) {
+        String prompt = buildFinalEvaluationPrompt(reportInputs);
+        Map<String, Object> body = Map.of(
+                "model", model,
+                "messages", List.of(
+                        Map.of("role", "system", "content",
+                                "당신은 글로벌 식품/레시피 비즈니스 분석가입니다. 한국어로만 답변하세요."),
+                        Map.of("role", "user", "content", prompt)
+                ),
+                "temperature", 0.2
+        );
+        return openAiClient.chatCompletion(body);
+    }
+
     private Map<String, Object> parseJson(String content) {
         String trimmed = content == null ? "" : content.trim();
         String json = trimmed;
@@ -207,7 +221,60 @@ public class AiReportService {
         """
         .formatted(fullReport);
     }
+
+    private String buildFinalEvaluationPrompt(List<Map<String, Object>> reportInputs) {
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < reportInputs.size(); i += 1) {
+            Map<String, Object> item = reportInputs.get(i);
+            sb.append("[").append(i + 1).append("]\n");
+            sb.append("- reportId: ").append(item.getOrDefault("reportId", "")).append("\n");
+            sb.append("- recipeId: ").append(item.getOrDefault("recipeId", "")).append("\n");
+            sb.append("- recipeTitle: ").append(item.getOrDefault("recipeTitle", "")).append("\n");
+            sb.append("- summary: ").append(item.getOrDefault("summary", "")).append("\n");
+            sb.append("- reportContent: ").append(item.getOrDefault("content", "")).append("\n\n");
+        }
+
+        return """
+        아래 보고서들을 서로 비교해 최종적으로 어떤 레시피를 선택하는 것이 가장 좋은지 평가해 주세요.
+        반드시 하나의 레시피를 최종 추천으로 선택하고, 이유를 명확히 설명해 주세요.
+        출력 형식은 다음과 같이 작성해 주세요(마크다운 허용).
+        반드시 1)~7) 항목을 모두 포함하고, 누락하면 안 됩니다.
+        내용이 부족한 항목은 "N/A"로 채워도 됩니다.
+
+        1) 최종 추천 레시피: [recipeTitle] (레시피 ID/번호 표기 금지)
+        2) 선택 이유 (핵심 근거 3~5개 불릿)
+        3) 비교 요약(표 금지, 텍스트로 작성)
+           - 항목: 장점, 리스크, 시장성, 차별성
+           - 각 항목마다 레시피별 비교를 bullet 형태로 작성
+           - 예시:
+             장점:
+             - 레시피A: ...
+             - 레시피B: ...
+        4) KPI 분석 요약 (항목: 목표/측정/인사이트, 레시피별 비교)
+        5) SWOT 분석 요약 (Strengths/Weaknesses/Opportunities/Threats 레시피별 비교)
+        6) 리스크 및 보완 제안
+        7) 다음 실행 단계(3개)
+
+        출력 템플릿(형식 유지):
+        1) ...
+        2) ...
+        3) ...
+        4) ...
+        5) ...
+        6) ...
+        7) ...
+
+        추가 규칙:
+        - 표(테이블) 형식 사용 금지.
+        - HTML 태그(<br> 등) 사용 금지.
+        - 레시피 제목에 괄호/번호/ID 표기 금지.
+
+        보고서 목록:
+        %s
+        """.formatted(sb.toString());
+    }
 }
+
 
 
 

@@ -34,6 +34,9 @@ public class Notice {
     @Column(name = "user_id", nullable = false, length = 50)
     private String authorId;
 
+    @Column(name = "company_id")
+    private Long companyId;
+
     @Transient
     private String authorName;
 

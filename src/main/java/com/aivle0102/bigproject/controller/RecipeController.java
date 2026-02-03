@@ -41,8 +41,9 @@ public class RecipeController {
     }
 
     @GetMapping
-    public ResponseEntity<List<RecipeResponse>> getAll() {
-        return ResponseEntity.ok(recipeService.getAll());
+    public ResponseEntity<List<RecipeResponse>> getAll(Principal principal) {
+        String requester = principal == null ? null : principal.getName();
+        return ResponseEntity.ok(recipeService.getAll(requester));
     }
 
     @GetMapping("/me")

@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-// Axios instance
+// Axios 인스턴스
 const axiosInstance = axios.create({
     baseURL: 'http://localhost:8080',
     headers: {
@@ -12,7 +12,7 @@ const axiosInstance = axios.create({
 axiosInstance.defaults.xsrfCookieName = 'XSRF-TOKEN';
 axiosInstance.defaults.xsrfHeaderName = 'X-XSRF-TOKEN';
 
-// Request interceptor: attach token
+// 요청 인터셉터: 토큰 첨부
 axiosInstance.interceptors.request.use(
     (config) => {
         const token = localStorage.getItem('accessToken');
@@ -30,7 +30,7 @@ axiosInstance.interceptors.request.use(
     }
 );
 
-// Response interceptor: handle 401
+// 응답 인터셉터: 401 처리
 axiosInstance.interceptors.response.use(
     (response) => {
         if (response.config?.url?.includes('/api/csrf') && response.data?.token) {
@@ -47,7 +47,7 @@ axiosInstance.interceptors.response.use(
             const isPasswordMismatch = errorCode === 'PASSWORD_MISMATCH';
             if (!isPasswordCheck && !isProfileUpdate && !isPasswordMismatch) {
                 localStorage.removeItem('accessToken');
-                // Optionally redirect to login: window.location.href = '/'
+                // 필요 시 로그인으로 이동: window.location.href = '/'
             }
         }
         return Promise.reject(error);
