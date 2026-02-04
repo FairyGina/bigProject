@@ -246,19 +246,18 @@ def get_diverging_keywords(keywords_analysis: List[Dict], top_n: int = 10, thres
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    global df, growth_summary_df, df_consumer
-    csv_path = 'cleaned_merged_export_trends.csv'
-    consumer_csv_path = 'amz_insight_data.csv'
+    # [수정] 클라우드(ACA) 마운트 경로와 로컬 경로를 모두 대응할 수 있도록 변경
+    BASE_DATA_DIR = "/app/data" if os.path.exists("/app/data") else "."
     
-    if not os.path.exists(csv_path):
-        parent_path = os.path.join('..', csv_path)
-        if os.path.exists(parent_path):
-            csv_path = parent_path
+    csv_path = os.path.join(BASE_DATA_DIR, 'cleaned_merged_export_trends.csv')
+    consumer_csv_path = os.path.join(BASE_DATA_DIR, 'amz_insight_data.csv')
 
-    if not os.path.exists(consumer_csv_path):
-        parent_consumer_path = os.path.join('..', consumer_csv_path)
-        if os.path.exists(parent_consumer_path):
-            consumer_csv_path = parent_consumer_path
+    # 만약 위 경로에 파일이 없고, 상위 디렉토리에 있다면 (로컬 테스트용 예외 처리)
+    if not os.path.exists(csv_path) and os.path.exists(os.path.join("..", "cleaned_merged_export_trends.csv")):
+        csv_path = os.path.join("..", "cleaned_merged_export_trends.csv")
+        
+    if not os.path.exists(consumer_csv_path) and os.path.exists(os.path.join("..", "amz_insight_data.csv")):
+        consumer_csv_path = os.path.join("..", "amz_insight_data.csv")
             
     try:
         # 기존 수출 데이터 로드
