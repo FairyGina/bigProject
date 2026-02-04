@@ -86,7 +86,7 @@ const MainBoard = () => {
                         <button
                             type="button"
                             key={recipe.id}
-                            onClick={() => navigate(`/mainboard/recipes/${recipe.id}`)}
+                            onClick={() => navigate(`/mainboard/recipes/${recipe.id}`, { state: { fromHub: true } })}
                             className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[0_12px_30px_var(--shadow)] overflow-hidden text-left"
                         >
                             <div className="h-32 bg-[color:var(--surface-muted)] flex items-center justify-center text-sm text-[color:var(--text-soft)] overflow-hidden">

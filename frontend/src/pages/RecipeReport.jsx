@@ -1,5 +1,5 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import axiosInstance from '../axiosConfig';
 
@@ -130,6 +130,7 @@ const REPORT_PRESETS = {
 const RecipeReport = () => {
     const { user } = useAuth();
     const navigate = useNavigate();
+    const location = useLocation();
     const { id } = useParams();
     const rawName = user?.userName || localStorage.getItem('userName') || '게스트';
     const maskedName = rawName.length <= 1 ? '*' : `${rawName.slice(0, -1)}*`;
@@ -150,6 +151,9 @@ const RecipeReport = () => {
     const [reportOpenYn, setReportOpenYn] = useState('N');
     const [recipeOpenYn, setRecipeOpenYn] = useState('N');
     const [targetRecommendLoading, setTargetRecommendLoading] = useState(false);
+    const [createProgress, setCreateProgress] = useState(0);
+    const createTimerRef = useRef(null);
+    const isCreateDisabled = createLoading;
 
     const selectedGeneration = useMemo(
         () => GENERATION_OPTIONS.find((option) => option.value === generationOption),
@@ -161,6 +165,13 @@ const RecipeReport = () => {
         (userId && (recipe?.user_id === userId || recipe?.userId === userId)) ||
         (!userId && (recipe?.user_name === rawName || recipe?.userName === rawName));
 
+    const fromHub = Boolean(location.state?.fromHub);
+    const visibleReports = useMemo(() => {
+        if (fromHub) {
+            return reports.filter((report) => (report.openYn || 'N') === 'Y');
+        }
+        return reports;
+    }, [fromHub, reports]);
     const canRecommendTargets = useMemo(() => {
         if (!recipe) return false;
         const hasTitle = Boolean(recipe.title && recipe.title.trim());
@@ -247,7 +258,6 @@ const RecipeReport = () => {
                 if (res.data?.recipeOpenYn) {
                     setRecipeOpenYn(res.data.recipeOpenYn);
                 }
-                await loadReports();
                 const nextReportId = res.data.reportId;
                 const needsInfluencer =
                     reportSections.includes('influencer') || reportSections.includes('influencerImage');
@@ -280,6 +290,7 @@ const RecipeReport = () => {
                         influencerImageBase64: imageBase64,
                     });
                 }
+                await loadReports();
                 setCreateOpen(false);
                 navigate(`/mainboard/reports/${nextReportId}`);
             }
@@ -290,6 +301,30 @@ const RecipeReport = () => {
             setCreateLoading(false);
         }
     };
+
+    useEffect(() => {
+        if (!createLoading) {
+            setCreateProgress(0);
+            if (createTimerRef.current) {
+                clearInterval(createTimerRef.current);
+                createTimerRef.current = null;
+            }
+            return;
+        }
+        setCreateProgress(5);
+        if (createTimerRef.current) {
+            clearInterval(createTimerRef.current);
+        }
+        createTimerRef.current = setInterval(() => {
+            setCreateProgress((prev) => (prev >= 90 ? prev : prev + 1));
+        }, 450);
+        return () => {
+            if (createTimerRef.current) {
+                clearInterval(createTimerRef.current);
+                createTimerRef.current = null;
+            }
+        };
+    }, [createLoading]);
 
     const handleRecommendTargets = async () => {
         if (!canRecommendTargets || targetRecommendLoading) return;
@@ -351,6 +386,32 @@ const RecipeReport = () => {
         }
     };
 
+    const handleDeleteReport = async (reportId) => {
+        if (!reportId) return;
+        const confirmed = window.confirm('\ud574\ub2f9 \ub9ac\ud3ec\ud2b8\ub97c \uc0ad\uc81c\ud569\ub2c8\ub2e4. \uc9c0\uc6b0\uc2dc\uaca0\uc2b5\ub2c8\uae4c?');
+        if (!confirmed) return;
+        try {
+            await axiosInstance.delete(`/api/reports/${reportId}`);
+            setReports((prev) => prev.filter((item) => item.id !== reportId));
+        } catch (err) {
+            console.error('리포트 삭제에 실패했습니다.', err);
+            setError('리포트 삭제에 실패했습니다.');
+        }
+    };
+
+    const handleDeleteRecipe = async () => {
+        if (!id) return;
+        const confirmed = window.confirm('생성된 보고서들도 함께 지워집니다. 지우시겠습니까?');
+        if (!confirmed) return;
+        try {
+            await axiosInstance.delete(`/api/recipes/${id}`);
+            navigate('/mainboard/user-hub/recipes');
+        } catch (err) {
+            console.error('레시피 삭제에 실패했습니다.', err);
+            setError('레시피 삭제에 실패했습니다.');
+        }
+    };
+
     if (loading) {
         return (
             <div className="rounded-[2.5rem] bg-[color:var(--surface)]/90 border border-[color:var(--border)] shadow-[0_30px_80px_var(--shadow)] p-10 backdrop-blur">
@@ -375,7 +436,7 @@ const RecipeReport = () => {
             <div className="rounded-[2.5rem] bg-[color:var(--surface)]/90 border border-[color:var(--border)] shadow-[0_30px_80px_var(--shadow)] p-8 md:p-10 backdrop-blur">
                 <div className="flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
                     <div>
-                        <p className="text-xs uppercase tracking-[0.4em] text-[color:var(--text-soft)] mb-2">Recipe Detail</p>
+                        <p className="text-xs uppercase tracking-[0.4em] text-[color:var(--text-soft)] mb-2">상세 레시피</p>
                         <h2 className="text-2xl md:text-3xl font-semibold text-[color:var(--text)]">{recipe.title}</h2>
                     </div>
                     <div className="flex items-center gap-3">
@@ -398,13 +459,22 @@ const RecipeReport = () => {
                         <div className="flex items-center justify-between mb-4">
                             <h3 className="text-lg font-semibold text-[color:var(--text)]">레시피 정보</h3>
                             {isOwner && (
-                                <button
-                                    type="button"
-                                    onClick={handleRecipeOpenYnToggle}
-                                    className="text-xs font-semibold text-[color:var(--accent)]"
-                                >
-                                    {recipeOpenYn === 'Y' ? '🔓 공개' : '🔒 비공개'}
-                                </button>
+                                <div className="flex items-center gap-3">
+                                    <button
+                                        type="button"
+                                        onClick={handleRecipeOpenYnToggle}
+                                        className="text-xs font-semibold text-[color:var(--accent)]"
+                                    >
+                                        {recipeOpenYn === 'Y' ? '🔓 공개' : '🔒 비공개'}
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={handleDeleteRecipe}
+                                        className="text-xs font-semibold text-[color:var(--danger)] hover:opacity-80 transition"
+                                    >
+                                        삭제
+                                    </button>
+                                </div>
                             )}
                         </div>
                         <div className="relative h-[200px] rounded-2xl bg-[color:var(--surface-muted)] border border-[color:var(--border)] overflow-hidden flex items-center justify-center text-[color:var(--text-soft)] text-sm">
@@ -468,35 +538,44 @@ const RecipeReport = () => {
                             <p className="text-sm text-[color:var(--text-muted)]">리포트 목록을 불러오는 중입니다...</p>
                         )}
 
-                        {!listLoading && reports.length === 0 && (
+                        {!listLoading && visibleReports.length === 0 && (
                             <p className="text-sm text-[color:var(--text-muted)]">등록된 리포트가 없습니다.</p>
                         )}
 
                         <div className="space-y-3">
-                            {reports.map((report) => (
+                            {visibleReports.map((report) => (
                                 <div
                                     key={report.id}
-                                    className="rounded-xl border border-[color:var(--border)] bg-[color:var(--surface-muted)] p-4 flex items-center justify-between"
+                                    className="rounded-xl border border-[color:var(--border)] bg-[color:var(--surface-muted)] p-4 flex items-start justify-between gap-4"
                                 >
-                                    <div>
+                                    <div className="min-w-0 flex-1">
                                         <p className="text-sm font-semibold text-[color:var(--text)]">리포트 #{report.id}</p>
                                         <p className="text-xs text-[color:var(--text-muted)]">{report.summary || '요약 없음'}</p>
                                         <p className="text-xs text-[color:var(--text-soft)]">{new Date(report.createdAt).toLocaleString()}</p>
                                     </div>
-                                    <div className="flex items-center gap-2">
+                                    <div className="relative shrink-0 self-stretch min-w-[96px]">
                                         {isOwner && (
-                                            <button
-                                                type="button"
-                                                onClick={() => handleReportOpenYnToggle(report.id, report.openYn)}
-                                                className="text-xs font-semibold text-[color:var(--accent)]"
-                                            >
-                                                {report.openYn === 'Y' ? '🔓 공개' : '🔒 비공개'}
-                                            </button>
+                                            <div className="absolute top-0 right-0 flex items-center gap-3">
+                                                <button
+                                                    type="button"
+                                                    onClick={() => handleReportOpenYnToggle(report.id, report.openYn)}
+                                                    className="text-xs font-semibold text-[color:var(--accent)]"
+                                                >
+                                                    {report.openYn === 'Y' ? '🔓 공개' : '🔒 비공개'}
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => handleDeleteReport(report.id)}
+                                                    className="text-xs font-semibold text-[color:var(--danger)] hover:opacity-80 transition"
+                                                >
+                                                    삭제
+                                                </button>
+                                            </div>
                                         )}
                                         <button
                                             type="button"
                                             onClick={() => navigate(`/mainboard/reports/${report.id}`)}
-                                            className="px-3 py-1 rounded-lg bg-[color:var(--accent)] text-[color:var(--accent-contrast)] text-xs font-semibold"
+                                            className="absolute top-1/2 -translate-y-1/2 right-0 px-3 py-1 rounded-lg bg-[color:var(--accent)] text-[color:var(--accent-contrast)] text-xs font-semibold"
                                         >
                                             보기
                                         </button>
@@ -512,7 +591,7 @@ const RecipeReport = () => {
                                         <p className="text-sm font-semibold text-[color:var(--text)]">리포트 타겟 설정</p>
                                         <button
                                             type="button"
-                                            disabled={!canRecommendTargets || targetRecommendLoading}
+                                            disabled={!canRecommendTargets || targetRecommendLoading || isCreateDisabled}
                                             onClick={handleRecommendTargets}
                                             className="px-3 py-1 rounded-lg border border-[color:var(--border)] text-xs text-[color:var(--text)] disabled:opacity-50"
                                         >
@@ -524,6 +603,7 @@ const RecipeReport = () => {
                                         <select
                                             value={targetCountry}
                                             onChange={(e) => setTargetCountry(e.target.value)}
+                                            disabled={isCreateDisabled}
                                             className="w-full rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 py-2 text-sm"
                                         >
                                             {TARGET_COUNTRY_OPTIONS.map((option) => (
@@ -538,6 +618,7 @@ const RecipeReport = () => {
                                         <select
                                             value={targetPersona}
                                             onChange={(e) => setTargetPersona(e.target.value)}
+                                            disabled={isCreateDisabled}
                                             className="w-full rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 py-2 text-sm"
                                         >
                                             {TARGET_PERSONA_OPTIONS.map((option) => (
@@ -552,6 +633,7 @@ const RecipeReport = () => {
                                         <select
                                             value={priceRange}
                                             onChange={(e) => setPriceRange(e.target.value)}
+                                            disabled={isCreateDisabled}
                                             className="w-full rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 py-2 text-sm"
                                         >
                                             {PRICE_RANGE_OPTIONS.map((option) => (
@@ -568,6 +650,7 @@ const RecipeReport = () => {
                                     <select
                                         value={generationOption}
                                         onChange={(e) => handleGenerationOptionChange(e.target.value)}
+                                        disabled={isCreateDisabled}
                                         className="w-full rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 py-2 text-sm"
                                     >
                                         {GENERATION_OPTIONS.map((option) => (
@@ -587,7 +670,10 @@ const RecipeReport = () => {
                                         {REPORT_SECTION_OPTIONS.map((item) => {
                                             const checked = reportSections.includes(item.key);
                                             const isRequired = item.required;
-                                            const disabled = isRequired || (item.key === 'influencerImage' && !reportSections.includes('influencer'));
+                                            const disabled =
+                                                isCreateDisabled ||
+                                                isRequired ||
+                                                (item.key === 'influencerImage' && !reportSections.includes('influencer'));
                                             return (
                                                 <label key={item.key} className="flex items-center gap-2 text-xs text-[color:var(--text)]">
                                                     <input
@@ -609,7 +695,8 @@ const RecipeReport = () => {
                                     <button
                                         type="button"
                                         onClick={() => setReportOpenYn((prev) => (prev === 'Y' ? 'N' : 'Y'))}
-                                        className="text-xs font-semibold text-[color:var(--accent)]"
+                                        disabled={isCreateDisabled}
+                                        className="text-xs font-semibold text-[color:var(--accent)] disabled:opacity-50 disabled:cursor-not-allowed"
                                     >
                                         {reportOpenYn === 'Y' ? '🔓 공개' : '🔒 비공개'}
                                     </button>
@@ -621,7 +708,17 @@ const RecipeReport = () => {
                                     disabled={createLoading}
                                     className="w-full py-2 rounded-xl bg-[color:var(--accent)] text-[color:var(--accent-contrast)] text-sm font-semibold hover:bg-[color:var(--accent-strong)] transition disabled:opacity-60 disabled:cursor-not-allowed"
                                 >
-                                    {createLoading ? '생성 중...' : '보고서 생성'}
+                                    {createLoading ? (
+                                        <span className="inline-flex items-center justify-center gap-2">
+                                            <span className="h-4 w-4 rounded-full border-2 border-[color:var(--border)] border-t-[color:var(--accent-contrast)] animate-spin" />
+                                            {'생성 중…'}
+                                            <span className="min-w-[4ch] text-right tabular-nums">
+                                                {createProgress}%
+                                            </span>
+                                        </span>
+                                    ) : (
+                                        '보고서 생성'
+                                    )}
                                 </button>
                             </div>
                         )}
