@@ -718,6 +718,9 @@ const RecipeAnalysis = () => {
     const showKpis = Array.isArray(report?.kpis) && report.kpis.length > 0;
     const showNextSteps = Array.isArray(report?.nextSteps) && report.nextSteps.length > 0;
     const showSummary = Boolean(recipe?.summary);
+    const showRecipeCase =
+        Array.isArray(reportSections) &&
+        reportSections.includes('RecipeCase');
     const showAllergen =
         allowAllergen &&
         (Boolean(recipe?.allergen?.note) ||
@@ -861,7 +864,7 @@ const RecipeAnalysis = () => {
             showNextSteps
                 ? `
   <div class="section">
-    <h2>다음 단계</h2>
+    <h2>제품 개발 추천안</h2>
     ${listHtml(nextSteps)}
   </div>
 `
@@ -1001,6 +1004,12 @@ const RecipeAnalysis = () => {
             </span>
         </span>
     );
+    const SectionTitle = ({ title, help }) => (
+        <h3 className="text-lg font-semibold text-[color:var(--text)] mb-3 flex items-center">
+            {title}
+            {help && <HelpTooltip label={title} description={help} />}
+        </h3>
+    );
 
 
     if (loading) {
@@ -1050,7 +1059,12 @@ const RecipeAnalysis = () => {
                     {showMap && (
                         <div className="lg:col-span-2 rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[0_12px_30px_var(--shadow)] p-6">
                             <div className="flex items-center justify-between mb-4">
-                                <h3 className="text-lg font-semibold text-[color:var(--text)]">Global Market Map</h3>
+                                <h3 className="text-lg font-semibold text-[color:var(--text)]">
+                                    <SectionTitle
+                                        title="Global Market Map"
+                                        help="국가별 긍/부정 피드백 및 점수를 지도로 시각화해 한눈에 비교하며, 점수가 표기된 동그라미를 누르면 해당 정보를 조회할 수 있습니다."
+                                    />
+                                </h3>
                                 <span className="text-xs text-[color:var(--text-soft)]">World View</span>
                             </div>
                             <div className="h-[260px] rounded-xl border border-[color:var(--border)] bg-[color:var(--surface-muted)] overflow-hidden">
@@ -1069,7 +1083,12 @@ const RecipeAnalysis = () => {
                         {showExec && (
                             <div className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[0_12px_30px_var(--shadow)] p-6">
                                 <div className="flex items-center justify-between">
-                                    <h3 className="text-lg font-semibold text-[color:var(--text)]">핵심 요약</h3>
+                                    <h3 className="text-lg font-semibold text-[color:var(--text)]">
+                                        <SectionTitle
+                                            title="핵심 요약"
+                                            help="이 레시피의 시장 적합도와 성공 가능성을 종합해, 출시 여부 판단에 필요한 핵심 정보를 요약한 정보입니다."
+                                        />
+                                    </h3>
                                 </div>
                                 <div className="mt-4 space-y-3 text-sm text-[color:var(--text)]">
                                     <p><strong>결론:</strong> {exec.decision || '-'}</p>
@@ -1090,7 +1109,12 @@ const RecipeAnalysis = () => {
 
                         {showMarket && (
                             <div className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[0_12px_30px_var(--shadow)] p-6">
-                                <h3 className="text-lg font-semibold text-[color:var(--text)] mb-4">시장 스냅샷</h3>
+                                <h3 className="text-lg font-semibold text-[color:var(--text)] mb-4">
+                                    <SectionTitle
+                                        title="시장 스냅샷"
+                                        help="타깃 시장의 소비자 니즈, 트렌드, 경쟁 환경을 요약한 시장 개요입니다."
+                                    />
+                                </h3>
                                 <div className="space-y-4 text-sm text-[color:var(--text)]">
                                     <div>
                                         <p className="font-semibold text-[color:var(--text)]">타깃 페르소나 니즈</p>
@@ -1117,7 +1141,12 @@ const RecipeAnalysis = () => {
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                 {showRisk && (
                                     <div className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[0_12px_30px_var(--shadow)] p-6">
-                                        <h3 className="text-lg font-semibold text-[color:var(--text)] mb-3">리스크 & 대응</h3>
+                                        <h3 className="text-lg font-semibold text-[color:var(--text)] mb-3">
+                                            <SectionTitle
+                                                title="리스크 & 대응"
+                                                help="제품 출시 및 시장 적용 과정에서 예상되는 주요 리스크와, 이를 완화하기 위한 대응 전략을 정리한 항목입니다."
+                                            />
+                                        </h3>
                                         <p className="text-sm font-semibold text-[color:var(--text)] mb-2">리스크</p>
                                         {renderList(risk.riskList)}
                                         <p className="mt-4 text-sm font-semibold text-[color:var(--text)] mb-2">완화 전략</p>
@@ -1127,10 +1156,9 @@ const RecipeAnalysis = () => {
                                 {showSwot && (
                                     <div className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[0_12px_30px_var(--shadow)] p-6">
                                         <h3 className="text-lg font-semibold text-[color:var(--text)] mb-3 flex items-center">
-                                            SWOT
-                                            <HelpTooltip
-                                                label="SWOT"
-                                                description="강점 Strength, 약점 Weakenesses, 기회 Opportunities, 위협 Threats을 정리해서 상황을 분석하는 방법입니다."
+                                            <SectionTitle
+                                                title="SWOT"
+                                                help="제품을 분석해서 강점 Strength, 약점 Weakenesses, 기회 Opportunities, 위협 Threats을 보여주는 단어입니다."
                                             />
                                         </h3>
                                         <p className="text-sm font-semibold text-[color:var(--text)] mb-2">Strengths</p>
@@ -1148,7 +1176,12 @@ const RecipeAnalysis = () => {
 
                         {showConceptIdeas && (
                             <div className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[0_12px_30px_var(--shadow)] p-6">
-                                <h3 className="text-lg font-semibold text-[color:var(--text)] mb-4">컨셉 아이디어</h3>
+                                <h3 className="text-lg font-semibold text-[color:var(--text)] mb-4">
+                                    <SectionTitle
+                                        title="컨셉 아이디어"
+                                        help="현재 레시피 기준으로 새로운 제품을 만들 경우 추천하는 제품 컨셉 아이디어입니다."
+                                    />
+                                </h3>
                                 <div className="space-y-4">
                                     {conceptIdeas.map((idea, idx) => (
                                         <div key={`${idea.name}-${idx}`} className="rounded-xl border border-[color:var(--border)] bg-[color:var(--surface-muted)] p-4">
@@ -1166,10 +1199,9 @@ const RecipeAnalysis = () => {
                         {showKpis && (
                             <div className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[0_12px_30px_var(--shadow)] p-6">
                                 <h3 className="text-lg font-semibold text-[color:var(--text)] mb-4 flex items-center">
-                                    KPI 제안
-                                    <HelpTooltip
-                                        label="KPI"
-                                        description="핵심 성과 지표로, 목표가 얼마나 달성됐는지 숫자로 확인하는 기준입니다."
+                                    <SectionTitle
+                                        title="KPI 제안"
+                                        help="제품 출시 이후 성과를 측정하고 개선 방향을 판단하기 위한 핵심 지표를 제안합니다."
                                     />
                                 </h3>
                                 <div className="space-y-3">
@@ -1187,89 +1219,45 @@ const RecipeAnalysis = () => {
 
                         {showNextSteps && (
                             <div className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[0_12px_30px_var(--shadow)] p-6">
-                                <h3 className="text-lg font-semibold text-[color:var(--text)] mb-3">다음 단계</h3>
+                                <h3 className="text-lg font-semibold text-[color:var(--text)] mb-3">
+                                    <SectionTitle
+                                        title="제품 개발 추천안"
+                                        help="제품 기획/개발을 추진할 때 추천하는 다음 단계입니다."
+                                    />
+                                </h3>
                                 {renderList(nextSteps)}
                             </div>
                         )}
                     </div>
 
                     <div className="space-y-6 min-w-0">
-                        {showSummary && (
+                        {/*인플루언서 추천+이미지*/}
+                        {showInfluencerImage && (
                             <div className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[0_12px_30px_var(--shadow)] p-6">
-                                <div className="flex items-center justify-between">
-                                    <h3 className="text-lg font-semibold text-[color:var(--text)]">요약본</h3>
+                                <h3 className="text-lg font-semibold text-[color:var(--text)] mb-3">
+                                    <SectionTitle
+                                        title="인플루언서 이미지"
+                                        help="인플루언서 추천 기반으로 만들어진 인플루언서 이미지입니다."
+                                    />
+                                </h3>
+                                <div className="min-h-[320px] rounded-xl border border-[color:var(--border)] bg-[color:var(--surface-muted)] flex items-center justify-center overflow-hidden">
+                                    <img
+                                        src={`data:image/png;base64,${imageBase64}`}
+                                        alt="influencer"
+                                        className="h-full w-full object-contain"
+                                    />
                                 </div>
-                                <p className="mt-4 text-sm text-[color:var(--text-muted)] whitespace-pre-line">
-                                    {recipe.summary}
-                                </p>
-                            </div>
-                        )}
-
-                        {/* 🔥 국가 수출 부적합 사례 카드 (항상 표시) */}
-                        <div className="lg:col-span-2 rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[0_12px_30px_var(--shadow)] p-6">
-                            <h3 className="text-lg font-semibold text-[color:var(--text)] mb-4">
-                                국가 수출 부적합 사례
-                            </h3>
-
-                            {/* 완제품 */}
-                            <div className="mb-5">
-                                <p className="font-semibold">제품명: {recipe.title}</p>
-
-                                {productCases.length === 0 ? (
-                                    <p className="text-sm text-[color:var(--text-muted)] ml-2">
-                                        수출 부적합 사례가 확인되지 않았습니다.
-                                    </p>
-                                ) : (
-                                    <ul className="list-disc ml-5 text-sm">
-                                        {productCases.map((c, i) => (
-                                            <li key={i}>
-                                                {c.country} - {c.action || '-'} - {c.violationReason || '-'}
-                                            </li>
-                                        ))}
-                                    </ul>
-                                )}
-                            </div>
-
-                            {/* 재료별 */}
-                            {ingredientCases.length === 0 ? (
-                                <p className="text-sm text-[color:var(--text-muted)] ml-2">
-                                    재료 기준 수출 부적합 사례가 확인되지 않았습니다.
-                                </p>
-                            ) : (
-                                ingredientCases.map((ing, idx) => (
-                                    <div key={idx} className="mb-4">
-                                        <p className="font-medium">[재료: {ing.ingredient}]</p>
-
-                                        {ing.cases.length === 0 ? (
-                                            <p className="text-sm text-[color:var(--text-muted)] ml-2">
-                                                해당 재료의 수출 부적합 사례가 없습니다.
-                                            </p>
-                                        ) : (
-                                            <ul className="list-disc ml-5 text-sm">
-                                                {ing.cases.map((c, i) => (
-                                                    <li key={i}>
-                                                        {c.country} - {c.action || '-'} - {c.violationReason || '-'}
-                                                    </li>
-                                                ))}
-                                            </ul>
-                                        )}
-                                    </div>
-                                ))
-                            )}
-                        </div>
-
-                        {showAllergen && (
-                            <div className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[0_12px_30px_var(--shadow)] p-6">
-                                <h3 className="text-lg font-semibold text-[color:var(--text)] mb-3">알레르기 성분 노트</h3>
-                                <p className="text-sm text-[color:var(--text-muted)] whitespace-pre-line">
-                                    {recipe.allergen?.note}
-                                </p>
                             </div>
                         )}
 
                         {showInfluencer && (
                             <div className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[0_12px_30px_var(--shadow)] p-6">
-                                <h3 className="text-lg font-semibold text-[color:var(--text)] mb-3">인플루언서 추천</h3>
+                                <h3 className="text-lg font-semibold text-[color:var(--text)] mb-3">
+                                    <SectionTitle
+                                        title="인플루언서 추천"
+                                        help="해당 비슷한 제품을 접하거나 올렸던 인플루언서 중 이 제품에 제일 적합할 인플루언서들을 추천합니다."
+                                    />
+                                </h3>
                                 <div className="space-y-4">
                                     {influencers.slice(0, 3).map((inf, idx) => (
                                         <div key={`${inf.name}-${idx}`} className="rounded-xl border border-[color:var(--border)] bg-[color:var(--surface-muted)] p-4">
@@ -1285,18 +1273,95 @@ const RecipeAnalysis = () => {
                             </div>
                         )}
 
-                        {showInfluencerImage && (
+
+
+                        {/* 알레르기 쉘 */}
+                        {showAllergen && (
                             <div className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[0_12px_30px_var(--shadow)] p-6">
-                                <h3 className="text-lg font-semibold text-[color:var(--text)] mb-3">인플루언서 이미지</h3>
-                                <div className="min-h-[320px] rounded-xl border border-[color:var(--border)] bg-[color:var(--surface-muted)] flex items-center justify-center overflow-hidden">
-                                    <img
-                                        src={`data:image/png;base64,${imageBase64}`}
-                                        alt="influencer"
-                                        className="h-full w-full object-contain"
-                                    />
-                                </div>
+                                <SectionTitle
+                                    title="알레르기 성분 노트"
+                                    help="해당 레시피 대로 제품을 생산 시, 목표 국가에 대해 표기해야 하는 알레르기 정보입니다."
+                                />
+
+                                <p className="text-sm font-medium text-[color:var(--text)] whitespace-pre-line">
+                                    {recipe.allergen?.note}
+                                </p>
                             </div>
                         )}
+
+                        {/* 🔥 국가 수출 부적합 사례 카드*/}
+                        {showRecipeCase && (
+                            <div className="lg:col-span-2 rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[0_12px_30px_var(--shadow)] p-6">
+                                <h3 className="text-lg font-semibold text-[color:var(--text)] mb-4">
+                                    <SectionTitle
+                                        title="국가 수출 부적합 사례"
+                                        help="해당 레시피의 최종 제품과 재료를 한국에서 목표 국가로 수출했을 때 발생한 부적합 사례를 보여주는 정보입니다."
+                                    />
+                                </h3>
+
+                                {/* 완제품 */}
+                                <div className="mb-5">
+                                    <p className="font-semibold">제품명: {recipe.title}</p>
+
+                                    {productCases.length === 0 ? (
+                                        <p className="text-sm text-[color:var(--text-muted)] ml-2">
+                                            수출 부적합 사례가 확인되지 않았습니다.
+                                        </p>
+                                    ) : (
+                                        <ul className="list-disc ml-5 text-sm">
+                                            {productCases.map((c, i) => (
+                                                <li key={i}>
+                                                    {c.country} - {c.action || '-'} - {c.violationReason || '-'}
+                                                </li>
+                                            ))}
+                                        </ul>
+                                    )}
+                                </div>
+
+                                {/* 재료별 */}
+                                {ingredientCases.length === 0 ? (
+                                    <p className="text-sm text-[color:var(--text-muted)] ml-2">
+                                        재료 기준 수출 부적합 사례가 확인되지 않았습니다.
+                                    </p>
+                                ) : (
+                                    ingredientCases.map((ing, idx) => (
+                                        <div key={idx} className="mb-4">
+                                            <p className="font-medium">[재료: {ing.ingredient}]</p>
+
+                                            {ing.cases.length === 0 ? (
+                                                <p className="text-sm text-[color:var(--text-muted)] ml-2">
+                                                    해당 재료의 수출 부적합 사례가 없습니다.
+                                                </p>
+                                            ) : (
+                                                <ul className="list-disc ml-5 text-sm">
+                                                    {ing.cases.map((c, i) => (
+                                                        <li key={i}>
+                                                            {c.country} - {c.action || '-'} - {c.violationReason || '-'}
+                                                        </li>
+                                                    ))}
+                                                </ul>
+                                            )}
+                                        </div>
+                                    ))
+                                )}
+
+                            </div>
+                        )}
+                        {/* 최종 보고서 요약본 */}
+                        {showSummary && (
+                            <div className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[0_12px_30px_var(--shadow)] p-6">
+                                <SectionTitle
+                                    title="최종 보고서 요약"
+                                    help="현재까지 보고된 내용을 종합해, 최종 보고서를 요약한 정보입니다."
+                                />
+
+                                <p className="mt-4 text-sm font-medium text-[color:var(--text)] whitespace-pre-line">
+                                    {recipe.summary}
+                                </p>
+                            </div>
+                        )}
+
+
 
                         {recipe.status === 'DRAFT' && isOwner && !isRecipeOnly && (
                             <button

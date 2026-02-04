@@ -29,24 +29,26 @@ const REPORT_SECTION_OPTIONS = [
     { key: 'executiveSummary', label: '핵심 요약', required: true },
     { key: 'marketSnapshot', label: '시장 스냅샷', required: true },
     { key: 'riskAssessment', label: '리스크 & 대응', required: true },
-    { key: 'swot', label: 'SWOT' },
     { key: 'conceptIdeas', label: '컨셉 아이디어', required: true },
+    { key: 'summary', label: '최종 보고서 요약', required: true },
+
+    { key: 'globalMarketMap', label: 'Global Market Map' },
+    { key: 'swot', label: 'SWOT' },
     { key: 'kpis', label: 'KPI 제안' },
-    { key: 'nextSteps', label: '다음 단계' },
-    { key: 'summary', label: '요약본', required: true },
+
+    { key: 'RecipeCase', label: '국가 수출 부적합 사례' },
     { key: 'allergenNote', label: '알레르기 성분 노트' },
+
+    { key: 'nextSteps', label: '제품 개발 추천안' },
     { key: 'influencer', label: '인플루언서 추천' },
     { key: 'influencerImage', label: '인플루언서 이미지' },
-    { key: 'globalMarketMap', label: 'Global Market Map' },
 ];
 
 const GENERATION_OPTIONS = [
-    { value: 'recipe_report', label: '리포트/요약', includeReport: true },
-    { value: 'recipe_report_map', label: '리포트/요약+지도 평가 점수', includeReport: true },
-    { value: 'recipe_report_influencer', label: '리포트/요약+인플루언서 추천', includeReport: true },
-    { value: 'recipe_report_influencer_map', label: '리포트/요약+인플루언서 추천+지도 평가 점수', includeReport: true },
-    { value: 'recipe_report_influencer_image', label: '리포트/요약+인플루언서 추천+이미지 생성', includeReport: true },
-    { value: 'recipe_report_influencer_image_map', label: '리포트/요약+인플루언서 추천+이미지 생성+지도 평가 점수', includeReport: true },
+    { value: 'recipe_report', label: '시장 분석용 기본 리포트', includeReport: true },
+    { value: 'recipe_report_map', label: '시장 분석용 전문 리포트', includeReport: true },
+    { value: 'recipe_report_final', label: '수출용 최종 리포트', includeReport: true },
+    { value: 'recipe_report_influencer', label: '인플루언서 추천 최종 리포트', includeReport: true },
 ];
 
 const REPORT_PRESETS = {
@@ -54,76 +56,51 @@ const REPORT_PRESETS = {
         'executiveSummary',
         'marketSnapshot',
         'riskAssessment',
-        'swot',
         'conceptIdeas',
-        'kpis',
-        'nextSteps',
         'summary',
-        'allergenNote',
     ],
     recipe_report_map: [
         'executiveSummary',
         'marketSnapshot',
         'riskAssessment',
-        'swot',
         'conceptIdeas',
-        'kpis',
-        'nextSteps',
         'summary',
-        'allergenNote',
+
         'globalMarketMap',
+        'swot',
+        'kpis',
+    ],
+    recipe_report_final: [
+        'executiveSummary',
+        'marketSnapshot',
+        'riskAssessment',
+        'conceptIdeas',
+        'summary',
+
+        'globalMarketMap',
+        'swot',
+        'kpis',
+
+        'RecipeCase',
+        'allergenNote',
     ],
     recipe_report_influencer: [
         'executiveSummary',
         'marketSnapshot',
         'riskAssessment',
-        'swot',
         'conceptIdeas',
-        'kpis',
-        'nextSteps',
         'summary',
-        'allergenNote',
-        'influencer',
-    ],
-    recipe_report_influencer_map: [
-        'executiveSummary',
-        'marketSnapshot',
-        'riskAssessment',
-        'swot',
-        'conceptIdeas',
-        'kpis',
-        'nextSteps',
-        'summary',
-        'allergenNote',
-        'influencer',
+
         'globalMarketMap',
-    ],
-    recipe_report_influencer_image: [
-        'executiveSummary',
-        'marketSnapshot',
-        'riskAssessment',
         'swot',
-        'conceptIdeas',
         'kpis',
-        'nextSteps',
-        'summary',
+
+        'RecipeCase',
         'allergenNote',
+
+        'nextSteps',
         'influencer',
         'influencerImage',
-    ],
-    recipe_report_influencer_image_map: [
-        'executiveSummary',
-        'marketSnapshot',
-        'riskAssessment',
-        'swot',
-        'conceptIdeas',
-        'kpis',
-        'nextSteps',
-        'summary',
-        'allergenNote',
-        'influencer',
-        'influencerImage',
-        'globalMarketMap',
     ],
 };
 
@@ -146,8 +123,11 @@ const RecipeReport = () => {
     const [targetCountry, setTargetCountry] = useState(TARGET_COUNTRY_OPTIONS[0].value);
     const [targetPersona, setTargetPersona] = useState(TARGET_PERSONA_OPTIONS[0]);
     const [priceRange, setPriceRange] = useState(PRICE_RANGE_OPTIONS[0]);
-    const [generationOption, setGenerationOption] = useState('recipe_report');
-    const [reportSections, setReportSections] = useState(() => REPORT_PRESETS.recipe_report);
+
+    // 보고서 시작 바꾸기
+    const [generationOption, setGenerationOption] = useState('recipe_report_influencer');
+    const [reportSections, setReportSections] = useState(() => REPORT_PRESETS.recipe_report_influencer);
+
     const [reportOpenYn, setReportOpenYn] = useState('N');
     const [recipeOpenYn, setRecipeOpenYn] = useState('N');
     const [targetRecommendLoading, setTargetRecommendLoading] = useState(false);
@@ -675,7 +655,15 @@ const RecipeReport = () => {
                                                 isRequired ||
                                                 (item.key === 'influencerImage' && !reportSections.includes('influencer'));
                                             return (
-                                                <label key={item.key} className="flex items-center gap-2 text-xs text-[color:var(--text)]">
+                                                <label
+                                                    key={item.key}
+                                                    className="flex items-center gap-2 text-xs text-[color:var(--text)]"
+                                                    title={
+                                                        item.key === 'influencerImage' && !reportSections.includes('influencer')
+                                                            ? '인플루언서 추천을 선택해야 이미지 항목을 사용할 수 있어요.'
+                                                            : ''
+                                                    }
+                                                >
                                                     <input
                                                         type="checkbox"
                                                         className="h-3 w-3"
