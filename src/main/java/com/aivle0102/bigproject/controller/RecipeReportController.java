@@ -3,6 +3,7 @@ package com.aivle0102.bigproject.controller;
 import com.aivle0102.bigproject.dto.ReportCreateRequest;
 import com.aivle0102.bigproject.dto.ReportDetailResponse;
 import com.aivle0102.bigproject.dto.ReportListItem;
+import com.aivle0102.bigproject.dto.RecipePublishRequest;
 import com.aivle0102.bigproject.dto.VisibilityUpdateRequest;
 import com.aivle0102.bigproject.service.RecipeService;
 import lombok.RequiredArgsConstructor;
@@ -58,5 +59,17 @@ public class RecipeReportController {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
         }
         return ResponseEntity.ok(recipeService.updateReportVisibility(reportId, principal.getName(), request));
+    }
+
+    @PutMapping("/api/reports/{reportId}/influencers")
+    public ResponseEntity<ReportDetailResponse> updateReportInfluencers(
+            @PathVariable("reportId") Long reportId,
+            @RequestBody(required = false) RecipePublishRequest request,
+            Principal principal
+    ) {
+        if (principal == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+        return ResponseEntity.ok(recipeService.saveReportInfluencers(reportId, principal.getName(), request));
     }
 }

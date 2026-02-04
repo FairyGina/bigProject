@@ -434,7 +434,7 @@ const NoticeBoard = () => {
                             <div className="px-4 py-6 text-sm text-[color:var(--text-muted)]">공지사항을 불러오는 중입니다.</div>
                         )}
                         {!loadingNotices && searchTerm.trim().length > 0 && filteredNotices.length === 0 && (
-                            <div className="px-4 py-6 text-sm text-[color:var(--text-muted)]">No notices match your search.</div>
+                            <div className="px-4 py-6 text-sm text-[color:var(--text-muted)]">일치하는 공지사항이 없습니다.</div>
                         )}
                         {!loadingNotices && noticeError && (
                             <div className="px-4 py-3 text-xs text-[color:var(--danger)] bg-[color:var(--danger-bg)]">
@@ -522,15 +522,6 @@ const NoticeBoard = () => {
                             placeholder="공지사항 검색"
                             className="w-full bg-transparent text-sm text-[color:var(--text)] placeholder:text-[color:var(--text-soft)] focus:outline-none"
                         />
-                        {searchTerm && (
-                            <button
-                                type="button"
-                                onClick={() => setSearchTerm('')}
-                                className="text-xs font-semibold text-[color:var(--text-soft)] hover:text-[color:var(--text)] transition"
-                            >
-                                Clear
-                            </button>
-                        )}
                     </div>
                 </div>
 

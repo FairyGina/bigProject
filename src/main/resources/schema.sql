@@ -21,11 +21,11 @@ CREATE TABLE IF NOT EXISTS userinfo (
     provider VARCHAR(20),
     providerid VARCHAR(100),
     birthdate DATE,
-    password_changed_at TIMESTAMP NOT NULL DEFAULT NOW()
+    password_changed_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    company_id BIGINT REFERENCES company(company_id)
     );
 
 CREATE UNIQUE INDEX IF NOT EXISTS ux_userinfo_userid ON userinfo (userId);
-
 
 --notice(공지사항) 테이블
 CREATE TABLE IF NOT EXISTS notice (
@@ -33,9 +33,11 @@ CREATE TABLE IF NOT EXISTS notice (
     title VARCHAR(200) NOT NULL,
     content TEXT NOT NULL,
     user_id VARCHAR(50) NOT NULL REFERENCES userinfo(userId),
+    company_id BIGINT REFERENCES company(company_id),
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
+CREATE INDEX IF NOT EXISTS idx_notice_company_id ON notice(company_id);
 
 --notice_comment(공지사항 댓글) 테이블
 CREATE TABLE IF NOT EXISTS notice_comment (
@@ -47,7 +49,6 @@ CREATE TABLE IF NOT EXISTS notice_comment (
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
-
 --recipe(레시피 & 메뉴 개발) 테이블
 CREATE TABLE IF NOT EXISTS recipe (
     recipe_id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
@@ -56,7 +57,7 @@ CREATE TABLE IF NOT EXISTS recipe (
     image_base64 TEXT,
     steps TEXT,
     status VARCHAR(20) NOT NULL DEFAULT 'DRAFT',
-    open_yn CHAR(1) NOT NULL DEFAULT 'Y' CHECK (open_yn IN ('Y','N')),
+    open_yn VARCHAR(1) NOT NULL DEFAULT 'Y' CHECK (open_yn IN ('Y','N')),
     user_id VARCHAR(50) NOT NULL REFERENCES userinfo(userId),
     company_id BIGINT REFERENCES company(company_id),
 
@@ -66,7 +67,6 @@ CREATE TABLE IF NOT EXISTS recipe (
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
-
 
 --recipe_ingredient(레시피 재료) 테이블
 CREATE TABLE IF NOT EXISTS recipe_ingredient
@@ -78,7 +78,6 @@ CREATE TABLE IF NOT EXISTS recipe_ingredient
     substitute_ingredient VARCHAR(255),
     cost                  NUMERIC(10, 2)
 );
-
 
 --recipe_nonconforming_case(수출 부적합) 테이블
 CREATE TABLE IF NOT EXISTS recipe_nonconforming_case
@@ -95,7 +94,6 @@ CREATE TABLE IF NOT EXISTS recipe_nonconforming_case
     created_at         TIMESTAMP    NOT NULL DEFAULT NOW()
 );
 
-
 --recipe_allergen 테이블: 알레르기 성분 검출 기능 관련 사용
 CREATE TABLE IF NOT EXISTS recipe_allergen (
     recipe_allergen_id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY, -- 알레르기 검출 결과 고유 ID
@@ -111,7 +109,6 @@ CREATE TABLE IF NOT EXISTS recipe_allergen (
     -- 같은 레시피/재료/국가 조합에서 동일 알레르기 성분이 중복 저장되지 않도록 제약
 );
 
-
 -- market_report(보고서) 테이블
 CREATE TABLE IF NOT EXISTS market_report (
     report_id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
@@ -119,7 +116,7 @@ CREATE TABLE IF NOT EXISTS market_report (
     report_type VARCHAR(20) NOT NULL, -- SWOT / KPI 등
     content TEXT NOT NULL,
     summary TEXT,
-    open_yn CHAR(1) NOT NULL DEFAULT 'Y' CHECK (open_yn IN ('Y','N')),
+    open_yn VARCHAR(1) NOT NULL DEFAULT 'Y' CHECK (open_yn IN ('Y','N')),
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
@@ -139,7 +136,6 @@ CREATE TABLE IF NOT EXISTS influencer (
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
-
 
 --virtual_consumer 가상 소비자(AI 페르소나 심사위원) 테이블
 CREATE TABLE IF NOT EXISTS virtual_consumer (
@@ -163,8 +159,6 @@ ON virtual_consumer (report_id, personaName, country, ageGroup);
 -- 조회 성능용 인덱스
 CREATE INDEX IF NOT EXISTS ix_virtual_consumer_report
 ON virtual_consumer (report_id);
-
-
 
 -- consumer_feedback (AI 심사위원 피드백) 테이블
 CREATE TABLE IF NOT EXISTS consumer_feedback (

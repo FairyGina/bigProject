@@ -43,11 +43,16 @@ const RecipeAnalysis = () => {
         }
     };
 
-    const influencerMetaKey = (recipeId) => `recipeInfluencerMeta:${recipeId}`;
-    const readInfluencerMeta = (recipeId) => {
+    const influencerMetaKey = (recipeId, reportIdValue) =>
+        reportIdValue ? `reportInfluencerMeta:${reportIdValue}` : `recipeInfluencerMeta:${recipeId}`;
+    const influencerListKey = (recipeId, reportIdValue) =>
+        reportIdValue ? `reportInfluencers:${reportIdValue}` : `recipeInfluencers:${recipeId}`;
+    const influencerImageKey = (recipeId, reportIdValue) =>
+        reportIdValue ? `reportInfluencerImage:${reportIdValue}` : `recipeInfluencerImage:${recipeId}`;
+    const readInfluencerMeta = (recipeId, reportIdValue) => {
         const cached =
-            sessionStorage.getItem(influencerMetaKey(recipeId)) ||
-            localStorage.getItem(influencerMetaKey(recipeId));
+            sessionStorage.getItem(influencerMetaKey(recipeId, reportIdValue)) ||
+            localStorage.getItem(influencerMetaKey(recipeId, reportIdValue));
         if (!cached) {
             return null;
         }
@@ -61,6 +66,19 @@ const RecipeAnalysis = () => {
         Boolean(meta) &&
         meta.title === (currentRecipe?.title ?? '') &&
         meta.summary === (currentRecipe?.summary ?? '');
+    const persistReportInfluencers = async (recs, image) => {
+        if (!reportId) {
+            return;
+        }
+        try {
+            await axiosInstance.put(`/api/reports/${reportId}/influencers`, {
+                influencers: recs || [],
+                influencerImageBase64: image || '',
+            });
+        } catch (err) {
+            console.error('인플루언서를 저장하지 못했습니다.', err);
+        }
+    };
 
     useEffect(() => {
         const fetchRecipe = async () => {
@@ -176,7 +194,7 @@ const RecipeAnalysis = () => {
                 initMap();
             } else {
                 existing.addEventListener('load', () => initMap(), { once: true });
-                existing.addEventListener('error', () => setMapError('Google Maps 스크립트 로딩에 실패했습니다.'), { once: true });
+                existing.addEventListener('error', () => setMapError('Google Maps script failed to load.'), { once: true });
                 initMap();
             }
             return;
@@ -224,6 +242,45 @@ const RecipeAnalysis = () => {
                     setImageBase64('');
                 }
             }
+            const existingRecs = Array.isArray(recipe?.influencers) ? recipe.influencers : [];
+            if (existingRecs.length > 0) {
+                if (allowInfluencerImage && !recipe?.influencerImageBase64 && !imageBase64) {
+                    setInfluencerLoading(true);
+                    try {
+                        const topExisting =
+                            existingRecs.find((item) => item?.name && item?.imageUrl) ||
+                            existingRecs.find((item) => item?.name);
+                        if (topExisting?.name) {
+                            const imageRes = await axiosInstance.post('/api/images/generate', {
+                                recipe: recipe.title,
+                                influencerName: topExisting.name,
+                                influencerImageUrl: topExisting.imageUrl || '',
+                                additionalStyle: 'clean studio, natural lighting',
+                            });
+                            const generated = imageRes.data?.imageBase64 || '';
+                            setImageBase64(generated);
+                            if (generated) {
+                                try {
+                                    sessionStorage.setItem(influencerImageKey(recipe.id, reportId), generated);
+                                } catch (err) {
+                                    // 캐시 오류는 무시
+                                }
+                                try {
+                                    localStorage.setItem(influencerImageKey(recipe.id, reportId), generated);
+                                } catch (err) {
+                                    // 캐시 오류는 무시
+                                }
+                            }
+                            await persistReportInfluencers(existingRecs, generated);
+                        }
+                    } catch (err) {
+                        console.error('인플루언서 이미지 생성에 실패했습니다', err);
+                    } finally {
+                        setInfluencerLoading(false);
+                    }
+                }
+                return;
+            }
             if (
                 (recipe?.influencers?.length || 0) > 0 &&
                 (!allowInfluencerImage || recipe?.influencerImageBase64 || imageBase64)
@@ -237,19 +294,19 @@ const RecipeAnalysis = () => {
                 return;
             }
             const cachedInfluencers =
-                sessionStorage.getItem(`recipeInfluencers:${recipe.id}`) ||
-                localStorage.getItem(`recipeInfluencers:${recipe.id}`);
+                sessionStorage.getItem(influencerListKey(recipe.id, reportId)) ||
+                localStorage.getItem(influencerListKey(recipe.id, reportId));
             const cachedImage =
-                sessionStorage.getItem(`recipeInfluencerImage:${recipe.id}`) ||
-                localStorage.getItem(`recipeInfluencerImage:${recipe.id}`);
-            const cachedMeta = readInfluencerMeta(recipe.id);
+                sessionStorage.getItem(influencerImageKey(recipe.id, reportId)) ||
+                localStorage.getItem(influencerImageKey(recipe.id, reportId));
+            const cachedMeta = readInfluencerMeta(recipe.id, reportId);
             if (cachedMeta && !isInfluencerMetaMatch(cachedMeta, recipe)) {
-                sessionStorage.removeItem(`recipeInfluencers:${recipe.id}`);
-                sessionStorage.removeItem(`recipeInfluencerImage:${recipe.id}`);
-                sessionStorage.removeItem(influencerMetaKey(recipe.id));
-                localStorage.removeItem(`recipeInfluencers:${recipe.id}`);
-                localStorage.removeItem(`recipeInfluencerImage:${recipe.id}`);
-                localStorage.removeItem(influencerMetaKey(recipe.id));
+                sessionStorage.removeItem(influencerListKey(recipe.id, reportId));
+                sessionStorage.removeItem(influencerImageKey(recipe.id, reportId));
+                sessionStorage.removeItem(influencerMetaKey(recipe.id, reportId));
+                localStorage.removeItem(influencerListKey(recipe.id, reportId));
+                localStorage.removeItem(influencerImageKey(recipe.id, reportId));
+                localStorage.removeItem(influencerMetaKey(recipe.id, reportId));
             }
             if (cachedInfluencers) {
                 try {
@@ -284,28 +341,32 @@ const RecipeAnalysis = () => {
                 };
                 const influencerRes = await axiosInstance.post('/api/influencers/recommend', payload);
                 const recs = influencerRes.data?.recommendations ?? [];
-                setInfluencers(recs);
-                if (recs.length) {
+                const trimmedRecs = recs.slice(0, 3);
+                let generatedImage = '';
+                setInfluencers(trimmedRecs);
+                if (trimmedRecs.length) {
                     const metaJson = JSON.stringify({
                         id: recipe.id,
                         title: recipe.title,
                         summary: recipe.summary,
                     });
                     try {
-                        sessionStorage.setItem(influencerMetaKey(recipe.id), metaJson);
-                        sessionStorage.setItem(`recipeInfluencers:${recipe.id}`, JSON.stringify(recs));
+                        sessionStorage.setItem(influencerMetaKey(recipe.id, reportId), metaJson);
+                        sessionStorage.setItem(influencerListKey(recipe.id, reportId), JSON.stringify(trimmedRecs));
                     } catch (err) {
                         // 캐시 오류는 무시
                     }
                     try {
-                        localStorage.setItem(influencerMetaKey(recipe.id), metaJson);
-                        localStorage.setItem(`recipeInfluencers:${recipe.id}`, JSON.stringify(recs));
+                        localStorage.setItem(influencerMetaKey(recipe.id, reportId), metaJson);
+                        localStorage.setItem(influencerListKey(recipe.id, reportId), JSON.stringify(trimmedRecs));
                     } catch (err) {
                         // 캐시 오류는 무시
                     }
                 }
 
-                const top = recs.find((item) => item?.name && item?.imageUrl) || recs.find((item) => item?.name);
+                const top =
+                    trimmedRecs.find((item) => item?.name && item?.imageUrl) ||
+                    trimmedRecs.find((item) => item?.name);
                 if (allowInfluencerImage && top?.name) {
                     const imageRes = await axiosInstance.post('/api/images/generate', {
                         recipe: recipe.title,
@@ -313,20 +374,22 @@ const RecipeAnalysis = () => {
                         influencerImageUrl: top.imageUrl || '',
                         additionalStyle: 'clean studio, natural lighting',
                     });
-                    setImageBase64(imageRes.data?.imageBase64 || '');
-                    if (imageRes.data?.imageBase64) {
+                    generatedImage = imageRes.data?.imageBase64 || '';
+                    setImageBase64(generatedImage);
+                    if (generatedImage) {
                         try {
-                            sessionStorage.setItem(`recipeInfluencerImage:${recipe.id}`, imageRes.data.imageBase64);
+                            sessionStorage.setItem(influencerImageKey(recipe.id, reportId), generatedImage);
                         } catch (err) {
                             // 캐시 오류는 무시
                         }
                         try {
-                            localStorage.setItem(`recipeInfluencerImage:${recipe.id}`, imageRes.data.imageBase64);
+                            localStorage.setItem(influencerImageKey(recipe.id, reportId), generatedImage);
                         } catch (err) {
                             // 캐시 오류는 무시
                         }
                     }
                 }
+                await persistReportInfluencers(trimmedRecs, generatedImage);
             } catch (err) {
                 console.error('인플루언서 생성에 실패했습니다.', err);
             } finally {

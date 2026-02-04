@@ -557,6 +557,37 @@ public class RecipeService {
     }
 
     @Transactional
+    public ReportDetailResponse saveReportInfluencers(Long reportId, String requesterId, RecipePublishRequest request) {
+        MarketReport report = marketReportRepository.findById(reportId)
+                .orElseThrow(() -> new IllegalArgumentException("Report not found"));
+        Recipe recipe = report.getRecipe();
+        if (!recipe.getUserId().equals(requesterId)) {
+            throw new IllegalArgumentException("Report not found");
+        }
+        if (request == null) {
+            return toReportDetailResponse(recipe, report);
+        }
+
+        influencerRepository.deleteByReport_Id(reportId);
+        if (request.getInfluencers() != null && !request.getInfluencers().isEmpty()) {
+            for (Map<String, Object> influencer : request.getInfluencers()) {
+                influencerRepository.save(Influencer.builder()
+                        .report(report)
+                        .influencerInfo(writeJsonMap(influencer))
+                        .influencerImage(request.getInfluencerImageBase64())
+                        .build());
+            }
+        } else if (request.getInfluencerImageBase64() != null && !request.getInfluencerImageBase64().isBlank()) {
+            influencerRepository.save(Influencer.builder()
+                    .report(report)
+                    .influencerImage(request.getInfluencerImageBase64())
+                    .build());
+        }
+
+        return toReportDetailResponse(recipe, report);
+    }
+
+    @Transactional
     public RecipeResponse updateRecipeVisibility(Long recipeId, String requesterId, VisibilityUpdateRequest request) {
         Recipe recipe = recipeRepository.findById(recipeId)
                 .orElseThrow(() -> new IllegalArgumentException("레시피를 찾을 수 없습니다."));

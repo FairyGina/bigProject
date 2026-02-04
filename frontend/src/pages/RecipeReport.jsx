@@ -248,8 +248,40 @@ const RecipeReport = () => {
                     setRecipeOpenYn(res.data.recipeOpenYn);
                 }
                 await loadReports();
+                const nextReportId = res.data.reportId;
+                const needsInfluencer =
+                    reportSections.includes('influencer') || reportSections.includes('influencerImage');
+                if (needsInfluencer) {
+                    const recRes = await axiosInstance.post('/api/influencers/recommend', {
+                        recipe: recipe?.title || '',
+                        targetCountry,
+                        targetPersona,
+                        priceRange,
+                    });
+                    const recs = recRes.data?.recommendations ?? [];
+                    const trimmedRecs = recs.slice(0, 3);
+                    let imageBase64 = '';
+                    if (reportSections.includes('influencerImage') && trimmedRecs.length) {
+                        const top =
+                            trimmedRecs.find((item) => item?.name && item?.imageUrl) ||
+                            trimmedRecs.find((item) => item?.name);
+                        if (top?.name) {
+                            const imageRes = await axiosInstance.post('/api/images/generate', {
+                                recipe: recipe?.title || '',
+                                influencerName: top.name,
+                                influencerImageUrl: top.imageUrl || '',
+                                additionalStyle: 'clean studio, natural lighting',
+                            });
+                            imageBase64 = imageRes.data?.imageBase64 || '';
+                        }
+                    }
+                    await axiosInstance.put(`/api/reports/${nextReportId}/influencers`, {
+                        influencers: trimmedRecs,
+                        influencerImageBase64: imageBase64,
+                    });
+                }
                 setCreateOpen(false);
-                navigate(`/mainboard/reports/${res.data.reportId}`);
+                navigate(`/mainboard/reports/${nextReportId}`);
             }
         } catch (err) {
             console.error('보고서 생성에 실패했습니다.', err);

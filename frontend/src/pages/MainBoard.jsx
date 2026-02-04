@@ -70,15 +70,6 @@ const MainBoard = () => {
                             placeholder="제목으로 레시피를 검색합니다"
                             className="w-full bg-transparent text-sm text-[color:var(--text)] placeholder:text-[color:var(--text-soft)] focus:outline-none"
                         />
-                        {searchTerm && (
-                            <button
-                                type="button"
-                                onClick={() => setSearchTerm('')}
-                                className="text-xs font-semibold text-[color:var(--text-soft)] hover:text-[color:var(--text)] transition"
-                            >
-                                Clear
-                            </button>
-                        )}
                     </div>
                 </div>
 
