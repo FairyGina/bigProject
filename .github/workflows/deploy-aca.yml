@@ -78,7 +78,7 @@ jobs:
             --name ${{ env.BACKEND_APP_NAME }} \
             --resource-group ${{ env.RESOURCE_GROUP }} \
             --image ${{ env.BACKEND_ACR }}.azurecr.io/${{ env.BACKEND_IMAGE_NAME }}:${{ github.sha }} \
-            --set-env-vars ANALYSIS_ENGINE_URL=https://${{ env.ANALYSIS_APP_NAME }}.wittymushroom-76c80f0d.centralindia.azurecontainerapps.io
+            --set-env-vars ANALYSIS_ENGINE_URL=https://${{ env.ANALYSIS_APP_NAME }}.wittysand-a0f4e87e.centralindia.azurecontainerapps.io
 
       # 7. Frontend Container App 업데이트
       - name: Deploy Frontend to ACA
@@ -87,7 +87,8 @@ jobs:
             --name ${{ env.FRONTEND_APP_NAME }} \
             --resource-group ${{ env.RESOURCE_GROUP }} \
             --image ${{ env.FRONTEND_ACR }}.azurecr.io/${{ env.FRONTEND_IMAGE_NAME }}:${{ github.sha }} \
-            --set-env-vars BACKEND_URL=https://${{ env.BACKEND_APP_NAME }}.wittymushroom-76c80f0d.centralindia.azurecontainerapps.io
+            --set-env-vars BACKEND_URL=https://${{ env.BACKEND_APP_NAME }}.wittysand-a0f4e87e.centralindia.azurecontainerapps.io \
+              ANALYSIS_ENGINE_URL=https://${{ env.ANALYSIS_APP_NAME }}.wittysand-a0f4e87e.centralindia.azurecontainerapps.io
 
       # 8. Analysis Container App 업데이트
       - name: Deploy Analysis Engine to ACA

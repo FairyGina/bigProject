@@ -24,7 +24,7 @@ const ExportAnalysisPage = () => {
     useEffect(() => {
         const fetchItems = async () => {
             try {
-                const response = await axios.get('http://localhost:8000/items');
+                const response = await axios.get('/analysis-api/items');
                 if (response.data && response.data.items && response.data.items.length > 0) {
                     setAvailableItems(response.data.items);
                 }
@@ -48,7 +48,7 @@ const ExportAnalysisPage = () => {
         setLoading(true);
         setError(null);
         try {
-            const response = await axios.get('http://localhost:8000/analyze', {
+            const response = await axios.get('/analysis-api/analyze', {
                 params: { country: filters.country, item: filters.item }
             });
             setData(response.data);
@@ -64,7 +64,7 @@ const ExportAnalysisPage = () => {
     const fetchDashboard = async () => {
         setLoading(true);
         try {
-            const response = await axios.get('http://localhost:8000/dashboard');
+            const response = await axios.get('/analysis-api/dashboard');
             setDashboardData(response.data);
         } catch (err) {
             console.error("Dashboard Error:", err);
@@ -102,8 +102,8 @@ const ExportAnalysisPage = () => {
                 <button
                     onClick={() => setActiveTab('analyze')}
                     className={`pb-4 px-4 font-bold text-lg flex items-center gap-2 transition-colors ${activeTab === 'analyze'
-                            ? 'text-indigo-600 border-b-2 border-indigo-600'
-                            : 'text-[color:var(--text-muted)] hover:text-[color:var(--text)]'
+                        ? 'text-indigo-600 border-b-2 border-indigo-600'
+                        : 'text-[color:var(--text-muted)] hover:text-[color:var(--text)]'
                         }`}
                 >
                     <Search size={20} /> 개별 품목 분석
@@ -111,8 +111,8 @@ const ExportAnalysisPage = () => {
                 <button
                     onClick={() => setActiveTab('dashboard')}
                     className={`pb-4 px-4 font-bold text-lg flex items-center gap-2 transition-colors ${activeTab === 'dashboard'
-                            ? 'text-indigo-600 border-b-2 border-indigo-600'
-                            : 'text-[color:var(--text-muted)] hover:text-[color:var(--text)]'
+                        ? 'text-indigo-600 border-b-2 border-indigo-600'
+                        : 'text-[color:var(--text-muted)] hover:text-[color:var(--text)]'
                         }`}
                 >
                     <LayoutDashboard size={20} /> 시장 전체 개요

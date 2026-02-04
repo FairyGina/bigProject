@@ -194,7 +194,7 @@ const SignUpPage = () => {
         } catch (storageError) {
             console.warn('OAuth flow storage unavailable:', storageError);
         }
-        const baseUrl = (import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080').replace(/\/$/, '');
+        const baseUrl = (import.meta.env.VITE_API_URL || '').replace(/\/api$/, '');
         window.location.assign(`${baseUrl}/oauth2/authorization/${provider}`);
     };
 
