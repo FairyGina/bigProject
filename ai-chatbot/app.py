@@ -107,6 +107,47 @@ def call_llm(prompt: str) -> str:
     return response.output_text
 
 
+def extract_json_from_text(text: str) -> str:
+    if not text:
+        return ""
+    cleaned = text.strip()
+    if cleaned.startswith("```"):
+        cleaned = cleaned.replace("```json", "").replace("```", "").strip()
+    if cleaned.startswith("{") and cleaned.endswith("}"):
+        return cleaned
+    start = cleaned.find("{")
+    end = cleaned.rfind("}")
+    if start != -1 and end != -1 and end > start:
+        return cleaned[start:end + 1]
+    return ""
+
+
+def render_recipe_text(payload: Dict[str, Any]) -> str:
+    title = payload.get("title") or ""
+    description = payload.get("description") or ""
+    ingredients = payload.get("ingredients") or []
+    steps = payload.get("steps") or []
+
+    lines = []
+    if title:
+        lines.append(f"레시피 이름: {title}")
+        lines.append("")
+    if ingredients:
+        lines.append("재료(2~3인분 기준):")
+        for item in ingredients:
+            lines.append(f"- {item}")
+        lines.append("")
+    if steps:
+        lines.append("조리 순서:")
+        for idx, step in enumerate(steps, start=1):
+            lines.append(f"{idx}) {step}")
+        lines.append("")
+    if description:
+        lines.append("레시피 소개:")
+        lines.append(description)
+    return "\n".join(lines).strip()
+
+
 def call_llm_with_system(system_prompt: str, prompt: str) -> str:
     response = client.responses.create(
         model=MODEL_NAME,
@@ -279,11 +320,27 @@ def maybe_generate_recipe(state: Dict[str, Any]) -> Dict[str, Any]:
         else:
             final_prompt = final_prompt.replace("__FORECAST_SELECTED__", "없음")
         recipe_text = call_llm(final_prompt)
-        state["recipe"] = recipe_text
-        state["messages"].append({
-            "role": "assistant",
-            "content": recipe_text
-        })
+        recipe_json_text = extract_json_from_text(recipe_text)
+        recipe_payload: Dict[str, Any] = {}
+        if recipe_json_text:
+            try:
+                recipe_payload = json.loads(recipe_json_text)
+            except json.JSONDecodeError:
+                recipe_payload = {}
+
+        if recipe_payload:
+            rendered = render_recipe_text(recipe_payload)
+            state["recipe"] = recipe_json_text
+            state["messages"].append({
+                "role": "assistant",
+                "content": rendered
+            })
+        else:
+            state["recipe"] = recipe_text
+            state["messages"].append({
+                "role": "assistant",
+                "content": recipe_text
+            })
         state["recipe_generated"] = True
     return state
 
