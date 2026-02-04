@@ -27,7 +27,6 @@ const RecipeAnalysis = () => {
     const mapInfoWindowRef = useRef(null);
     const personaRunRef = useRef(null);
     const [evaluationResults, setEvaluationResults] = useState([]);
-    const showMap = Array.isArray(evaluationResults) && evaluationResults.length > 0;
     const targetMetaKey = (recipeId) => `recipeTargetMeta:${recipeId}`;
 
     const [productCases, setProductCases] = useState([]);
@@ -134,6 +133,9 @@ const RecipeAnalysis = () => {
     const allowInfluencerImage = reportSections
         ? reportSections.includes('influencerImage')
         : Boolean(recipe?.influencerImageBase64);
+    const allowMapSection = Array.isArray(reportSections) && reportSections.includes('globalMarketMap');
+    const allowAllergenSection = Array.isArray(reportSections) && reportSections.includes('allergenNote');
+    const showMap = allowMapSection && Array.isArray(evaluationResults) && evaluationResults.length > 0;
 
     useEffect(() => {
         const seededInfluencers = location.state?.influencers;
@@ -718,8 +720,9 @@ const RecipeAnalysis = () => {
         Array.isArray(reportSections) &&
         reportSections.includes('RecipeCase');
     const showAllergen =
-        Boolean(recipe?.allergen?.note) ||
-        (Array.isArray(recipe?.allergen?.matchedAllergens) && recipe.allergen.matchedAllergens.length > 0);
+        allowAllergenSection &&
+        (Boolean(recipe?.allergen?.note) ||
+            (Array.isArray(recipe?.allergen?.matchedAllergens) && recipe.allergen.matchedAllergens.length > 0));
     const showInfluencer = allowInfluencer && influencers.length > 0;
     const showInfluencerImage = allowInfluencerImage && Boolean(imageBase64);
 

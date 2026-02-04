@@ -68,6 +68,14 @@
 - Internal code may split into functions, but API call remains single request.
 - A second matching mode (finished product keyword) may be added later; consider adding a `match_type` field then.
 
+## Frontend Fix (2026-02-04)
+- File updated: `frontend/src/pages/RecipeAnalysis.jsx`
+- Root cause: map and allergen note were rendered whenever data existed, ignoring `report._sections`.
+- Fix: gate map and allergen rendering by report sections.
+- Map shows only when `report._sections` includes `globalMarketMap` and `evaluationResults` has data.
+- Allergen note shows only when `report._sections` includes `allergenNote` and allergen data exists.
+- Map script loading is skipped when the map section is not selected.
+
 ## Current Implementation Status (2026-01-22)
 - Controller + DTOs already exist and align with the confirmed request/response.
   - Controller: `src/main/java/com/aivle0102/bigproject/controller/RecipeCaseController.java`
