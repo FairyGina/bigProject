@@ -123,11 +123,8 @@ const RecipeReport = () => {
     const [targetCountry, setTargetCountry] = useState(TARGET_COUNTRY_OPTIONS[0].value);
     const [targetPersona, setTargetPersona] = useState(TARGET_PERSONA_OPTIONS[0]);
     const [priceRange, setPriceRange] = useState(PRICE_RANGE_OPTIONS[0]);
-
-    // 보고서 시작 바꾸기
     const [generationOption, setGenerationOption] = useState('recipe_report_influencer');
     const [reportSections, setReportSections] = useState(() => REPORT_PRESETS.recipe_report_influencer);
-
     const [reportOpenYn, setReportOpenYn] = useState('N');
     const [recipeOpenYn, setRecipeOpenYn] = useState('N');
     const [targetRecommendLoading, setTargetRecommendLoading] = useState(false);
@@ -655,15 +652,7 @@ const RecipeReport = () => {
                                                 isRequired ||
                                                 (item.key === 'influencerImage' && !reportSections.includes('influencer'));
                                             return (
-                                                <label
-                                                    key={item.key}
-                                                    className="flex items-center gap-2 text-xs text-[color:var(--text)]"
-                                                    title={
-                                                        item.key === 'influencerImage' && !reportSections.includes('influencer')
-                                                            ? '인플루언서 추천을 선택해야 이미지 항목을 사용할 수 있어요.'
-                                                            : ''
-                                                    }
-                                                >
+                                                <label key={item.key} className="flex items-center gap-2 text-xs text-[color:var(--text)]">
                                                     <input
                                                         type="checkbox"
                                                         className="h-3 w-3"
