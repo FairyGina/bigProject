@@ -62,6 +62,7 @@ public class RecipeService {
     private static final String SECTION_INFLUENCER = "influencer";
     private static final String SECTION_INFLUENCER_IMAGE = "influencerImage";
     private static final String SECTION_GLOBAL_MAP = "globalMarketMap";
+    private static final String SECTION_RECIPE_CASE = "RecipeCase";
 
 
     private final RecipeRepository recipeRepository;
@@ -721,22 +722,30 @@ public class RecipeService {
                 recipe.getRecipeName() + ": " + String.join(", ", ingredientNames)
         );
 
-        System.out.println("🔥 [EXPORT] recipeText = " + req.getRecipe());
+        List<String> sections = reportMap.get("_sections") instanceof List<?> list
+                ? list.stream()
+                .filter(String.class::isInstance)
+                .map(String.class::cast)
+                .toList()
+                : List.of();
 
-        RecipeCaseResponse exportRisks = recipeCaseService.findCases(req);
+// 🔹 2. RecipeCase 섹션 처리
+        if (sections.contains(SECTION_RECIPE_CASE)) {
+            RecipeCaseResponse exportRisks = recipeCaseService.findCases(req);
+            reportMap.put("exportRisks", exportRisks);
+        }
 
-        System.out.println("🔥 [EXPORT] exportRisks = " + exportRisks);
-
-        reportMap.put("exportRisks", exportRisks);
-
+// 🔹 3. 기본 데이터 읽기
         Map<String, Object> allergenMap = buildAllergenResponse(recipe);
         List<Map<String, Object>> influencers = readInfluencers(report);
         String influencerImage = influencers.isEmpty() ? null : readInfluencerImage(report);
+
+// 🔹 4. Draft 상태에서 섹션 기준 필터링
         if (STATUS_DRAFT.equalsIgnoreCase(recipe.getStatus())) {
-            List<String> sections = reportMap.get("_sections") instanceof List<?> list
-                    ? list.stream().filter(String.class::isInstance).map(String.class::cast).toList()
-                    : List.of();
-            boolean allowInfluencer = sections.contains(SECTION_INFLUENCER) || sections.contains(SECTION_INFLUENCER_IMAGE);
+            boolean allowInfluencer =
+                    sections.contains(SECTION_INFLUENCER) ||
+                            sections.contains(SECTION_INFLUENCER_IMAGE);
+
             if (!allowInfluencer) {
                 influencers = List.of();
                 influencerImage = null;
