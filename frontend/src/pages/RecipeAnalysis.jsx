@@ -29,6 +29,10 @@ const RecipeAnalysis = () => {
     const [evaluationResults, setEvaluationResults] = useState([]);
     const showMap = Array.isArray(evaluationResults) && evaluationResults.length > 0;
     const targetMetaKey = (recipeId) => `recipeTargetMeta:${recipeId}`;
+
+    const [productCases, setProductCases] = useState([]);
+    const [ingredientCases, setIngredientCases] = useState([]);
+
     const readTargetMeta = (recipeId) => {
         const cached =
             sessionStorage.getItem(targetMetaKey(recipeId)) ||
@@ -221,6 +225,34 @@ const RecipeAnalysis = () => {
             setEvaluationResults(aggregateEvaluations(recipe.report.evaluationResults));
         }
     }, [recipe]);
+
+    useEffect(() => {
+        const exportRisks = recipe?.report?.exportRisks;
+        const normalizeCase = (c) => ({
+            ...c,
+            caseId: c?.case_id ?? c?.caseId,
+            announcementDate: c?.announcement_date ?? c?.announcementDate,
+            violationReason: c?.violation_reason ?? c?.violationReason,
+            matchedIngredient: c?.matched_ingredient ?? c?.matchedIngredient,
+        });
+        const nextProductCases = Array.isArray(exportRisks?.product_cases?.cases)
+            ? exportRisks.product_cases.cases.map(normalizeCase)
+            : [];
+        const nextIngredientCases = Array.isArray(exportRisks?.ingredient_cases)
+            ? exportRisks.ingredient_cases.map((item) => ({
+                ...item,
+                cases: Array.isArray(item?.cases) ? item.cases.map(normalizeCase) : [],
+            }))
+            : [];
+        setProductCases(nextProductCases);
+        setIngredientCases(nextIngredientCases);
+    }, [recipe]);
+
+    useEffect(() => {
+        console.log('[EXPORT] exportRisks', recipe?.report?.exportRisks);
+        console.log('[EXPORT] productCases', productCases.length, productCases);
+        console.log('[EXPORT] ingredientCases', ingredientCases.length, ingredientCases);
+    }, [recipe, productCases, ingredientCases]);
 
     useEffect(() => {
         const fetchInfluencers = async () => {
@@ -834,11 +866,11 @@ const RecipeAnalysis = () => {
   <div class="section">
     <h2>인플루언서 추천</h2>
     ${
-        influencers.length
-            ? influencers
-                  .slice(0, 5)
-                  .map(
-                      (inf) => `
+                    influencers.length
+                        ? influencers
+                            .slice(0, 5)
+                            .map(
+                                (inf) => `
         <div>
           <p><strong>${escapeHtml(inf.name || '')}</strong> (${escapeHtml(inf.platform || '-')})</p>
           <p class="muted">${escapeHtml(inf.profileUrl || '')}</p>
@@ -846,10 +878,10 @@ const RecipeAnalysis = () => {
           ${inf.riskNotes ? `<p class="muted">주의: ${escapeHtml(inf.riskNotes)}</p>` : ''}
         </div>
       `
-                  )
-                  .join('')
-            : '<p class="muted">추천 결과가 없습니다.</p>'
-    }
+                            )
+                            .join('')
+                        : '<p class="muted">추천 결과가 없습니다.</p>'
+                }
   </div>
 `
                 : '',
@@ -858,10 +890,10 @@ const RecipeAnalysis = () => {
   <div class="section">
     <h2>인플루언서 이미지</h2>
     ${
-        imageBase64
-            ? `<img src="data:image/png;base64,${imageBase64}" alt="influencer" style="max-width:100%; border-radius:12px;"/>`
-            : '<p class="muted">이미지 생성 결과가 없습니다.</p>'
-    }
+                    imageBase64
+                        ? `<img src="data:image/png;base64,${imageBase64}" alt="influencer" style="max-width:100%; border-radius:12px;"/>`
+                        : '<p class="muted">이미지 생성 결과가 없습니다.</p>'
+                }
   </div>
 `
                 : '',
@@ -1027,6 +1059,7 @@ const RecipeAnalysis = () => {
                             </div>
                         </div>
                     )}
+
                     <div className="space-y-6 min-w-0">
                         {showExec && (
                             <div className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[0_12px_30px_var(--shadow)] p-6">
@@ -1167,6 +1200,59 @@ const RecipeAnalysis = () => {
                             </div>
                         )}
 
+                        {/* 🔥 국가 수출 부적합 사례 카드 (항상 표시) */}
+                        <div className="lg:col-span-2 rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[0_12px_30px_var(--shadow)] p-6">
+                            <h3 className="text-lg font-semibold text-[color:var(--text)] mb-4">
+                                국가 수출 부적합 사례
+                            </h3>
+
+                            {/* 완제품 */}
+                            <div className="mb-5">
+                                <p className="font-semibold">제품명: {recipe.title}</p>
+
+                                {productCases.length === 0 ? (
+                                    <p className="text-sm text-[color:var(--text-muted)] ml-2">
+                                        수출 부적합 사례가 확인되지 않았습니다.
+                                    </p>
+                                ) : (
+                                    <ul className="list-disc ml-5 text-sm">
+                                        {productCases.map((c, i) => (
+                                            <li key={i}>
+                                                {c.country} - {c.action || '-'} - {c.violationReason || '-'}
+                                            </li>
+                                        ))}
+                                    </ul>
+                                )}
+                            </div>
+
+                            {/* 재료별 */}
+                            {ingredientCases.length === 0 ? (
+                                <p className="text-sm text-[color:var(--text-muted)] ml-2">
+                                    재료 기준 수출 부적합 사례가 확인되지 않았습니다.
+                                </p>
+                            ) : (
+                                ingredientCases.map((ing, idx) => (
+                                    <div key={idx} className="mb-4">
+                                        <p className="font-medium">[재료: {ing.ingredient}]</p>
+
+                                        {ing.cases.length === 0 ? (
+                                            <p className="text-sm text-[color:var(--text-muted)] ml-2">
+                                                해당 재료의 수출 부적합 사례가 없습니다.
+                                            </p>
+                                        ) : (
+                                            <ul className="list-disc ml-5 text-sm">
+                                                {ing.cases.map((c, i) => (
+                                                    <li key={i}>
+                                                        {c.country} - {c.action || '-'} - {c.violationReason || '-'}
+                                                    </li>
+                                                ))}
+                                            </ul>
+                                        )}
+                                    </div>
+                                ))
+                            )}
+                        </div>
+
                         {showAllergen && (
                             <div className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[0_12px_30px_var(--shadow)] p-6">
                                 <h3 className="text-lg font-semibold text-[color:var(--text)] mb-3">알레르기 성분 노트</h3>
@@ -1175,7 +1261,7 @@ const RecipeAnalysis = () => {
                                 </p>
                             </div>
                         )}
-                        
+
                         {showInfluencer && (
                             <div className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[0_12px_30px_var(--shadow)] p-6">
                                 <h3 className="text-lg font-semibold text-[color:var(--text)] mb-3">인플루언서 추천</h3>

@@ -7,17 +7,7 @@ import com.aivle0102.bigproject.domain.RecipeAllergen;
 import com.aivle0102.bigproject.domain.RecipeIngredient;
 import com.aivle0102.bigproject.domain.UserInfo;
 import com.aivle0102.bigproject.domain.ConsumerFeedback;
-import com.aivle0102.bigproject.dto.AllergenAnalysisResponse;
-import com.aivle0102.bigproject.dto.AgeGroupResult;
-import com.aivle0102.bigproject.dto.IngredientEvidence;
-import com.aivle0102.bigproject.dto.RecipeCreateRequest;
-import com.aivle0102.bigproject.dto.RecipePublishRequest;
-import com.aivle0102.bigproject.dto.RecipeResponse;
-import com.aivle0102.bigproject.dto.ReportCreateRequest;
-import com.aivle0102.bigproject.dto.ReportDetailResponse;
-import com.aivle0102.bigproject.dto.ReportListItem;
-import com.aivle0102.bigproject.dto.ReportRequest;
-import com.aivle0102.bigproject.dto.VisibilityUpdateRequest;
+import com.aivle0102.bigproject.dto.*;
 import com.aivle0102.bigproject.domain.VirtualConsumer;
 import com.aivle0102.bigproject.repository.InfluencerRepository;
 import com.aivle0102.bigproject.repository.MarketReportRepository;
@@ -86,6 +76,7 @@ public class RecipeService {
     private final VirtualConsumerRepository virtualConsumerRepository;
     private final ConsumerFeedbackRepository consumerFeedbackRepository;
     private final EvaluationService evaluationService;
+    private final RecipeCaseService recipeCaseService;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     @Transactional
@@ -721,6 +712,23 @@ public class RecipeService {
         if (evalReport != null) {
             reportMap.put("evaluationResults", readEvaluationResults(evalReport));
         }
+        System.out.println("🔥 [EXPORT] recipeId = " + recipe.getId());
+        System.out.println("🔥 [EXPORT] ingredients = " + ingredientNames);
+
+        RecipeCaseRequest req = new RecipeCaseRequest();
+        req.setRecipeId(recipe.getId());
+        req.setRecipe(
+                recipe.getRecipeName() + ": " + String.join(", ", ingredientNames)
+        );
+
+        System.out.println("🔥 [EXPORT] recipeText = " + req.getRecipe());
+
+        RecipeCaseResponse exportRisks = recipeCaseService.findCases(req);
+
+        System.out.println("🔥 [EXPORT] exportRisks = " + exportRisks);
+
+        reportMap.put("exportRisks", exportRisks);
+
         Map<String, Object> allergenMap = buildAllergenResponse(recipe);
         List<Map<String, Object>> influencers = readInfluencers(report);
         String influencerImage = influencers.isEmpty() ? null : readInfluencerImage(report);
@@ -764,6 +772,15 @@ public class RecipeService {
         if (evalReport != null) {
             reportMap.put("evaluationResults", readEvaluationResults(evalReport));
         }
+
+        RecipeCaseRequest req = new RecipeCaseRequest();
+        req.setRecipeId(recipe.getId());
+        req.setRecipe(
+                recipe.getRecipeName() + ": " + String.join(", ", ingredientNames)
+        );
+        RecipeCaseResponse exportRisks = recipeCaseService.findCases(req);
+        reportMap.put("exportRisks", exportRisks);
+
         Map<String, Object> allergenMap = buildAllergenResponse(recipe);
         List<Map<String, Object>> influencers = readInfluencers(report);
         String influencerImage = influencers.isEmpty() ? null : readInfluencerImage(report);
@@ -962,7 +979,7 @@ public class RecipeService {
         if (report == null || report.getId() == null) {
             return List.of();
         }
-        // 유니크 제약(report_id, personaName, country, ageGroup)이 충돌하지 않도록 
+        // 유니크 제약(report_id, personaName, country, ageGroup)이 충돌하지 않도록
         virtualConsumerRepository.deleteByReport_Id(report.getId());
         if (recipeText == null || recipeText.isBlank()) {
             return List.of();
