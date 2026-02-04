@@ -7,6 +7,7 @@ import com.aivle0102.bigproject.dto.RecipeCaseRequest;
 import com.aivle0102.bigproject.dto.RecipeCaseResponse;
 import com.aivle0102.bigproject.dto.RegulatoryCase;
 import com.aivle0102.bigproject.repository.RecipeNonconformingCaseRepository;
+import com.aivle0102.bigproject.util.RecipeIngredientExtractor;
 import lombok.RequiredArgsConstructor;
 import org.apache.commons.csv.CSVFormat;
 import org.apache.commons.csv.CSVRecord;
@@ -36,6 +37,10 @@ public class RecipeCaseServiceImpl implements RecipeCaseService {
 
     @Override
     public RecipeCaseResponse findCases(RecipeCaseRequest request) {
+        System.out.println("========== EXPORT RISK DEBUG ==========");
+        System.out.println("[RAW REQUEST RECIPE] = " + request.getRecipe());
+        System.out.println("[RECIPE ID] = " + request.getRecipeId());
+
         List<SearchRow> searchRows = getSearchRows();
         Map<String, InfoRow> infoByCaseId = getInfoByCaseId();
 
@@ -49,11 +54,16 @@ public class RecipeCaseServiceImpl implements RecipeCaseService {
             for (SearchRow row : searchRows) {
                 if (row.ingredientKeyword == null) continue;
                 if (!isFinishedOrProcessed(row.ingredientType)) continue;
-                if (!hasTokenOverlap(parsed.productName, row.ingredientKeyword)) continue;
+                if (!hasTokenOverlap(parsed.productName, row.ingredientKeyword)) {
+                    continue;
+                }
 
                 InfoRow info = infoByCaseId.get(row.caseId);
                 if (info == null) continue;
 
+                System.out.println("[MATCH - PRODUCT] product="
+                        + parsed.productName + " / keyword=" + row.ingredientKeyword
+                        + " / caseId=" + info.caseId);
                 addCase(productCases, toSave, request.getRecipeId(), info, row.ingredientKeyword);
             }
         }
@@ -65,11 +75,16 @@ public class RecipeCaseServiceImpl implements RecipeCaseService {
 
             for (SearchRow row : searchRows) {
                 if (row.ingredientKeyword == null) continue;
-                if (!hasExactTokenMatch(row.ingredientKeyword, ingredient)) continue;
+                if (!hasExactTokenMatch(row.ingredientKeyword, ingredient)) {
+                    continue;
+                }
 
                 InfoRow info = infoByCaseId.get(row.caseId);
                 if (info == null) continue;
 
+                System.out.println("[MATCH - INGREDIENT] ingredient="
+                        + ingredient + " / keyword=" + row.ingredientKeyword
+                        + " / caseId=" + info.caseId);
                 addCase(cases, toSave, request.getRecipeId(), info, row.ingredientKeyword);
             }
 
@@ -79,9 +94,9 @@ public class RecipeCaseServiceImpl implements RecipeCaseService {
                     .build());
         }
 
-        if (!toSave.isEmpty()) {
-            recipeNonconformingCaseRepository.saveAll(toSave);
-        }
+//        if (!toSave.isEmpty()) {
+//            recipeNonconformingCaseRepository.saveAll(toSave);
+//        }
 
         return RecipeCaseResponse.builder()
                 .productCases(ProductCases.builder()
@@ -130,24 +145,22 @@ public class RecipeCaseServiceImpl implements RecipeCaseService {
         if (recipe == null) {
             return new ParsedRecipe(null, List.of());
         }
+
         int idx = recipe.indexOf(':');
         if (idx == -1) {
+            // 제품명만 있고 재료가 없는 경우
             return new ParsedRecipe(recipe.trim(), List.of());
         }
 
         String product = recipe.substring(0, idx).trim();
         String right = recipe.substring(idx + 1).trim();
 
-        List<String> ingredients = new ArrayList<>();
-        if (!right.isBlank()) {
-            String[] parts = right.split(",");
-            for (String p : parts) {
-                String t = p.trim();
-                if (!t.isBlank()) {
-                    ingredients.add(t);
-                }
-            }
-        }
+        // 🔥 재료 정제 유틸 사용
+        List<String> ingredients =
+                RecipeIngredientExtractor.extractIngredients(right);
+
+        System.out.println("[EXPORT RISK] product = " + product);
+        System.out.println("[EXPORT RISK] ingredients = " + ingredients);
 
         return new ParsedRecipe(product, ingredients);
     }
