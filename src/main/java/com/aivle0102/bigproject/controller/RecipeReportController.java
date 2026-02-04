@@ -15,6 +15,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.DeleteMapping;
 
 import java.security.Principal;
 import java.util.List;
@@ -71,5 +72,14 @@ public class RecipeReportController {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
         }
         return ResponseEntity.ok(recipeService.saveReportInfluencers(reportId, principal.getName(), request));
+    }
+
+    @DeleteMapping("/api/reports/{reportId}")
+    public ResponseEntity<Void> deleteReport(@PathVariable("reportId") Long reportId, Principal principal) {
+        if (principal == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+        recipeService.deleteReport(reportId, principal.getName());
+        return ResponseEntity.noContent().build();
     }
 }

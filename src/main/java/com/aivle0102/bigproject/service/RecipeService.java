@@ -579,6 +579,20 @@ public class RecipeService {
     }
 
     @Transactional
+    public void deleteReport(Long reportId, String requesterId) {
+        MarketReport report = marketReportRepository.findById(reportId)
+                .orElseThrow(() -> new IllegalArgumentException("Report not found"));
+        Recipe recipe = report.getRecipe();
+        if (recipe == null || !recipe.getUserId().equals(requesterId)) {
+            throw new IllegalArgumentException("Report not found");
+        }
+        influencerRepository.deleteByReport_Id(reportId);
+        consumerFeedbackRepository.deleteByReport_Id(reportId);
+        virtualConsumerRepository.deleteByReport_Id(reportId);
+        marketReportRepository.delete(report);
+    }
+
+    @Transactional
     public RecipeResponse updateRecipeVisibility(Long recipeId, String requesterId, VisibilityUpdateRequest request) {
         Recipe recipe = recipeRepository.findById(recipeId)
                 .orElseThrow(() -> new IllegalArgumentException("레시피를 찾을 수 없습니다."));

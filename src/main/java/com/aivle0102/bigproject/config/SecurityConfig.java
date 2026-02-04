@@ -39,7 +39,7 @@ public class SecurityConfig {
         http
                 .csrf(csrf -> csrf
                         .csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse())
-                        .ignoringRequestMatchers("/api/auth/**", "/api/report/**", "/api/chat/**", "/ws/**"))
+                        .ignoringRequestMatchers("/api/auth/**", "/api/report/**", "/api/reports/**", "/api/chat/**", "/ws/**"))
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .sessionManagement(session -> session
                         .sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED))
@@ -63,7 +63,7 @@ public class SecurityConfig {
         http
                 .csrf(csrf -> csrf
                         .csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse())
-                        .ignoringRequestMatchers("/api/auth/**", "/api/report/**", "/api/chat/**", "/ws/**"))
+                        .ignoringRequestMatchers("/api/auth/**", "/api/report/**", "/api/reports/**", "/api/chat/**", "/ws/**"))
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .sessionManagement(session -> session
                         .sessionCreationPolicy(SessionCreationPolicy.STATELESS))

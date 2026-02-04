@@ -240,6 +240,12 @@ const UserCreateRecipe = () => {
     const [publishLoading, setPublishLoading] = useState(false);
     const [autoIngredientLoading, setAutoIngredientLoading] = useState(false);
     const [error, setError] = useState('');
+    const [loadModalOpen, setLoadModalOpen] = useState(false);
+    const [loadTab, setLoadTab] = useState('hub');
+    const [loadRecipes, setLoadRecipes] = useState({ hub: [], mine: [] });
+    const [loadLoading, setLoadLoading] = useState(false);
+    const [loadError, setLoadError] = useState('');
+    const [loadSearch, setLoadSearch] = useState('');
     const [initializing, setInitializing] = useState(true);
     const initialSnapshotRef = useRef('');
     const shouldBlockRef = useRef(true);
@@ -326,6 +332,67 @@ const UserCreateRecipe = () => {
         }
     };
 
+    const applyLoadedRecipe = (data) => {
+        if (!data) return;
+        if (isDirty && hasUserEdits && shouldBlockRef.current) {
+            const confirmed = window.confirm(labels.confirmLeave);
+            if (!confirmed) {
+                return;
+            }
+        }
+        applyInitialState({
+            title: data.title || '',
+            description: data.description || '',
+            ingredients: Array.isArray(data.ingredients) && data.ingredients.length ? data.ingredients : [''],
+            steps: Array.isArray(data.steps) && data.steps.length ? data.steps : [''],
+            imageBase64: data.imageBase64 || '',
+            openYn: data.openYn || 'N',
+        });
+        applyTargetMeta(readTargetMeta(data.id));
+        setLoadModalOpen(false);
+    };
+
+    useEffect(() => {
+        if (!loadModalOpen) {
+            setLoadSearch('');
+            return;
+        }
+        let active = true;
+        const fetchLists = async () => {
+            setLoadLoading(true);
+            setLoadError('');
+            try {
+                const [hubRes, mineRes] = await Promise.all([
+                    axiosInstance.get('/api/recipes'),
+                    axiosInstance.get('/api/recipes/me'),
+                ]);
+                if (!active) return;
+                setLoadRecipes({
+                    hub: hubRes.data || [],
+                    mine: mineRes.data || [],
+                });
+            } catch (err) {
+                if (!active) return;
+                console.error('레시피를 불러오지 못했습니다.', err);
+                setLoadError(labels.loadError);
+            } finally {
+                if (active) setLoadLoading(false);
+            }
+        };
+        fetchLists();
+        return () => {
+            active = false;
+        };
+    }, [loadModalOpen]);
+
+    const filteredLoadList = useMemo(() => {
+        const list = loadTab === 'mine' ? loadRecipes.mine : loadRecipes.hub;
+        const keyword = loadSearch.trim().toLowerCase();
+        if (!keyword) return list;
+        return list.filter((item) => (item.title || '').toLowerCase().includes(keyword));
+    }, [loadRecipes, loadSearch, loadTab]);
+
+
     useEffect(() => {
         const loadRecipe = async () => {
             if (!id) {
@@ -338,7 +405,7 @@ const UserCreateRecipe = () => {
                 applyInitialState(data);
                 applyReportSelectionFromRecipe(data);
             } catch (err) {
-                console.error('레시피를 불러오지 못했습니다', err);
+                console.error('레시피를 불러오지 못했습니다.', err);
                 setError(labels.loadError);
                 setInitializing(false);
             }
@@ -1141,7 +1208,16 @@ const UserCreateRecipe = () => {
                         <>
                             <div className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[0_12px_30px_var(--shadow)] p-6 space-y-5">
                                 <div>
-                                    <h3 className="text-lg font-semibold text-[color:var(--text)] mb-4">{labels.basicInfo}</h3>
+                                    <div className="flex items-center justify-between mb-4">
+                                        <h3 className="text-lg font-semibold text-[color:var(--text)]">{labels.basicInfo}</h3>
+                                        <button
+                                            type="button"
+                                            onClick={() => setLoadModalOpen(true)}
+                                            className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[color:var(--surface-muted)] border border-[color:var(--border)] text-xs text-[color:var(--text)]"
+                                        >
+                                            {'레시피 불러오기'}
+                                        </button>
+                                    </div>
                                     <div className="space-y-3">
                                         <input
                                             type="text"
@@ -1455,14 +1531,6 @@ const UserCreateRecipe = () => {
                                         >
                                             {loading ? (isEditingMode ? labels.updatingLabel : labels.creatingLabel) : isEditingMode ? labels.updateLabel : labels.createLabel}
                                         </button>
-                                        <div
-                                            className={`flex items-center gap-2 text-xs text-[color:var(--text-muted)] ${
-                                                loading ? 'ml-2 w-[72px] opacity-100' : 'ml-0 w-0 opacity-0'
-                                            } overflow-hidden pointer-events-none`}
-                                        >
-                                            <span className="h-4 w-4 rounded-full border-2 border-[color:var(--border)] border-t-[color:var(--accent)] animate-spin" />
-                                            <span className="min-w-[4ch] text-right tabular-nums">{progress}%</span>
-                                        </div>
                                     </div>
                                     {isEdit && (
                                         <button
@@ -1487,6 +1555,85 @@ const UserCreateRecipe = () => {
                         </>
                     )}
                 </div>
+            {loadModalOpen && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+                    <div className="w-full max-w-3xl rounded-3xl border border-[color:var(--border)] bg-[color:var(--surface)] p-6 shadow-[0_20px_60px_var(--shadow)]">
+                        <div className="flex items-center justify-between">
+                            <h3 className="text-lg font-semibold text-[color:var(--text)]">{labels.loadModalTitle}</h3>
+                            <button
+                                type="button"
+                                onClick={() => setLoadModalOpen(false)}
+                                className="text-sm text-[color:var(--text-soft)]"
+                            >
+                                X
+                            </button>
+                        </div>
+
+                        <div className="mt-4 flex items-center gap-2">
+                            <button
+                                type="button"
+                                onClick={() => setLoadTab('hub')}
+                                className="px-3 py-1.5 rounded-full text-xs font-semibold border border-[color:var(--border)] transition"
+                                style={{
+                                    background: loadTab === 'hub' ? 'var(--accent)' : 'var(--surface-muted)',
+                                    color: loadTab === 'hub' ? 'var(--accent-contrast)' : 'var(--text)',
+                                }}
+                            >
+                                {'레시피 허브'}
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => setLoadTab('mine')}
+                                className="px-3 py-1.5 rounded-full text-xs font-semibold border border-[color:var(--border)] transition"
+                                style={{
+                                    background: loadTab === 'mine' ? 'var(--accent)' : 'var(--surface-muted)',
+                                    color: loadTab === 'mine' ? 'var(--accent-contrast)' : 'var(--text)',
+                                }}
+                            >
+                                {'내 레시피'}
+                            </button>
+                            <div className="ml-auto">
+                                <input
+                                    type="text"
+                                    value={loadSearch}
+                                    onChange={(e) => setLoadSearch(e.target.value)}
+                                    placeholder="검색"
+                                    className="w-56 rounded-xl border border-[color:var(--border)] bg-[color:var(--surface-muted)] px-3 py-2 text-xs text-[color:var(--text)] placeholder:text-[color:var(--text-soft)]"
+                                />
+                            </div>
+                        </div>
+
+                        <div className="mt-4 max-h-[420px] overflow-y-auto rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface-muted)] p-4">
+                            {loadLoading && (
+                                <p className="text-sm text-[color:var(--text-muted)]">불러오는 중...</p>
+                            )}
+                            {!loadLoading && loadError && (
+                                <p className="text-sm text-[color:var(--danger)]">{loadError}</p>
+                            )}
+                            {!loadLoading && !loadError && filteredLoadList.length === 0 && (
+                                <p className="text-sm text-[color:var(--text-muted)]">{labels.loadEmpty}</p>
+                            )}
+                            <div className="space-y-3">
+                                {filteredLoadList.map((item) => (
+                                    <div key={`load-${loadTab}-${item.id}`} className="rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] p-4 flex items-start justify-between gap-4">
+                                        <div className="min-w-0">
+                                            <p className="text-sm font-semibold text-[color:var(--text)]">{item.title || '제목 없음'}</p>
+                                            <p className="text-xs text-[color:var(--text-muted)] line-clamp-2">{item.description || '설명 없음'}</p>
+                                        </div>
+                                        <button
+                                            type="button"
+                                            onClick={() => applyLoadedRecipe(item)}
+                                            className="px-3 py-1.5 rounded-lg bg-[color:var(--accent)] text-[color:var(--accent-contrast)] text-xs font-semibold"
+                                        >
+                                            {'불러오기'}
+                                        </button>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
             </div>
         </div>
     );
