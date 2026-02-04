@@ -7,17 +7,7 @@ import com.aivle0102.bigproject.domain.RecipeAllergen;
 import com.aivle0102.bigproject.domain.RecipeIngredient;
 import com.aivle0102.bigproject.domain.UserInfo;
 import com.aivle0102.bigproject.domain.ConsumerFeedback;
-import com.aivle0102.bigproject.dto.AllergenAnalysisResponse;
-import com.aivle0102.bigproject.dto.AgeGroupResult;
-import com.aivle0102.bigproject.dto.IngredientEvidence;
-import com.aivle0102.bigproject.dto.RecipeCreateRequest;
-import com.aivle0102.bigproject.dto.RecipePublishRequest;
-import com.aivle0102.bigproject.dto.RecipeResponse;
-import com.aivle0102.bigproject.dto.ReportCreateRequest;
-import com.aivle0102.bigproject.dto.ReportDetailResponse;
-import com.aivle0102.bigproject.dto.ReportListItem;
-import com.aivle0102.bigproject.dto.ReportRequest;
-import com.aivle0102.bigproject.dto.VisibilityUpdateRequest;
+import com.aivle0102.bigproject.dto.*;
 import com.aivle0102.bigproject.domain.VirtualConsumer;
 import com.aivle0102.bigproject.repository.InfluencerRepository;
 import com.aivle0102.bigproject.repository.MarketReportRepository;
@@ -86,6 +76,7 @@ public class RecipeService {
     private final VirtualConsumerRepository virtualConsumerRepository;
     private final ConsumerFeedbackRepository consumerFeedbackRepository;
     private final EvaluationService evaluationService;
+    private final RecipeCaseService recipeCaseService;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     @Transactional
@@ -629,12 +620,32 @@ public class RecipeService {
     }
 
     private RecipeResponse toResponse(Recipe recipe, List<RecipeIngredient> ingredients, MarketReport report, String authorName) {
+        System.out.println("🔥🔥🔥 findCases CALLED 🔥🔥🔥");
+        System.out.println("[EXPORT] report = " + (report == null ? "null" : report.getId()));
+
         List<String> ingredientNames = ingredients == null ? List.of()
                 : ingredients.stream().map(RecipeIngredient::getIngredientName).toList();
-        Map<String, Object> reportMap = report == null ? Collections.emptyMap() : readJsonMap(report.getContent());
+        Map<String, Object> reportMap = report == null ? new LinkedHashMap<>() : readJsonMap(report.getContent());
         if (report != null) {
             reportMap.put("evaluationResults", readEvaluationResults(report));
         }
+        System.out.println("🔥 [EXPORT] recipeId = " + recipe.getId());
+        System.out.println("🔥 [EXPORT] ingredients = " + ingredientNames);
+
+        RecipeCaseRequest req = new RecipeCaseRequest();
+        req.setRecipeId(recipe.getId());
+        req.setRecipe(
+                recipe.getRecipeName() + ": " + String.join(", ", ingredientNames)
+        );
+
+        System.out.println("🔥 [EXPORT] recipeText = " + req.getRecipe());
+
+        RecipeCaseResponse exportRisks = recipeCaseService.findCases(req);
+
+        System.out.println("🔥 [EXPORT] exportRisks = " + exportRisks);
+
+        reportMap.put("exportRisks", exportRisks);
+
         Map<String, Object> allergenMap = buildAllergenResponse(recipe);
         List<Map<String, Object>> influencers = readInfluencers(report);
         String influencerImage = influencers.isEmpty() ? null : readInfluencerImage(report);
@@ -673,10 +684,19 @@ public class RecipeService {
         List<RecipeIngredient> ingredients = recipeIngredientRepository.findByRecipe_IdOrderByIdAsc(recipe.getId());
         List<String> ingredientNames = ingredients == null ? List.of()
                 : ingredients.stream().map(RecipeIngredient::getIngredientName).toList();
-        Map<String, Object> reportMap = report == null ? Collections.emptyMap() : readJsonMap(report.getContent());
+        Map<String, Object> reportMap = report == null ? new LinkedHashMap<>() : readJsonMap(report.getContent());
         if (report != null) {
             reportMap.put("evaluationResults", readEvaluationResults(report));
         }
+
+        RecipeCaseRequest req = new RecipeCaseRequest();
+        req.setRecipeId(recipe.getId());
+        req.setRecipe(
+                recipe.getRecipeName() + ": " + String.join(", ", ingredientNames)
+        );
+        RecipeCaseResponse exportRisks = recipeCaseService.findCases(req);
+        reportMap.put("exportRisks", exportRisks);
+
         Map<String, Object> allergenMap = buildAllergenResponse(recipe);
         List<Map<String, Object>> influencers = readInfluencers(report);
         String influencerImage = influencers.isEmpty() ? null : readInfluencerImage(report);
