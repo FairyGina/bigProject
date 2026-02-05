@@ -16,10 +16,13 @@ import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
+import com.aivle0102.bigproject.security.CsrfCookieFilter;
 import com.aivle0102.bigproject.security.JwtAuthenticationFilter;
 import com.aivle0102.bigproject.security.oauth.CustomOAuth2UserService;
 import com.aivle0102.bigproject.security.oauth.OAuth2AuthenticationFailureHandler;
 import com.aivle0102.bigproject.security.oauth.OAuth2AuthenticationSuccessHandler;
+import org.springframework.security.web.authentication.www.BasicAuthenticationFilter;
+import org.springframework.security.web.csrf.CsrfTokenRequestAttributeHandler;
 
 import lombok.RequiredArgsConstructor;
 
@@ -36,17 +39,26 @@ public class SecurityConfig {
         @Bean
         @ConditionalOnProperty(name = "app.oauth2.enabled", havingValue = "true")
         public SecurityFilterChain oauthSecurityFilterChain(HttpSecurity http) throws Exception {
+                CsrfTokenRequestAttributeHandler requestHandler = new CsrfTokenRequestAttributeHandler();
+                requestHandler.setCsrfRequestAttributeName(null); // deferred 토큰 즉시 로드
+
                 http
-                                .csrf(csrf -> csrf.disable())
+                                .csrf(csrf -> csrf
+                                                .csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse())
+                                                .csrfTokenRequestHandler(requestHandler)
+                                                .ignoringRequestMatchers("/login/oauth2/code/**",
+                                                                "/oauth2/authorization/**", "/api/auth/**"))
                                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                                 .sessionManagement(session -> session
                                                 .sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED))
                                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
+                                .addFilterAfter(new CsrfCookieFilter(), BasicAuthenticationFilter.class)
                                 .authorizeHttpRequests(auth -> auth
                                                 .requestMatchers(
                                                                 org.springframework.web.cors.CorsUtils::isPreFlightRequest)
                                                 .permitAll()
                                                 .requestMatchers("/api/auth/**").permitAll()
+                                                .requestMatchers("/api/csrf").permitAll()
                                                 .requestMatchers("/oauth2/**", "/login/oauth2/**").permitAll()
                                                 .requestMatchers("/error").permitAll()
                                                 .anyRequest().permitAll())
