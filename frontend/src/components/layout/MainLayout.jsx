@@ -31,7 +31,11 @@ const MainLayout = ({ children }) => {
             {/* 怨좎젙 ?ъ씠?쒕컮 */}
             <Sidebar />
 
+<<<<<<< HEAD
             {/* 硫붿씤 肄섑뀗痢??곸뿭 */}
+=======
+            {/* 메인 콘텐츠 영역 */}
+>>>>>>> upstream/UI5
             <div className="flex-1 p-6 md:p-10 flex flex-col">
                 <div className="flex justify-end mb-6">
                     <ThemeToggle />
@@ -50,9 +54,15 @@ const MainLayout = ({ children }) => {
                         className="w-full max-w-sm"
                     >
                         <GlassCard className="p-8 text-center">
+<<<<<<< HEAD
                             <h3 className="text-xl font-bold mb-3">鍮꾨?踰덊샇 蹂寃?沅뚭퀬</h3>
                             <p className="text-[color:var(--text-muted)] mb-6">
                                 留뚮즺湲곌컙 6媛쒖썡??吏?ъ뒿?덈떎. 鍮꾨?踰덊샇瑜??ъ꽕?뺥빐二쇱꽭??
+=======
+                            <h3 className="text-xl font-bold mb-3">비밀번호 변경 권고</h3>
+                            <p className="text-[color:var(--text-muted)] mb-6">
+                                만료기간 6개월이 지났습니다. 비밀번호를 재설정해주세요.
+>>>>>>> upstream/UI5
                             </p>
                             <div className="flex gap-3">
                                 <button
@@ -65,7 +75,12 @@ const MainLayout = ({ children }) => {
                                     }}
                                     className="flex-1 py-3 rounded-2xl border border-[color:var(--border)] text-[color:var(--text)] hover:bg-[color:var(--surface-muted)] transition"
                                 >
+<<<<<<< HEAD
                                     3媛쒖썡 ??蹂寃?                                </button>
+=======
+                                    3개월 후 변경
+                                </button>
+>>>>>>> upstream/UI5
                                 <button
                                     onClick={() => {
                                         localStorage.removeItem('passwordChangeDeferredUntil');
@@ -75,7 +90,12 @@ const MainLayout = ({ children }) => {
                                     }}
                                     className="flex-1 py-3 rounded-2xl bg-[color:var(--accent)] text-[color:var(--accent-contrast)] font-semibold hover:bg-[color:var(--accent-strong)] transition"
                                 >
+<<<<<<< HEAD
                                     吏湲?蹂寃쏀븯湲?                                </button>
+=======
+                                    지금 변경하기
+                                </button>
+>>>>>>> upstream/UI5
                             </div>
                         </GlassCard>
                     </motion.div>

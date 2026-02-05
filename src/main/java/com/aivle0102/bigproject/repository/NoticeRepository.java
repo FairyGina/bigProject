@@ -7,4 +7,8 @@ import java.util.List;
 
 public interface NoticeRepository extends JpaRepository<Notice, Long> {
     List<Notice> findAllByOrderByCreatedAtDesc();
+<<<<<<< HEAD
+=======
+    List<Notice> findByCompanyIdOrCompanyIdIsNullOrderByCreatedAtDesc(Long companyId);
+>>>>>>> upstream/UI5
 }

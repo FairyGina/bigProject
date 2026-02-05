@@ -14,7 +14,11 @@ public final class RedirectValidator {
         }
         String lower = value.toLowerCase();
         if (lower.contains("%0d") || lower.contains("%0a")) {
+<<<<<<< HEAD
             throw new IllegalArgumentException("Invalid redirect value");
+=======
+            throw new IllegalArgumentException("잘못된 리다이렉트 값입니다.");
+>>>>>>> upstream/UI5
         }
         return value.replace("\r", "").replace("\n", "");
     }
@@ -27,6 +31,7 @@ public final class RedirectValidator {
         URI target = URI.create(sanitizedTarget);
 
         if (!Objects.equals(base.getScheme(), target.getScheme())) {
+<<<<<<< HEAD
             throw new IllegalArgumentException("Invalid redirect scheme");
         }
         if (!Objects.equals(base.getHost(), target.getHost())) {
@@ -37,6 +42,18 @@ public final class RedirectValidator {
         }
         if (target.getUserInfo() != null) {
             throw new IllegalArgumentException("Invalid redirect user info");
+=======
+            throw new IllegalArgumentException("잘못된 리다이렉트 스킴입니다.");
+        }
+        if (!Objects.equals(base.getHost(), target.getHost())) {
+            throw new IllegalArgumentException("잘못된 리다이렉트 호스트입니다.");
+        }
+        if (normalizePort(base) != normalizePort(target)) {
+            throw new IllegalArgumentException("잘못된 리다이렉트 포트입니다.");
+        }
+        if (target.getUserInfo() != null) {
+            throw new IllegalArgumentException("잘못된 리다이렉트 사용자 정보입니다.");
+>>>>>>> upstream/UI5
         }
 
         return sanitizedTarget;

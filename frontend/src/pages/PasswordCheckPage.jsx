@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+﻿import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Search } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
@@ -16,7 +16,12 @@ const PasswordCheckPage = () => {
             return;
         }
         try {
+<<<<<<< HEAD
             await axiosInstance.post('/user/verify-password', { password });
+=======
+            await axiosInstance.get('/api/csrf');
+            await axiosInstance.post('/api/user/verify-password', { password });
+>>>>>>> upstream/UI5
             navigate('/mainboard/user-hub/profile');
         } catch (err) {
             console.error(err);

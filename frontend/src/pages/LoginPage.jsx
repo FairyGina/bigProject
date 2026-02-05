@@ -43,7 +43,8 @@ const LoginPage = () => {
             return;
         }
         try {
-            const response = await axiosInstance.post('/auth/login', { userId, password });
+            await axiosInstance.get('/api/csrf');
+            const response = await axiosInstance.post('/api/auth/login', { userId, password });
             const data = response.data;
 
             if (data.accessToken) {
@@ -75,7 +76,7 @@ const LoginPage = () => {
 
             navigate('/mainboard');
         } catch (err) {
-            console.error('Login error:', err);
+            console.error('로그인 오류:', err);
             const errorCode = err.response?.data?.errorCode;
             const backendMessage = err.response?.data?.message;
             if (errorCode === 'PASSWORD_RESET_REQUIRED') {

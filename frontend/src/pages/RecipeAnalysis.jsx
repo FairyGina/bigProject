@@ -6,7 +6,11 @@ import axiosInstance from '../axiosConfig';
 const RecipeAnalysis = () => {
     const { user } = useAuth();
     const navigate = useNavigate();
+<<<<<<< HEAD
     const { id } = useParams();
+=======
+    const { id, reportId } = useParams();
+>>>>>>> upstream/UI5
     const location = useLocation();
     const rawName = user?.userName || localStorage.getItem('userName') || '게스트';
     const maskedName = rawName.length <= 1 ? '*' : `${rawName.slice(0, -1)}*`;
@@ -28,6 +32,13 @@ const RecipeAnalysis = () => {
     const personaRunRef = useRef(null);
     const [evaluationResults, setEvaluationResults] = useState([]);
     const targetMetaKey = (recipeId) => `recipeTargetMeta:${recipeId}`;
+<<<<<<< HEAD
+=======
+
+    const [productCases, setProductCases] = useState([]);
+    const [ingredientCases, setIngredientCases] = useState([]);
+
+>>>>>>> upstream/UI5
     const readTargetMeta = (recipeId) => {
         const cached =
             sessionStorage.getItem(targetMetaKey(recipeId)) ||
@@ -42,11 +53,24 @@ const RecipeAnalysis = () => {
         }
     };
 
+<<<<<<< HEAD
     const influencerMetaKey = (recipeId) => `recipeInfluencerMeta:${recipeId}`;
     const readInfluencerMeta = (recipeId) => {
         const cached =
             sessionStorage.getItem(influencerMetaKey(recipeId)) ||
             localStorage.getItem(influencerMetaKey(recipeId));
+=======
+    const influencerMetaKey = (recipeId, reportIdValue) =>
+        reportIdValue ? `reportInfluencerMeta:${reportIdValue}` : `recipeInfluencerMeta:${recipeId}`;
+    const influencerListKey = (recipeId, reportIdValue) =>
+        reportIdValue ? `reportInfluencers:${reportIdValue}` : `recipeInfluencers:${recipeId}`;
+    const influencerImageKey = (recipeId, reportIdValue) =>
+        reportIdValue ? `reportInfluencerImage:${reportIdValue}` : `recipeInfluencerImage:${recipeId}`;
+    const readInfluencerMeta = (recipeId, reportIdValue) => {
+        const cached =
+            sessionStorage.getItem(influencerMetaKey(recipeId, reportIdValue)) ||
+            localStorage.getItem(influencerMetaKey(recipeId, reportIdValue));
+>>>>>>> upstream/UI5
         if (!cached) {
             return null;
         }
@@ -60,29 +84,95 @@ const RecipeAnalysis = () => {
         Boolean(meta) &&
         meta.title === (currentRecipe?.title ?? '') &&
         meta.summary === (currentRecipe?.summary ?? '');
+<<<<<<< HEAD
+=======
+    const persistReportInfluencers = async (recs, image) => {
+        if (!reportId) {
+            return;
+        }
+        try {
+            await axiosInstance.put(`/api/reports/${reportId}/influencers`, {
+                influencers: recs || [],
+                influencerImageBase64: image || '',
+            });
+        } catch (err) {
+            console.error('인플루언서를 저장하지 못했습니다.', err);
+        }
+    };
+>>>>>>> upstream/UI5
 
     useEffect(() => {
         const fetchRecipe = async () => {
             try {
                 setLoading(true);
+<<<<<<< HEAD
                 const res = await axiosInstance.get(`/recipes/${id}`);
                 setRecipe(res.data);
             } catch (err) {
                 console.error('Failed to fetch recipe', err);
+=======
+                if (reportId) {
+                    const res = await axiosInstance.get(`/api/reports/${reportId}`);
+                    const data = res.data || {};
+                    setRecipe({
+                        id: data.recipeId,
+                        title: data.recipeTitle,
+                        description: data.recipeDescription,
+                        ingredients: data.ingredients || [],
+                        steps: data.steps || [],
+                        imageBase64: data.imageBase64 || '',
+                        report: data.report || {},
+                        allergen: data.allergen || {},
+                        summary: data.summary || '',
+                        influencers: data.influencers || [],
+                        influencerImageBase64: data.influencerImageBase64 || '',
+                        status: data.recipeStatus || 'PUBLISHED',
+                        user_id: data.recipeUserId || null,
+                        openYn: data.recipeOpenYn || null,
+                    });
+                    return;
+                }
+                const res = await axiosInstance.get(`/api/recipes/${id}`);
+                setRecipe(res.data);
+            } catch (err) {
+                console.error('레시피를 불러오지 못했습니다.', err);
+>>>>>>> upstream/UI5
                 setError('레시피 정보를 불러오지 못했습니다.');
             } finally {
                 setLoading(false);
             }
         };
 
+<<<<<<< HEAD
         if (id) {
             fetchRecipe();
         }
     }, [id]);
+=======
+        if (reportId || id) {
+            fetchRecipe();
+        }
+    }, [id, reportId]);
+
+    const report = recipe?.report || null;
+    const hasReport = report && Object.keys(report).length > 0;
+    const isRecipeOnly = !hasReport;
+    const reportSections = Array.isArray(report?._sections) ? report._sections : null;
+    const allowInfluencer = reportSections
+        ? reportSections.includes('influencer') || reportSections.includes('influencerImage')
+        : Boolean(recipe?.influencers?.length || recipe?.influencerImageBase64);
+    const allowInfluencerImage = reportSections
+        ? reportSections.includes('influencerImage')
+        : Boolean(recipe?.influencerImageBase64);
+    const allowMapSection = Array.isArray(reportSections) && reportSections.includes('globalMarketMap');
+    const allowAllergenSection = Array.isArray(reportSections) && reportSections.includes('allergenNote');
+    const showMap = allowMapSection && Array.isArray(evaluationResults) && evaluationResults.length > 0;
+>>>>>>> upstream/UI5
 
     useEffect(() => {
         const seededInfluencers = location.state?.influencers;
         const seededImage = location.state?.influencerImageBase64;
+<<<<<<< HEAD
         if (Array.isArray(seededInfluencers) && seededInfluencers.length) {
             setInfluencers(seededInfluencers);
         }
@@ -97,6 +187,23 @@ const RecipeAnalysis = () => {
         const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
         if (!apiKey) {
             setMapError('Google Maps API key is missing.');
+=======
+        if (Array.isArray(seededInfluencers) && seededInfluencers.length && allowInfluencer) {
+            setInfluencers(seededInfluencers);
+        }
+        if (seededImage && allowInfluencerImage) {
+            setImageBase64(seededImage);
+        }
+    }, [allowInfluencer, allowInfluencerImage, location.state]);
+
+    useEffect(() => {
+        if (!showMap) {
+            return;
+        }
+        const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
+        if (!apiKey) {
+            setMapError('Google Maps API 키가 없습니다.');
+>>>>>>> upstream/UI5
             return;
         }
 
@@ -105,7 +212,11 @@ const RecipeAnalysis = () => {
                 if (retry < 10) {
                     setTimeout(() => initMap(retry + 1), 100);
                 } else {
+<<<<<<< HEAD
                     setMapError('Failed to initialize the map.');
+=======
+                    setMapError('지도 초기화에 실패했습니다.');
+>>>>>>> upstream/UI5
                 }
                 return;
             }
@@ -113,7 +224,11 @@ const RecipeAnalysis = () => {
                 if (retry < 20) {
                     setTimeout(() => initMap(retry + 1), 150);
                 } else {
+<<<<<<< HEAD
                     setMapError('Google Maps failed to load. Check API key and settings.');
+=======
+                    setMapError('Google Maps 로딩에 실패했습니다. API 키와 설정을 확인하세요.');
+>>>>>>> upstream/UI5
                 }
                 return;
             }
@@ -154,9 +269,15 @@ const RecipeAnalysis = () => {
         script.async = true;
         script.defer = true;
         script.dataset.googleMaps = 'true';
+<<<<<<< HEAD
         script.onerror = () => setMapError('Google Maps script failed to load.');
         document.body.appendChild(script);
     }, []);
+=======
+        script.onerror = () => setMapError('Google Maps 스크립트 로딩에 실패했습니다.');
+        document.body.appendChild(script);
+    }, [showMap]);
+>>>>>>> upstream/UI5
 
     useEffect(() => {
         if (Array.isArray(recipe?.influencers) && recipe.influencers.length) {
@@ -171,15 +292,107 @@ const RecipeAnalysis = () => {
     }, [recipe]);
 
     useEffect(() => {
+<<<<<<< HEAD
+=======
+        const exportRisks = recipe?.report?.exportRisks;
+        const normalizeCase = (c) => ({
+            ...c,
+            caseId: c?.case_id ?? c?.caseId,
+            announcementDate: c?.announcement_date ?? c?.announcementDate,
+            violationReason: c?.violation_reason ?? c?.violationReason,
+            matchedIngredient: c?.matched_ingredient ?? c?.matchedIngredient,
+        });
+        const nextProductCases = Array.isArray(exportRisks?.product_cases?.cases)
+            ? exportRisks.product_cases.cases.map(normalizeCase)
+            : [];
+        const nextIngredientCases = Array.isArray(exportRisks?.ingredient_cases)
+            ? exportRisks.ingredient_cases.map((item) => ({
+                ...item,
+                cases: Array.isArray(item?.cases) ? item.cases.map(normalizeCase) : [],
+            }))
+            : [];
+        setProductCases(nextProductCases);
+        setIngredientCases(nextIngredientCases);
+    }, [recipe]);
+
+    useEffect(() => {
+        console.log('[EXPORT] exportRisks', recipe?.report?.exportRisks);
+        console.log('[EXPORT] productCases', productCases.length, productCases);
+        console.log('[EXPORT] ingredientCases', ingredientCases.length, ingredientCases);
+    }, [recipe, productCases, ingredientCases]);
+
+    useEffect(() => {
+>>>>>>> upstream/UI5
         const fetchInfluencers = async () => {
             if (!recipe) {
                 return;
             }
+<<<<<<< HEAD
+=======
+            if (!allowInfluencer) {
+                setInfluencers([]);
+                setImageBase64('');
+                return;
+            }
+>>>>>>> upstream/UI5
             if (Array.isArray(recipe?.influencers) && recipe.influencers.length) {
                 setInfluencers(recipe.influencers);
             }
             if (recipe?.influencerImageBase64) {
+<<<<<<< HEAD
                 setImageBase64(recipe.influencerImageBase64);
+=======
+                if (allowInfluencerImage) {
+                    setImageBase64(recipe.influencerImageBase64);
+                } else {
+                    setImageBase64('');
+                }
+            }
+            const existingRecs = Array.isArray(recipe?.influencers) ? recipe.influencers : [];
+            if (existingRecs.length > 0) {
+                if (allowInfluencerImage && !recipe?.influencerImageBase64 && !imageBase64) {
+                    setInfluencerLoading(true);
+                    try {
+                        const topExisting =
+                            existingRecs.find((item) => item?.name && item?.imageUrl) ||
+                            existingRecs.find((item) => item?.name);
+                        if (topExisting?.name) {
+                            const imageRes = await axiosInstance.post('/api/images/generate', {
+                                recipe: recipe.title,
+                                influencerName: topExisting.name,
+                                influencerImageUrl: topExisting.imageUrl || '',
+                                additionalStyle: 'clean studio, natural lighting',
+                            });
+                            const generated = imageRes.data?.imageBase64 || '';
+                            setImageBase64(generated);
+                            if (generated) {
+                                try {
+                                    sessionStorage.setItem(influencerImageKey(recipe.id, reportId), generated);
+                                } catch (err) {
+                                    // 캐시 오류는 무시
+                                }
+                                try {
+                                    localStorage.setItem(influencerImageKey(recipe.id, reportId), generated);
+                                } catch (err) {
+                                    // 캐시 오류는 무시
+                                }
+                            }
+                            await persistReportInfluencers(existingRecs, generated);
+                        }
+                    } catch (err) {
+                        console.error('인플루언서 이미지 생성에 실패했습니다', err);
+                    } finally {
+                        setInfluencerLoading(false);
+                    }
+                }
+                return;
+            }
+            if (
+                (recipe?.influencers?.length || 0) > 0 &&
+                (!allowInfluencerImage || recipe?.influencerImageBase64 || imageBase64)
+            ) {
+                return;
+>>>>>>> upstream/UI5
             }
             if ((recipe?.influencers?.length || 0) > 0 && recipe?.influencerImageBase64) {
                 return;
@@ -188,6 +401,7 @@ const RecipeAnalysis = () => {
                 return;
             }
             const cachedInfluencers =
+<<<<<<< HEAD
                 sessionStorage.getItem(`recipeInfluencers:${recipe.id}`) ||
                 localStorage.getItem(`recipeInfluencers:${recipe.id}`);
             const cachedImage =
@@ -201,6 +415,21 @@ const RecipeAnalysis = () => {
                 localStorage.removeItem(`recipeInfluencers:${recipe.id}`);
                 localStorage.removeItem(`recipeInfluencerImage:${recipe.id}`);
                 localStorage.removeItem(influencerMetaKey(recipe.id));
+=======
+                sessionStorage.getItem(influencerListKey(recipe.id, reportId)) ||
+                localStorage.getItem(influencerListKey(recipe.id, reportId));
+            const cachedImage =
+                sessionStorage.getItem(influencerImageKey(recipe.id, reportId)) ||
+                localStorage.getItem(influencerImageKey(recipe.id, reportId));
+            const cachedMeta = readInfluencerMeta(recipe.id, reportId);
+            if (cachedMeta && !isInfluencerMetaMatch(cachedMeta, recipe)) {
+                sessionStorage.removeItem(influencerListKey(recipe.id, reportId));
+                sessionStorage.removeItem(influencerImageKey(recipe.id, reportId));
+                sessionStorage.removeItem(influencerMetaKey(recipe.id, reportId));
+                localStorage.removeItem(influencerListKey(recipe.id, reportId));
+                localStorage.removeItem(influencerImageKey(recipe.id, reportId));
+                localStorage.removeItem(influencerMetaKey(recipe.id, reportId));
+>>>>>>> upstream/UI5
             }
             if (cachedInfluencers) {
                 try {
@@ -209,12 +438,27 @@ const RecipeAnalysis = () => {
                         setInfluencers(parsed);
                     }
                 } catch (e) {
+<<<<<<< HEAD
                     // ignore cache parse errors
                 }
             }
             if (cachedImage && !imageBase64) {
                 setImageBase64(cachedImage);
             }
+=======
+                    // 캐시 파싱 오류는 무시
+                }
+            }
+            if (cachedImage && !imageBase64 && allowInfluencerImage) {
+                setImageBase64(cachedImage);
+            }
+            if (
+                cachedInfluencers &&
+                (!allowInfluencerImage || cachedImage || imageBase64)
+            ) {
+                return;
+            }
+>>>>>>> upstream/UI5
             if (cachedInfluencers && cachedImage) {
                 return;
             }
@@ -227,16 +471,26 @@ const RecipeAnalysis = () => {
                     targetPersona: targetMeta.targetPersona || '20~30대 직장인, 간편식 선호',
                     priceRange: targetMeta.priceRange || 'USD 6~9',
                 };
+<<<<<<< HEAD
                 const influencerRes = await axiosInstance.post('/influencers/recommend', payload);
                 const recs = influencerRes.data?.recommendations ?? [];
                 setInfluencers(recs);
                 if (recs.length) {
+=======
+                const influencerRes = await axiosInstance.post('/api/influencers/recommend', payload);
+                const recs = influencerRes.data?.recommendations ?? [];
+                const trimmedRecs = recs.slice(0, 3);
+                let generatedImage = '';
+                setInfluencers(trimmedRecs);
+                if (trimmedRecs.length) {
+>>>>>>> upstream/UI5
                     const metaJson = JSON.stringify({
                         id: recipe.id,
                         title: recipe.title,
                         summary: recipe.summary,
                     });
                     try {
+<<<<<<< HEAD
                         sessionStorage.setItem(influencerMetaKey(recipe.id), metaJson);
                         sessionStorage.setItem(`recipeInfluencers:${recipe.id}`, JSON.stringify(recs));
                     } catch (err) {
@@ -274,14 +528,61 @@ const RecipeAnalysis = () => {
                 }
             } catch (err) {
                 console.error('Influencer generation failed', err);
+=======
+                        sessionStorage.setItem(influencerMetaKey(recipe.id, reportId), metaJson);
+                        sessionStorage.setItem(influencerListKey(recipe.id, reportId), JSON.stringify(trimmedRecs));
+                    } catch (err) {
+                        // 캐시 오류는 무시
+                    }
+                    try {
+                        localStorage.setItem(influencerMetaKey(recipe.id, reportId), metaJson);
+                        localStorage.setItem(influencerListKey(recipe.id, reportId), JSON.stringify(trimmedRecs));
+                    } catch (err) {
+                        // 캐시 오류는 무시
+                    }
+                }
+
+                const top =
+                    trimmedRecs.find((item) => item?.name && item?.imageUrl) ||
+                    trimmedRecs.find((item) => item?.name);
+                if (allowInfluencerImage && top?.name) {
+                    const imageRes = await axiosInstance.post('/api/images/generate', {
+                        recipe: recipe.title,
+                        influencerName: top.name,
+                        influencerImageUrl: top.imageUrl || '',
+                        additionalStyle: 'clean studio, natural lighting',
+                    });
+                    generatedImage = imageRes.data?.imageBase64 || '';
+                    setImageBase64(generatedImage);
+                    if (generatedImage) {
+                        try {
+                            sessionStorage.setItem(influencerImageKey(recipe.id, reportId), generatedImage);
+                        } catch (err) {
+                            // 캐시 오류는 무시
+                        }
+                        try {
+                            localStorage.setItem(influencerImageKey(recipe.id, reportId), generatedImage);
+                        } catch (err) {
+                            // 캐시 오류는 무시
+                        }
+                    }
+                }
+                await persistReportInfluencers(trimmedRecs, generatedImage);
+            } catch (err) {
+                console.error('인플루언서 생성에 실패했습니다.', err);
+>>>>>>> upstream/UI5
             } finally {
                 setInfluencerLoading(false);
             }
         };
 
         fetchInfluencers();
+<<<<<<< HEAD
     }, [imageBase64, influencers.length, recipe]);
 
+=======
+    }, [allowInfluencer, allowInfluencerImage, imageBase64, influencers.length, recipe]);
+>>>>>>> upstream/UI5
     const countryCoords = useMemo(
         () => ({
             '미국': { lat: 39.8283, lng: -98.5795 },
@@ -482,7 +783,10 @@ const RecipeAnalysis = () => {
             mapMarkersRef.current.push(marker);
         });
     };
+<<<<<<< HEAD
 
+=======
+>>>>>>> upstream/UI5
     useEffect(() => {
         if (!mapReady || evaluationResults.length === 0) {
             return;
@@ -506,23 +810,39 @@ const RecipeAnalysis = () => {
                 const countries = Object.keys(countryCoords)
                     .filter((c) => /[가-힣]/.test(c))
                     .slice(0, 10);
+<<<<<<< HEAD
                 const ageRes = await axiosInstance.post('/persona/age-group', {
+=======
+                const ageRes = await axiosInstance.post('/api/persona/age-group', {
+>>>>>>> upstream/UI5
                     recipe: `${recipe.title || ''} ${recipe.description || ''}`.trim(),
                     countries,
                 });
                 const targets = ageRes.data || [];
+<<<<<<< HEAD
                 const personaRes = await axiosInstance.post('/persona/batch', {
+=======
+                const personaRes = await axiosInstance.post('/api/persona/batch', {
+>>>>>>> upstream/UI5
                     recipeSummary: recipe.summary || JSON.stringify(report || {}),
                     targets,
                 });
                 const personas = personaRes.data || [];
+<<<<<<< HEAD
                 const evalRes = await axiosInstance.post('/evaluation', {
+=======
+                const evalRes = await axiosInstance.post('/api/evaluation', {
+>>>>>>> upstream/UI5
                     personas,
                     report: JSON.stringify(report || {}),
                 });
                 setEvaluationResults(aggregateEvaluations(evalRes.data || []));
             } catch (err) {
+<<<<<<< HEAD
                 console.error('Persona evaluation flow failed', err);
+=======
+                console.error('페르소나 평가를 실패했습니다.', err);
+>>>>>>> upstream/UI5
             }
         };
 
@@ -545,19 +865,52 @@ const RecipeAnalysis = () => {
         }
         setPublishLoading(true);
         try {
+<<<<<<< HEAD
             const res = await axiosInstance.put(`/recipes/${recipe.id}/publish`, {
+=======
+            const res = await axiosInstance.put(`/api/recipes/${recipe.id}/publish`, {
+>>>>>>> upstream/UI5
                 influencers,
                 influencerImageBase64: imageBase64,
             });
             setRecipe(res.data);
             navigate(`/mainboard/recipes/${recipe.id}`);
         } catch (err) {
+<<<<<<< HEAD
             console.error('Failed to publish recipe', err);
+=======
+            console.error('레시피 공개 처리에 실패했습니다.', err);
+>>>>>>> upstream/UI5
             setError('레시피 등록 확정에 실패했습니다.');
         } finally {
             setPublishLoading(false);
         }
     };
+<<<<<<< HEAD
+=======
+    const showExec = Boolean(report?.executiveSummary);
+    const showMarket = Boolean(report?.marketSnapshot);
+    const showRisk = Boolean(report?.riskAssessment);
+    const showSwot = Boolean(report?.swot);
+    const showConceptIdeas = Array.isArray(report?.conceptIdeas) && report.conceptIdeas.length > 0;
+    const showKpis = Array.isArray(report?.kpis) && report.kpis.length > 0;
+    const showNextSteps = Array.isArray(report?.nextSteps) && report.nextSteps.length > 0;
+    const showSummary = Boolean(recipe?.summary);
+    const showRecipeCase =
+        Array.isArray(reportSections) &&
+        reportSections.includes('RecipeCase');
+    const matchedAllergens = Array.isArray(recipe?.allergen?.matchedAllergens)
+        ? recipe.allergen.matchedAllergens
+        : [];
+    const showAllergen =
+        allowAllergenSection ||
+        (!reportSections && (Boolean(recipe?.allergen?.note) || matchedAllergens.length > 0));
+    const allergenNoteText =
+        recipe?.allergen?.note ||
+        (matchedAllergens.length ? `알레르기 성분: ${matchedAllergens.join(', ')}` : '알레르기 성분 요약이 없습니다.');
+    const showInfluencer = allowInfluencer && influencers.length > 0;
+    const showInfluencerImage = allowInfluencerImage && Boolean(imageBase64);
+>>>>>>> upstream/UI5
 
     const exec = report?.executiveSummary || {};
     const market = report?.marketSnapshot || {};
@@ -578,12 +931,17 @@ const RecipeAnalysis = () => {
             .replace(/"/g, '&quot;')
             .replace(/'/g, '&#39;');
 
+<<<<<<< HEAD
     const listHtml = (items) => {
+=======
+        const listHtml = (items) => {
+>>>>>>> upstream/UI5
         if (!items || items.length === 0) {
             return '<p class="muted">내용이 없습니다.</p>';
         }
         return `<ul>${items.map((item) => `<li>${escapeHtml(item)}</li>`).join('')}</ul>`;
     };
+<<<<<<< HEAD
 
     const buildPrintableHtml = () => {
         return `<!doctype html>
@@ -608,11 +966,110 @@ const RecipeAnalysis = () => {
   <h1>${escapeHtml(recipe?.title)} 레시피 리포트</h1>
   <p class="muted">${escapeHtml(recipe?.description)}</p>
 
+=======
+    const buildPrintableHtml = () => {
+        const isSectionSelected = (key) => {
+            if (!Array.isArray(reportSections) || reportSections.length === 0) {
+                return true;
+            }
+            return reportSections.includes(key);
+        };
+
+        const marketMapRows = Array.isArray(evaluationResults) ? evaluationResults : [];
+        const marketMapHtml = showMap && marketMapRows.length
+            ? `
+  <div class="section">
+    <h2>글로벌 마켓 맵</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>국가</th>
+          <th>점수</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${marketMapRows
+                    .map(
+                        (row) => `
+        <tr>
+          <td>${escapeHtml(row?.country || '-')}</td>
+          <td>${escapeHtml(row?.totalScore ?? '-')}</td>
+        </tr>
+      `
+                    )
+                    .join('')}
+      </tbody>
+    </table>
+  </div>
+`
+            : '';
+
+        const renderProductCasesHtml = (cases) => {
+            if (!cases || cases.length === 0) {
+                return '<p class="muted">수출 부적합 사례가 확인되지 않습니다.</p>';
+            }
+            return `<ul>${cases
+                .map(
+                    (c) =>
+                        `<li>${escapeHtml(c?.country || '-')} - ${escapeHtml(c?.action || '-')} - ${escapeHtml(c?.violationReason || '-')}</li>`
+                )
+                .join('')}</ul>`;
+        };
+
+        const renderIngredientCasesHtml = (items) => {
+            if (!items || items.length === 0) {
+                return '<p class="muted">재료 기반 수출 부적합 사례가 확인되지 않습니다.</p>';
+            }
+            return items
+                .map((ing) => {
+                    const cases = Array.isArray(ing?.cases) ? ing.cases : [];
+                    const casesHtml = cases.length
+                        ? `<ul>${cases
+                            .map(
+                                (c) =>
+                                    `<li>${escapeHtml(c?.country || '-')} - ${escapeHtml(c?.action || '-')} - ${escapeHtml(c?.violationReason || '-')}</li>`
+                            )
+                            .join('')}</ul>`
+                        : '<p class="muted">해당 재료의 수출 부적합 사례가 없습니다.</p>';
+                    return `
+    <div>
+      <p><strong>[재료: ${escapeHtml(ing?.ingredient || '-')} ]</strong></p>
+      ${casesHtml}
+    </div>
+`;
+                })
+                .join('');
+        };
+
+        const recipeCaseHtml = showRecipeCase && (productCases.length || ingredientCases.length)
+            ? `
+  <div class="section">
+    <h2>국가 수출 부적합 사례</h2>
+    <h3>제품 사례</h3>
+    <p><strong>제품명:</strong> ${escapeHtml(recipe?.title || '-')}</p>
+    ${renderProductCasesHtml(productCases)}
+    <h3>재료 사례</h3>
+    ${renderIngredientCasesHtml(ingredientCases)}
+  </div>
+`
+            : '';
+
+        const sectionHtmlByKey = {
+            summary: showSummary
+                ? `
+>>>>>>> upstream/UI5
   <div class="section">
     <h2>요약본</h2>
     <p>${escapeHtml(recipe?.summary || '요약 결과가 없습니다.')}</p>
   </div>
+<<<<<<< HEAD
 
+=======
+`
+                : '',
+            executiveSummary: showExec
+                ? `
+>>>>>>> upstream/UI5
   <div class="section">
     <h2>핵심 요약</h2>
     <p><strong>결론:</strong> ${escapeHtml(exec.decision || '-')}</p>
@@ -624,7 +1081,14 @@ const RecipeAnalysis = () => {
     <h3>주요 리스크</h3>
     ${listHtml(exec.topRisks)}
   </div>
+<<<<<<< HEAD
 
+=======
+`
+                : '',
+            marketSnapshot: showMarket
+                ? `
+>>>>>>> upstream/UI5
   <div class="section">
     <h2>시장 스냅샷</h2>
     <h3>타깃 페르소나 니즈</h3>
@@ -639,7 +1103,14 @@ const RecipeAnalysis = () => {
     <p>${escapeHtml(competition.localCompetitors || '-')}</p>
     <p>차별화: ${escapeHtml(competition.differentiation || '-')}</p>
   </div>
+<<<<<<< HEAD
 
+=======
+`
+                : '',
+            riskAssessment: showRisk
+                ? `
+>>>>>>> upstream/UI5
   <div class="section">
     <h2>리스크 & 대응</h2>
     <h3>리스크</h3>
@@ -647,6 +1118,7 @@ const RecipeAnalysis = () => {
     <h3>완화 전략</h3>
     ${listHtml(risk.mitigations)}
   </div>
+<<<<<<< HEAD
 
   <div class="section">
     <h2>알레르기 성분 노트</h2>
@@ -665,6 +1137,27 @@ const RecipeAnalysis = () => {
     ${listHtml(swot.threats)}
   </div>
 
+=======
+`
+                : '',
+            swot: showSwot
+                ? `
+  <div class="section">
+    <h2>SWOT</h2>
+    <h3>강점</h3>
+    ${listHtml(swot.strengths)}
+    <h3>약점</h3>
+    ${listHtml(swot.weaknesses)}
+    <h3>기회</h3>
+    ${listHtml(swot.opportunities)}
+    <h3>위협</h3>
+    ${listHtml(swot.threats)}
+  </div>
+`
+                : '',
+            conceptIdeas: showConceptIdeas
+                ? `
+>>>>>>> upstream/UI5
   <div class="section">
     <h2>컨셉 아이디어</h2>
     ${conceptIdeas.length ? conceptIdeas.map((idea) => `
@@ -677,7 +1170,14 @@ const RecipeAnalysis = () => {
       </div>
     `).join('') : '<p class="muted">내용이 없습니다.</p>'}
   </div>
+<<<<<<< HEAD
 
+=======
+`
+                : '',
+            kpis: showKpis
+                ? `
+>>>>>>> upstream/UI5
   <div class="section">
     <h2>KPI 제안</h2>
     ${kpis.length ? kpis.map((kpi) => `
@@ -689,6 +1189,7 @@ const RecipeAnalysis = () => {
       </div>
     `).join('') : '<p class="muted">내용이 없습니다.</p>'}
   </div>
+<<<<<<< HEAD
 
   <div class="section">
     <h2>다음 단계</h2>
@@ -703,6 +1204,28 @@ const RecipeAnalysis = () => {
                   .slice(0, 5)
                   .map(
                       (inf) => `
+=======
+`
+                : '',
+            nextSteps: showNextSteps
+                ? `
+  <div class="section">
+    <h2>제품 개발 추천안</h2>
+    ${listHtml(nextSteps)}
+  </div>
+`
+                : '',
+            influencer: showInfluencer
+                ? `
+  <div class="section">
+    <h2>인플루언서 추천</h2>
+    ${
+                    influencers.length
+                        ? influencers
+                            .slice(0, 5)
+                            .map(
+                                (inf) => `
+>>>>>>> upstream/UI5
         <div>
           <p><strong>${escapeHtml(inf.name || '')}</strong> (${escapeHtml(inf.platform || '-')})</p>
           <p class="muted">${escapeHtml(inf.profileUrl || '')}</p>
@@ -710,6 +1233,7 @@ const RecipeAnalysis = () => {
           ${inf.riskNotes ? `<p class="muted">주의: ${escapeHtml(inf.riskNotes)}</p>` : ''}
         </div>
       `
+<<<<<<< HEAD
                   )
                   .join('')
             : '<p class="muted">추천 결과가 없습니다.</p>'
@@ -724,12 +1248,102 @@ const RecipeAnalysis = () => {
             : '<p class="muted">이미지 생성 결과가 없습니다.</p>'
     }
   </div>
+=======
+                            )
+                            .join('')
+                        : '<p class="muted">추천 결과가 없습니다.</p>'
+                }
+  </div>
+`
+                : '',
+            influencerImage: showInfluencerImage
+                ? `
+  <div class="section">
+    <h2>인플루언서 이미지</h2>
+    ${
+                    imageBase64
+                        ? `<img src="data:image/png;base64,${imageBase64}" alt="influencer" style="max-width:100%; border-radius:12px;"/>`
+                        : '<p class="muted">이미지 생성 결과가 없습니다.</p>'
+                }
+  </div>
+`
+                : '',
+            allergenNote: showAllergen
+                ? `
+  <div class="section">
+    <h2>알레르기 성분 노트</h2>
+    <p>${escapeHtml(recipe?.allergen?.note || '알레르기 성분 요약이 없습니다.')}</p>
+  </div>
+`
+                : '',
+            RecipeCase: recipeCaseHtml,
+            globalMarketMap: marketMapHtml,
+        };
+
+        const layoutOrder = [
+            'globalMarketMap',
+            'executiveSummary',
+            'marketSnapshot',
+            'riskAssessment',
+            'swot',
+            'conceptIdeas',
+            'kpis',
+            'nextSteps',
+            'influencerImage',
+            'influencer',
+            'allergenNote',
+            'RecipeCase',
+            'summary',
+        ];
+
+        const orderedKeys = Array.isArray(reportSections) && reportSections.length
+            ? [
+                ...layoutOrder.filter((key) => reportSections.includes(key)),
+                ...reportSections.filter((key) => !layoutOrder.includes(key)),
+            ]
+            : layoutOrder;
+
+        const sections = orderedKeys
+            .filter((key) => isSectionSelected(key))
+            .map((key) => sectionHtmlByKey[key])
+            .filter(Boolean)
+            .join('');
+        return `<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <title>${escapeHtml(recipe?.title)} 레시피 리포트</title>
+  <style>
+    :root { color-scheme: light; }
+    body { font-family: "Pretendard","Noto Sans KR",Arial,sans-serif; margin: 32px; color: #1f2937; }
+    h1 { font-size: 24px; margin-bottom: 8px; }
+    h2 { font-size: 18px; margin: 24px 0 8px; }
+    h3 { font-size: 15px; margin: 16px 0 6px; }
+    p { margin: 6px 0; line-height: 1.5; }
+    ul { margin: 6px 0 6px 18px; }
+    li { margin: 4px 0; }
+    table { width: 100%; border-collapse: collapse; margin: 8px 0; font-size: 13px; }
+    th, td { border: 1px solid #e5e7eb; padding: 6px 8px; text-align: left; }
+    th { background: #f3f4f6; }
+    .muted { color: #6b7280; }
+    .section { border-top: 1px solid #e5e7eb; padding-top: 16px; margin-top: 16px; }
+  </style>
+</head>
+<body>
+  <h1>${escapeHtml(recipe?.title)} 레시피 리포트</h1>
+  <p class="muted">${escapeHtml(recipe?.description)}</p>
+  ${sections}
+>>>>>>> upstream/UI5
 </body>
 </html>`;
     };
 
     const handlePdfDownload = () => {
+<<<<<<< HEAD
         if (influencerLoading) {
+=======
+        if ((allowInfluencer && influencers.length === 0) || (allowInfluencerImage && !imageBase64)) {
+>>>>>>> upstream/UI5
             return;
         }
         const html = buildPrintableHtml();
@@ -782,7 +1396,11 @@ const RecipeAnalysis = () => {
             <ul className="space-y-2 text-sm text-[color:var(--text)]">
                 {items.map((item, idx) => (
                     <li key={`${idx}-${item}`} className="flex gap-2">
+<<<<<<< HEAD
                         <span className="text-[color:var(--accent)]">•</span>
+=======
+                        <span className="text-[color:var(--accent)]">?</span>
+>>>>>>> upstream/UI5
                         <span>{item}</span>
                     </li>
                 ))}
@@ -800,6 +1418,15 @@ const RecipeAnalysis = () => {
             </span>
         </span>
     );
+<<<<<<< HEAD
+=======
+    const SectionTitle = ({ title, help }) => (
+        <h3 className="text-lg font-semibold text-[color:var(--text)] mb-3 flex items-center">
+            {title}
+            {help && <HelpTooltip label={title} description={help} />}
+        </h3>
+    );
+>>>>>>> upstream/UI5
 
 
     if (loading) {
@@ -845,6 +1472,7 @@ const RecipeAnalysis = () => {
                         보고서 데이터가 없습니다.
                     </div>
                 )}
+<<<<<<< HEAD
 
                 <div className="mt-8 grid grid-cols-1 lg:grid-cols-[1.3fr_1fr] gap-6">
                     <div className="lg:col-span-2 rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[0_12px_30px_var(--shadow)] p-6">
@@ -1004,11 +1632,220 @@ const RecipeAnalysis = () => {
                             ) : influencers.length === 0 ? (
                                 <p className="text-sm text-[color:var(--text-muted)]">추천 결과가 없습니다.</p>
                             ) : (
+=======
+                <div className="mt-8 grid grid-cols-1 lg:grid-cols-[1fr_1fr] gap-6">
+                    {showMap && (
+                        <div className="lg:col-span-2 rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[0_12px_30px_var(--shadow)] p-6">
+                            <div className="flex items-center justify-between mb-4">
+                                <h3 className="text-lg font-semibold text-[color:var(--text)]">
+                                    <SectionTitle
+                                        title="글로벌 마켓 맵"
+                                        help="국가별 긍/부정 피드백 및 점수를 지도로 시각화해 한눈에 비교하며, 점수가 표기된 동그라미를 누르면 해당 정보를 조회할 수 있습니다."
+                                    />
+                                </h3>
+                                <span className="text-xs text-[color:var(--text-soft)]">World View</span>
+                            </div>
+                            <div className="h-[260px] rounded-xl border border-[color:var(--border)] bg-[color:var(--surface-muted)] overflow-hidden">
+                                {mapError ? (
+                                    <div className="h-full flex items-center justify-center text-sm text-[color:var(--text-muted)]">
+                                        {mapError}
+                                    </div>
+                                ) : (
+                                    <div ref={mapRef} className="h-full w-full" />
+                                )}
+                            </div>
+                        </div>
+                    )}
+
+                    <div className="space-y-6 min-w-0">
+                        {showExec && (
+                            <div className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[0_12px_30px_var(--shadow)] p-6">
+                                <div className="flex items-center justify-between">
+                                    <h3 className="text-lg font-semibold text-[color:var(--text)]">
+                                        <SectionTitle
+                                            title="핵심 요약"
+                                            help="이 레시피의 시장 적합도와 성공 가능성을 종합해, 출시 여부 판단에 필요한 핵심 정보를 요약한 정보입니다."
+                                        />
+                                    </h3>
+                                </div>
+                                <div className="mt-4 space-y-3 text-sm text-[color:var(--text)]">
+                                    <p><strong>결론:</strong> {exec.decision || '-'}</p>
+                                    <p><strong>시장 적합도:</strong> {exec.marketFitScore || '-'}점</p>
+                                    <p><strong>성공 가능성:</strong> {exec.successProbability || '-'}</p>
+                                    <p><strong>추천 전략:</strong> {exec.recommendation || '-'}</p>
+                                    <div>
+                                        <p className="font-semibold text-[color:var(--text)] mb-2">핵심 강점</p>
+                                        {renderList(exec.keyPros)}
+                                    </div>
+                                    <div>
+                                        <p className="font-semibold text-[color:var(--text)] mb-2">주요 리스크</p>
+                                        {renderList(exec.topRisks)}
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        {showMarket && (
+                            <div className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[0_12px_30px_var(--shadow)] p-6">
+                                <h3 className="text-lg font-semibold text-[color:var(--text)] mb-4">
+                                    <SectionTitle
+                                        title="시장 스냅샷"
+                                        help="타깃 시장의 소비자 니즈, 트렌드, 경쟁 환경을 요약한 시장 개요입니다."
+                                    />
+                                </h3>
+                                <div className="space-y-4 text-sm text-[color:var(--text)]">
+                                    <div>
+                                        <p className="font-semibold text-[color:var(--text)]">타깃 페르소나 니즈</p>
+                                        <p className="text-[color:var(--text-muted)]">{personaNeeds.needs || '-'}</p>
+                                        <p className="mt-2">구매 요인: {personaNeeds.purchaseDrivers || '-'}</p>
+                                        <p>장벽: {personaNeeds.barriers || '-'}</p>
+                                    </div>
+                                    <div>
+                                        <p className="font-semibold text-[color:var(--text)]">트렌드 시그널</p>
+                                        {renderList(trendSignals.trendNotes)}
+                                        <p className="mt-2">가격대: {trendSignals.priceRangeNotes || '-'}</p>
+                                        <p>채널: {trendSignals.channelSignals || '-'}</p>
+                                    </div>
+                                    <div>
+                                        <p className="font-semibold text-[color:var(--text)]">경쟁 구도</p>
+                                        <p className="text-[color:var(--text-muted)]">{competition.localCompetitors || '-'}</p>
+                                        <p className="mt-2">차별화: {competition.differentiation || '-'}</p>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        {(showRisk || showSwot) && (
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                {showRisk && (
+                                    <div className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[0_12px_30px_var(--shadow)] p-6">
+                                        <h3 className="text-lg font-semibold text-[color:var(--text)] mb-3">
+                                            <SectionTitle
+                                                title="리스크 & 대응"
+                                                help="제품 출시 및 시장 적용 과정에서 예상되는 주요 리스크와, 이를 완화하기 위한 대응 전략을 정리한 항목입니다."
+                                            />
+                                        </h3>
+                                        <p className="text-sm font-semibold text-[color:var(--text)] mb-2">리스크</p>
+                                        {renderList(risk.riskList)}
+                                        <p className="mt-4 text-sm font-semibold text-[color:var(--text)] mb-2">완화 전략</p>
+                                        {renderList(risk.mitigations)}
+                                    </div>
+                                )}
+                                {showSwot && (
+                                    <div className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[0_12px_30px_var(--shadow)] p-6">
+                                        <h3 className="text-lg font-semibold text-[color:var(--text)] mb-3 flex items-center">
+                                            <SectionTitle
+                                                title="SWOT"
+                                                help="제품을 분석해서 강점 Strength, 약점 Weakenesses, 기회 Opportunities, 위협 Threats을 보여주는 단어입니다."
+                                            />
+                                        </h3>
+                                        <p className="text-sm font-semibold text-[color:var(--text)] mb-2">Strengths</p>
+                                        {renderList(swot.strengths)}
+                                        <p className="mt-3 text-sm font-semibold text-[color:var(--text)] mb-2">Weaknesses</p>
+                                        {renderList(swot.weaknesses)}
+                                        <p className="mt-3 text-sm font-semibold text-[color:var(--text)] mb-2">Opportunities</p>
+                                        {renderList(swot.opportunities)}
+                                        <p className="mt-3 text-sm font-semibold text-[color:var(--text)] mb-2">Threats</p>
+                                        {renderList(swot.threats)}
+                                    </div>
+                                )}
+                            </div>
+                        )}
+
+                        {showConceptIdeas && (
+                            <div className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[0_12px_30px_var(--shadow)] p-6">
+                                <h3 className="text-lg font-semibold text-[color:var(--text)] mb-4">
+                                    <SectionTitle
+                                        title="컨셉 아이디어"
+                                        help="현재 레시피 기준으로 새로운 제품을 만들 경우 추천하는 제품 컨셉 아이디어입니다."
+                                    />
+                                </h3>
+                                <div className="space-y-4">
+                                    {conceptIdeas.map((idea, idx) => (
+                                        <div key={`${idea.name}-${idx}`} className="rounded-xl border border-[color:var(--border)] bg-[color:var(--surface-muted)] p-4">
+                                            <p className="text-sm font-semibold text-[color:var(--text)]">{idea.name || `아이디어 ${idx + 1}`}</p>
+                                            <p className="text-sm text-[color:var(--text-muted)] mt-1">SCAMPER: {idea.scamperFocus || '-'}</p>
+                                            <p className="text-sm text-[color:var(--text-muted)]">포지셔닝: {idea.positioning || '-'}</p>
+                                            <p className="text-sm text-[color:var(--text-muted)]">기대효과: {idea.expectedEffect || '-'}</p>
+                                            <p className="text-sm text-[color:var(--text-muted)]">리스크: {idea.risks || '-'}</p>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+
+                        {showKpis && (
+                            <div className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[0_12px_30px_var(--shadow)] p-6">
+                                <h3 className="text-lg font-semibold text-[color:var(--text)] mb-4 flex items-center">
+                                    <SectionTitle
+                                        title="KPI 제안"
+                                        help="제품 출시 이후 성과를 측정하고 개선 방향을 판단하기 위한 핵심 지표를 제안합니다."
+                                    />
+                                </h3>
+                                <div className="space-y-3">
+                                    {kpis.map((kpi, idx) => (
+                                        <div key={`${kpi.name}-${idx}`} className="rounded-xl border border-[color:var(--border)] bg-[color:var(--surface-muted)] p-4 text-sm">
+                                            <p className="font-semibold text-[color:var(--text)]">{kpi.name || `KPI ${idx + 1}`}</p>
+                                            <p className="text-[color:var(--text-muted)]">목표: {kpi.target || '-'}</p>
+                                            <p className="text-[color:var(--text-muted)]">측정: {kpi.method || '-'}</p>
+                                            <p className="text-[color:var(--text-muted)]">인사이트: {kpi.insight || '-'}</p>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+
+                        {showNextSteps && (
+                            <div className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[0_12px_30px_var(--shadow)] p-6">
+                                <h3 className="text-lg font-semibold text-[color:var(--text)] mb-3">
+                                    <SectionTitle
+                                        title="제품 개발 추천안"
+                                        help="제품 기획/개발을 추진할 때 추천하는 다음 단계입니다."
+                                    />
+                                </h3>
+                                {renderList(nextSteps)}
+                            </div>
+                        )}
+                    </div>
+
+                    <div className="space-y-6 min-w-0">
+                        {/*인플루언서 추천+이미지*/}
+                        {showInfluencerImage && (
+                            <div className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[0_12px_30px_var(--shadow)] p-6">
+                                <h3 className="text-lg font-semibold text-[color:var(--text)] mb-3">
+                                    <SectionTitle
+                                        title="인플루언서 이미지"
+                                        help="인플루언서 추천 기반으로 만들어진 인플루언서 이미지입니다."
+                                    />
+                                </h3>
+                                <div className="min-h-[320px] rounded-xl border border-[color:var(--border)] bg-[color:var(--surface-muted)] flex items-center justify-center overflow-hidden">
+                                    <img
+                                        src={`data:image/png;base64,${imageBase64}`}
+                                        alt="influencer"
+                                        className="h-full w-full object-contain"
+                                    />
+                                </div>
+                            </div>
+                        )}
+
+                        {showInfluencer && (
+                            <div className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[0_12px_30px_var(--shadow)] p-6">
+                                <h3 className="text-lg font-semibold text-[color:var(--text)] mb-3">
+                                    <SectionTitle
+                                        title="인플루언서 추천"
+                                        help="해당 비슷한 제품을 접하거나 올렸던 인플루언서 중 이 제품에 제일 적합할 인플루언서들을 추천합니다."
+                                    />
+                                </h3>
+>>>>>>> upstream/UI5
                                 <div className="space-y-4">
                                     {influencers.slice(0, 3).map((inf, idx) => (
                                         <div key={`${inf.name}-${idx}`} className="rounded-xl border border-[color:var(--border)] bg-[color:var(--surface-muted)] p-4">
                                             <p className="text-sm font-semibold text-[color:var(--text)]">{inf.name}</p>
+<<<<<<< HEAD
                                             <p className="text-xs text-[color:var(--text-soft)]">{inf.platform || '-'} · {inf.profileUrl || '링크 없음'}</p>
+=======
+                                            <p className="text-xs text-[color:var(--text-soft)] break-all">{inf.platform || '-'} · {inf.profileUrl || '링크 없음'}</p>
+>>>>>>> upstream/UI5
                                             <p className="mt-2 text-xs text-[color:var(--text-muted)]">{inf.rationale || '-'}</p>
                                             {inf.riskNotes && (
                                                 <p className="mt-2 text-xs text-[color:var(--danger)]">주의: {inf.riskNotes}</p>
@@ -1016,6 +1853,7 @@ const RecipeAnalysis = () => {
                                         </div>
                                     ))}
                                 </div>
+<<<<<<< HEAD
                             )}
                         </div>
 
@@ -1037,11 +1875,116 @@ const RecipeAnalysis = () => {
                         </div>
 
                         {recipe.status === 'DRAFT' && isOwner && (
+=======
+                            </div>
+                        )}
+
+
+
+                        {/* 알레르기 쉘 */}
+                        {showAllergen && (
+                            <div className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[0_12px_30px_var(--shadow)] p-6">
+                                <SectionTitle
+                                    title="알레르기 성분 노트"
+                                    help="해당 레시피 대로 제품을 생산 시, 목표 국가에 대해 표기해야 하는 알레르기 정보입니다."
+                                />
+
+                                <p className="text-sm font-medium text-[color:var(--text)] whitespace-pre-line">
+                                    {allergenNoteText}
+                                </p>
+                            </div>
+                        )}
+
+                        {/* 🔥 국가 수출 부적합 사례 카드*/}
+                        {showRecipeCase && (
+                            <div className="lg:col-span-2 rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[0_12px_30px_var(--shadow)] p-6">
+                                <h3 className="text-lg font-semibold text-[color:var(--text)] mb-4">
+                                    <SectionTitle
+                                        title="국가 수출 부적합 사례"
+                                        help="해당 레시피의 최종 제품과 재료를 한국에서 목표 국가로 수출했을 때 발생한 부적합 사례를 보여주는 정보입니다."
+                                    />
+                                </h3>
+
+                                {/* 완제품 */}
+                                <div className="mb-5">
+                                    <p className="font-semibold">제품명: {recipe.title}</p>
+
+                                    {productCases.length === 0 ? (
+                                        <p className="text-sm text-[color:var(--text-muted)] ml-2">
+                                            수출 부적합 사례가 확인되지 않았습니다.
+                                        </p>
+                                    ) : (
+                                        <ul className="list-disc ml-5 text-sm">
+                                            {productCases.map((c, i) => (
+                                                <li key={i}>
+                                                    {c.country} - {c.action || '-'} - {c.violationReason || '-'}
+                                                </li>
+                                            ))}
+                                        </ul>
+                                    )}
+                                </div>
+
+                                {/* 재료별 */}
+                                {ingredientCases.length === 0 ? (
+                                    <p className="text-sm text-[color:var(--text-muted)] ml-2">
+                                        재료 기준 수출 부적합 사례가 확인되지 않았습니다.
+                                    </p>
+                                ) : (
+                                    ingredientCases.map((ing, idx) => (
+                                        <div key={idx} className="mb-4">
+                                            <p className="font-medium">[재료: {ing.ingredient}]</p>
+
+                                            {ing.cases.length === 0 ? (
+                                                <p className="text-sm text-[color:var(--text-muted)] ml-2">
+                                                    해당 재료의 수출 부적합 사례가 없습니다.
+                                                </p>
+                                            ) : (
+                                                <ul className="list-disc ml-5 text-sm">
+                                                    {ing.cases.map((c, i) => (
+                                                        <li key={i}>
+                                                            {c.country} - {c.action || '-'} - {c.violationReason || '-'}
+                                                        </li>
+                                                    ))}
+                                                </ul>
+                                            )}
+                                        </div>
+                                    ))
+                                )}
+
+                            </div>
+                        )}
+                        {/* 최종 보고서 요약본 */}
+                        {showSummary && (
+                            <div className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[0_12px_30px_var(--shadow)] p-6">
+                                <SectionTitle
+                                    title="최종 보고서 요약"
+                                    help="현재까지 보고된 내용을 종합해, 최종 보고서를 요약한 정보입니다."
+                                />
+
+                                <p className="mt-4 text-sm font-medium text-[color:var(--text)] whitespace-pre-line">
+                                    {recipe.summary}
+                                </p>
+                            </div>
+                        )}
+
+
+
+                        {recipe.status === 'DRAFT' && isOwner && !isRecipeOnly && (
+>>>>>>> upstream/UI5
                             <button
                                 type="button"
                                 className="w-full py-2 rounded-xl bg-[color:var(--accent)] text-[color:var(--accent-contrast)] text-sm font-semibold hover:bg-[color:var(--accent-strong)] transition disabled:opacity-60 disabled:cursor-not-allowed"
                                 onClick={handlePublish}
+<<<<<<< HEAD
                                 disabled={publishLoading || influencerLoading || !imageBase64 || influencers.length === 0}
+=======
+                                disabled={
+                                    publishLoading ||
+                                    influencerLoading ||
+                                    (allowInfluencer && influencers.length === 0) ||
+                                    (allowInfluencerImage && !imageBase64)
+                                }
+>>>>>>> upstream/UI5
                             >
                                 {publishLoading ? '등록 중...' : '등록 확정'}
                             </button>
@@ -1051,9 +1994,23 @@ const RecipeAnalysis = () => {
                                 type="button"
                                 className="w-full py-2 rounded-xl bg-[color:var(--accent)] text-[color:var(--accent-contrast)] text-sm font-semibold hover:bg-[color:var(--accent-strong)] transition disabled:opacity-60 disabled:cursor-not-allowed"
                                 onClick={handlePdfDownload}
+<<<<<<< HEAD
                                 disabled={influencerLoading}
                             >
                                 {influencerLoading ? 'PDF 준비 중...' : 'PDF 다운로드'}
+=======
+                                disabled={
+                                    (allowInfluencer && influencers.length === 0) ||
+                                    (allowInfluencerImage && !imageBase64)
+                                }
+                            >
+                                {(allowInfluencer && influencers.length === 0) ||
+                                (allowInfluencerImage && !imageBase64)
+                                    ? allowInfluencerImage
+                                        ? '이미지 생성 중...'
+                                        : '인플루언서 준비 중...'
+                                    : 'PDF 다운로드'}
+>>>>>>> upstream/UI5
                             </button>
                         )}
                         <button

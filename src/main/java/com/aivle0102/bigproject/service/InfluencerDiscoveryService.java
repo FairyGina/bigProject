@@ -114,6 +114,7 @@ public class InfluencerDiscoveryService {
         String instructions = """
                 너는 글로벌 식품기업의 마케팅/브랜드 PM이다.
                 아래 후보들은 SerpApi(구글) 검색 결과에서 추출한 링크/요약이다.
+                rationale, riskNotes, confidenceNote는 한국어로 작성.
 
                 목표:
                 1) '실존' 인플루언서를 3~5명 추천하라.
@@ -171,8 +172,8 @@ public class InfluencerDiscoveryService {
         try {
             JsonNode root = objectMapper.readTree(cleaned);
             if (root != null && root.isObject() && root.has("error")) {
-                log.warn("OpenAI error response: {}", root.get("error"));
-                throw new IllegalStateException("OpenAI error response");
+                log.warn("OpenAI 오류 응답: {}", root.get("error"));
+                throw new IllegalStateException("OpenAI 오류 응답");
             }
             JsonNode arr = root;
             if (root != null && root.isObject()) {
@@ -181,9 +182,9 @@ public class InfluencerDiscoveryService {
             if (arr != null && arr.isArray()) {
                 return objectMapper.convertValue(arr, new TypeReference<List<InfluencerProfile>>() {});
             }
-            throw new IllegalArgumentException("Unexpected JSON shape: " + cleaned);
+            throw new IllegalArgumentException("예상치 못한 JSON 형태: " + cleaned);
         } catch (Exception e) {
-            log.warn("LLM parse failed. raw={}", json);
+            log.warn("LLM 파싱 실패: raw={}", json);
             return List.of(new InfluencerProfile(
                     "N/A", nn(req.getPlatform()), "",
                     "",

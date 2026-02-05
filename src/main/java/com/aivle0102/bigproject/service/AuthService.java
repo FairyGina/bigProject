@@ -7,8 +7,10 @@ import com.aivle0102.bigproject.dto.ResetPasswordRequest;
 import com.aivle0102.bigproject.dto.SignUpRequest;
 import com.aivle0102.bigproject.dto.UpdateProfileRequest;
 import com.aivle0102.bigproject.dto.UserResponse;
+import com.aivle0102.bigproject.domain.Company;
 import com.aivle0102.bigproject.domain.UserInfo;
 import com.aivle0102.bigproject.exception.CustomException;
+import com.aivle0102.bigproject.repository.CompanyRepository;
 import com.aivle0102.bigproject.repository.UserInfoRepository;
 import com.aivle0102.bigproject.security.JwtTokenProvider;
 import lombok.RequiredArgsConstructor;
@@ -31,6 +33,7 @@ import java.time.format.DateTimeFormatter;
 public class AuthService {
 
     private final UserInfoRepository userInfoRepository;
+    private final CompanyRepository companyRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtTokenProvider jwtTokenProvider;
     private final PasswordResetCodeService passwordResetCodeService;
@@ -53,6 +56,9 @@ public class AuthService {
             throw new CustomException("이미 존재하는 아이디입니다.", HttpStatus.CONFLICT, "DUPLICATE_USER_ID");
         }
 
+        Company company = resolveCompany(request);
+        Long companyId = company == null ? null : company.getCompanyId();
+
         String hashedPassword = passwordEncoder.encode(request.getPassword());
         UserInfo userInfo = UserInfo.builder()
                 .userId(request.getUserId())
@@ -63,6 +69,10 @@ public class AuthService {
                 .joinDate(LocalDateTime.now())
                 .loginFailCount(0)
                 .passwordChangedAt(OffsetDateTime.now())
+<<<<<<< HEAD
+=======
+                .companyId(companyId)
+>>>>>>> upstream/UI5
                 .build();
 
         userInfoRepository.save(userInfo);
@@ -70,6 +80,34 @@ public class AuthService {
         return toUserResponse(userInfo, null);
     }
 
+<<<<<<< HEAD
+=======
+    private Company resolveCompany(SignUpRequest request) {
+        String companyName = trimToNull(request.getCompanyName());
+        if (companyName == null) {
+            return null;
+        }
+        return companyRepository.findFirstByCompanyNameIgnoreCase(companyName)
+                .orElseGet(() -> companyRepository.save(
+                        Company.builder()
+                                .companyName(companyName)
+                                .industry(trimToNull(request.getIndustry()))
+                                .targetCountry(trimToNull(request.getTargetCountry()))
+                                .createdAt(LocalDateTime.now())
+                                .updatedAt(LocalDateTime.now())
+                                .build()
+                ));
+    }
+
+    private String trimToNull(String value) {
+        if (value == null) {
+            return null;
+        }
+        String trimmed = value.trim();
+        return trimmed.isEmpty() ? null : trimmed;
+    }
+
+>>>>>>> upstream/UI5
     @Transactional(noRollbackFor = CustomException.class)
     public UserResponse login(LoginRequest request) {
         log.debug("login user: {}", request.getUserId());
@@ -77,10 +115,17 @@ public class AuthService {
         UserInfo userInfo = userInfoRepository.findByUserIdAndUserState(request.getUserId(), "1")
                 .orElseThrow(() -> new CustomException("아이디를 다시 확인해주세요.", HttpStatus.UNAUTHORIZED, "INVALID_USER_ID"));
 
+<<<<<<< HEAD
         log.info("Login attempt userId={} loginFailCount={}", userInfo.getUserId(), userInfo.getLoginFailCount());
 
         if (userInfo.getLoginFailCount() >= MAX_LOGIN_FAILURES) {
             log.warn("Login blocked (failCount>=max) userId={} failCount={}", userInfo.getUserId(), userInfo.getLoginFailCount());
+=======
+        log.info("Login 시도 userId={} loginFailCount={}", userInfo.getUserId(), userInfo.getLoginFailCount());
+
+        if (userInfo.getLoginFailCount() >= MAX_LOGIN_FAILURES) {
+            log.warn("Login 차단 (failCount>=max) userId={} failCount={}", userInfo.getUserId(), userInfo.getLoginFailCount());
+>>>>>>> upstream/UI5
             throw new CustomException("비밀번호 재설정이 필요합니다.", HttpStatus.FORBIDDEN, "PASSWORD_RESET_REQUIRED");
         }
 
@@ -88,7 +133,11 @@ public class AuthService {
             int nextFailCount = userInfo.getLoginFailCount() + 1;
             userInfo.setLoginFailCount(nextFailCount);
             userInfoRepository.save(userInfo);
+<<<<<<< HEAD
             log.warn("Login failed userId={} nextFailCount={}", userInfo.getUserId(), nextFailCount);
+=======
+            log.warn("Login 실패 userId={} nextFailCount={}", userInfo.getUserId(), nextFailCount);
+>>>>>>> upstream/UI5
             if (nextFailCount >= MAX_LOGIN_FAILURES) {
                 throw new CustomException("비밀번호 재설정이 필요합니다.", HttpStatus.FORBIDDEN, "PASSWORD_RESET_REQUIRED");
             }
@@ -112,7 +161,20 @@ public class AuthService {
     }
 
     public void logout() {
-        // No server-side state to clear.
+        // 서버 측에서 체크할 부분은 없음..
+    }
+
+    public void verifyPassword(String userId, String password) {
+        UserInfo userInfo = userInfoRepository.findByUserIdAndUserState(userId, "1")
+                .orElseThrow(() -> new CustomException("사용자를 찾을 수 없습니다.", HttpStatus.NOT_FOUND, "USER_NOT_FOUND"));
+
+        if (userInfo.getProvider() != null && !userInfo.getProvider().isBlank()) {
+            return;
+        }
+
+        if (!passwordEncoder.matches(password, userInfo.getUserPw())) {
+            throw new CustomException("비밀번호가 일치하지 않습니다.", HttpStatus.UNAUTHORIZED, "PASSWORD_MISMATCH");
+        }
     }
 
     public void verifyPassword(String userId, String password) {

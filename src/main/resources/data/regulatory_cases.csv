@@ -816,7 +816,11 @@ CASE-00814,미국,'’24.3 (’24.2부적합),"밀크시슬(허브 및 식물류
 CASE-00815,미국,'’24.3 (’24.2부적합),"수산식품 차우더/수프/스튜/비스크, 수산식품 혼합 제품 (SEAFOODCHOWDER/SOUP/STEW/BISQUE, N.E.C.,MIXEDFISHERY/SEAFOODPRODUCTS)",유해물질 함유,통관거부
 CASE-00816,EU,'’24.1,홍찻잎(Black Tea leaf),잔류농약 (클로르피리포스(Chlorpyrifos) 0.035 ppm),억류 (핀란드)
 CASE-00817,EU,'’24.2,라면(ramen),기타 (화물의국경통제소동물위생통제누락 (Consignment skipped the necessary veterinary controls at BCP Rotterdam)),소비자 회수 (노르웨이)
+<<<<<<< HEAD
 CASE-00818,EU,'’24.3,"육류, 우유 및/또는 달걀 원료 함유한 복합식품 (Composite products with meat and/or milk and/or egg ingredients)",기타 (금지 냉동 동물위생 제품 수입 가능성 (Possible import of prohibited frozen veterinairy products)),-
+=======
+CASE-00818,EU,'’24.3,"육류, 우유 및/또는 달걀 원료 함유한 복합식품 (Composite products with meat and/or milk and/or egg ingredients)",기타 (금지 냉동 동물위생 제품 수입 가능성 (Possible import of prohibited frozen veterinairy products)),알려진 처리조치 없음
+>>>>>>> upstream/UI5
 CASE-00819,중국,'’24.4 (’24.3부적합),시나몬초콜릿 파우더(고체음료) (肉桂巧克力粉(固体饮料)),기타 (검사검역증명서 등 필요 서류 미제출),통관거부
 CASE-00820,중국,'’24.4 (’24.3부적합),바닐라 파우더(고체음료) (香草粉(固体饮料)),기타 (검사검역증명서 등 필요 서류 미제출),통관거부
 CASE-00821,중국,'’24.4 (’24.3부적합),초콜릿 민트 파우더(巧克力薄荷粉),기타 (검사검역증명서 등 필요 서류 미제출),통관거부

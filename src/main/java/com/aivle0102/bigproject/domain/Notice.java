@@ -34,6 +34,12 @@ public class Notice {
     @Column(name = "user_id", nullable = false, length = 50)
     private String authorId;
 
+<<<<<<< HEAD
+=======
+    @Column(name = "company_id")
+    private Long companyId;
+
+>>>>>>> upstream/UI5
     @Transient
     private String authorName;
 

@@ -8,6 +8,11 @@ import java.util.List;
 public interface RecipeRepository extends JpaRepository<Recipe, Long> {
     List<Recipe> findAllByOrderByCreatedAtDesc();
     List<Recipe> findByStatusOrderByCreatedAtDesc(String status);
+<<<<<<< HEAD
+=======
+    List<Recipe> findByStatusAndCompanyIdOrderByCreatedAtDesc(String status, Long companyId);
+    List<Recipe> findByCompanyIdOrderByCreatedAtDesc(Long companyId);
+>>>>>>> upstream/UI5
 
     List<Recipe> findByUserIdOrderByCreatedAtDesc(String userId);
     List<Recipe> findByUserIdAndStatusOrderByCreatedAtDesc(String userId, String status);

@@ -18,6 +18,13 @@ public class RecipeCreateRequest {
     private String targetCountry;
     private String targetPersona;
     private String priceRange;
+<<<<<<< HEAD
     private boolean draft;
     private boolean regenerateReport;
+=======
+    private List<String> reportSections;
+    private boolean draft;
+    private boolean regenerateReport;
+    private String openYn;
+>>>>>>> upstream/UI5
 }

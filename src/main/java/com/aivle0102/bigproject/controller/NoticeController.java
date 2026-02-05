@@ -23,8 +23,14 @@ public class NoticeController {
     private final NoticeService noticeService;
 
     @GetMapping
+<<<<<<< HEAD
     public ResponseEntity<List<NoticeResponse>> getNotices() {
         return ResponseEntity.ok(noticeService.getNotices());
+=======
+    public ResponseEntity<List<NoticeResponse>> getNotices(Principal principal) {
+        String userId = principal == null ? null : principal.getName();
+        return ResponseEntity.ok(noticeService.getNotices(userId));
+>>>>>>> upstream/UI5
     }
 
     @GetMapping("/{noticeId}")

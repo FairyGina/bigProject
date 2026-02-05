@@ -45,6 +45,12 @@ public class MarketReport {
     @Column(name = "summary", columnDefinition = "TEXT")
     private String summary;
 
+<<<<<<< HEAD
+=======
+    @Column(name = "open_yn", nullable = false, length = 1, columnDefinition = "CHAR(1)")
+    private String openYn;
+
+>>>>>>> upstream/UI5
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;

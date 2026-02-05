@@ -43,6 +43,12 @@ public class Recipe {
     @Column(name = "status", nullable = false, length = 20)
     private String status;
 
+<<<<<<< HEAD
+=======
+    @Column(name = "open_yn", nullable = false, length = 1, columnDefinition = "CHAR(1)")
+    private String openYn;
+
+>>>>>>> upstream/UI5
     @Column(name = "user_id", nullable = false, length = 50)
     private String userId;
 

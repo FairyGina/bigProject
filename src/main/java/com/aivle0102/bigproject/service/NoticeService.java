@@ -27,8 +27,17 @@ public class NoticeService {
     private final UserInfoRepository userInfoRepository;
 
     @Transactional(readOnly = true)
+<<<<<<< HEAD
     public List<NoticeResponse> getNotices() {
         return noticeRepository.findAllByOrderByCreatedAtDesc()
+=======
+    public List<NoticeResponse> getNotices(String userId) {
+        Long companyId = userId == null ? null : resolveCompanyId(userId);
+        List<Notice> notices = companyId == null
+                ? noticeRepository.findAllByOrderByCreatedAtDesc()
+                : noticeRepository.findByCompanyIdOrCompanyIdIsNullOrderByCreatedAtDesc(companyId);
+        return notices
+>>>>>>> upstream/UI5
                 .stream()
                 .map(notice -> {
                     notice.setAuthorName(resolveUserName(notice.getAuthorId()));
@@ -52,6 +61,10 @@ public class NoticeService {
                 .content(request.getContent())
                 .authorId(userInfo.getUserId())
                 .authorName(userInfo.getUserName())
+<<<<<<< HEAD
+=======
+                .companyId(userInfo.getCompanyId())
+>>>>>>> upstream/UI5
                 .build();
         return NoticeResponse.from(noticeRepository.save(notice));
     }
@@ -141,4 +154,13 @@ public class NoticeService {
                 .map(UserInfo::getUserName)
                 .orElse(userId);
     }
+<<<<<<< HEAD
+=======
+
+    private Long resolveCompanyId(String userId) {
+        return userInfoRepository.findByUserId(userId)
+                .map(UserInfo::getCompanyId)
+                .orElse(null);
+    }
+>>>>>>> upstream/UI5
 }

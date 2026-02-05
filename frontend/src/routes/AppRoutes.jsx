@@ -20,8 +20,13 @@ import NotFound from '../pages/NotFound';
 import MainLayout from '../components/layout/MainLayout';
 import PasswordCheckPage from '../pages/PasswordCheckPage';
 import UserProfilePage from '../pages/UserProfilePage';
+<<<<<<< HEAD
 import ExportAnalysisPage from '../pages/ExportAnalysisPage';
 import ConsumerAnalysisPage from '../pages/ConsumerAnalysisPage';
+=======
+import FinalSelectionPage from '../pages/FinalSelectionPage';
+import FinalEvaluationPage from '../pages/FinalEvaluationPage';
+>>>>>>> upstream/UI5
 
 // 인증이 필요한 라우트 보호 컴포넌트
 const ProtectedRoute = ({ children }) => {
@@ -76,6 +81,8 @@ const AppRoutes = () => {
                             <Routes>
                                 <Route path="/" element={<MainBoard />} />
                                 <Route path="notice" element={<NoticeBoard />} />
+                                <Route path="final-selection" element={<FinalSelectionPage />} />
+                                <Route path="final-selection/result" element={<FinalEvaluationPage />} />
                                 <Route path="user-hub" element={<Navigate to="user-hub/recipes" replace />} />
                                 <Route path="user-hub/recipes" element={<UserBoard />} />
                                 <Route path="user-hub/password-check" element={<PasswordCheckPage />} />
@@ -83,6 +90,10 @@ const AppRoutes = () => {
                                 <Route path="recipes/:id" element={<RecipeReport />} />
                                 <Route path="recipes/:id/edit" element={<UserCreateRecipe />} />
                                 <Route path="recipes/:id/report" element={<RecipeAnalysis />} />
+<<<<<<< HEAD
+=======
+                                <Route path="reports/:reportId" element={<RecipeAnalysis />} />
+>>>>>>> upstream/UI5
                                 <Route path="create/ai" element={<AICreateRecipe />} />
                                 <Route path="create/manual" element={<UserCreateRecipe />} />
                                 <Route path="visual/export-analysis" element={<ExportAnalysisPage />} />

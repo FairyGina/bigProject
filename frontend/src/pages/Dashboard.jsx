@@ -14,11 +14,11 @@ const Dashboard = () => {
         }
     }, []);
 
-    // Main Content Only
+    // 메인 콘텐츠만
     return (
         <React.Fragment>
 
-            {/* Main Content Area */}
+            {/* 메인 콘텐츠 영역 */}
             <div className="flex flex-col gap-6 h-full">
                 <header className="flex justify-between items-center px-4">
                     <h2 className="text-3xl font-bold">대시보드 개요</h2>
@@ -31,7 +31,7 @@ const Dashboard = () => {
                     </div>
                 </header>
 
-                {/* Stats Grid */}
+                {/* 통계 그리드 */}
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                     <GlassCard className="p-8 hover:bg-white/10 transition cursor-default group">
                         <p className="text-gray-400 text-sm mb-2">총 매출액</p>
@@ -50,7 +50,7 @@ const Dashboard = () => {
                     </GlassCard>
                 </div>
 
-                {/* Large Content Area */}
+                {/* 큰 콘텐츠 영역 */}
                 <GlassCard className="flex-1 p-8 relative overflow-hidden group">
                     <div className="flex justify-between items-center mb-8">
                         <h3 className="text-xl font-bold">실시간 데이터 추이</h3>

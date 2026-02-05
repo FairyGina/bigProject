@@ -1,5 +1,9 @@
 // HACCP 제품 이미지/표기 정보 API를 호출하는 클라이언트.
+<<<<<<< HEAD
 // prdkind/prdlstNm 검색 결과를 파싱해 반환한다.
+=======
+// prdkind/prdlstNm 검색 결과를 파싱해 반환
+>>>>>>> upstream/UI5
 
 package com.aivle0102.bigproject.client;
 
@@ -40,19 +44,31 @@ public class HaccpCertImgClient {
                 .build()
                 .toUriString();
 
+<<<<<<< HEAD
         System.out.println("[HACCP URL] " + maskServiceKey(url));
+=======
+        System.out.println("[HACCP 주소] " + maskServiceKey(url));
+>>>>>>> upstream/UI5
 
         ResponseEntity<String> resp = restTemplate.getForEntity(url, String.class);
 
         String body = Optional.ofNullable(resp.getBody()).orElse("");
         if (!body.trim().startsWith("<")) {
+<<<<<<< HEAD
             throw new IllegalStateException("HACCP API returned non-XML response: " + body);
+=======
+            throw new IllegalStateException("HACCP API가 XML이 아닌 응답을 반환했습니다: " + body);
+>>>>>>> upstream/UI5
         }
 
         try {
             return xmlMapper.readTree(body.getBytes(StandardCharsets.UTF_8));
         } catch (Exception e) {
+<<<<<<< HEAD
             throw new IllegalStateException("Failed to parse HACCP XML response", e);
+=======
+            throw new IllegalStateException("HACCP XML 응답 파싱에 실패했습니다.", e);
+>>>>>>> upstream/UI5
         }
     }
 
@@ -67,19 +83,31 @@ public class HaccpCertImgClient {
                 .build()
                 .toUriString();
 
+<<<<<<< HEAD
         System.out.println("[HACCP URL] " + maskServiceKey(url));
+=======
+        System.out.println("[HACCP 주소] " + maskServiceKey(url));
+>>>>>>> upstream/UI5
 
         ResponseEntity<String> resp = restTemplate.getForEntity(url, String.class);
 
         String body = Optional.ofNullable(resp.getBody()).orElse("");
         if (!body.trim().startsWith("<")) {
+<<<<<<< HEAD
             throw new IllegalStateException("HACCP API returned non-XML response: " + body);
+=======
+            throw new IllegalStateException("HACCP API가 XML이 아닌 응답을 반환했습니다: " + body);
+>>>>>>> upstream/UI5
         }
 
         try {
             return xmlMapper.readTree(body.getBytes(StandardCharsets.UTF_8));
         } catch (Exception e) {
+<<<<<<< HEAD
             throw new IllegalStateException("Failed to parse HACCP XML response", e);
+=======
+            throw new IllegalStateException("HACCP XML 응답 파싱에 실패했습니다.", e);
+>>>>>>> upstream/UI5
         }
     }
 

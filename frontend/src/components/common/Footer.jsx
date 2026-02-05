@@ -1,4 +1,8 @@
+<<<<<<< HEAD
 import React from 'react';
+=======
+﻿import React from 'react';
+>>>>>>> upstream/UI5
 import { useNavigate } from 'react-router-dom';
 
 const Footer = () => {

@@ -62,7 +62,11 @@ public class RawProduceCatalogLoader {
                 addIfNotBlank(text(node, "식품소분류명"));
             }
         } catch (Exception e) {
+<<<<<<< HEAD
             throw new IllegalStateException("Failed to load raw produce catalog from " + catalogResource, e);
+=======
+            throw new IllegalStateException("원물 카탈로그 로드에 실패했습니다: " + catalogResource, e);
+>>>>>>> upstream/UI5
         }
     }
 
@@ -86,7 +90,11 @@ public class RawProduceCatalogLoader {
             addSeafoodCategoryNames(fish, SeafoodCategory.FISH);
             addSeafoodCategoryNames(others, SeafoodCategory.OTHER);
         } catch (Exception e) {
+<<<<<<< HEAD
             throw new IllegalStateException("Failed to load raw seafood categories from " + seafoodCategoryResource, e);
+=======
+            throw new IllegalStateException("원물 해산물 분류 로드에 실패했습니다: " + seafoodCategoryResource, e);
+>>>>>>> upstream/UI5
         }
     }
 
@@ -122,7 +130,11 @@ public class RawProduceCatalogLoader {
 
     private String normalizeKey(String value) {
         if (value == null) return "";
+<<<<<<< HEAD
         String cleaned = value.replace("\uFEFF", "")
+=======
+        String cleaned = value.replace("﻿", "")
+>>>>>>> upstream/UI5
                 .replace("_", " ")
                 .trim();
         cleaned = cleaned.replaceAll("\\([^)]*\\)", " ");
@@ -154,4 +166,8 @@ public class RawProduceCatalogLoader {
         MOLLUSC,
         OTHER
     }
+<<<<<<< HEAD
 }
+=======
+}
+>>>>>>> upstream/UI5

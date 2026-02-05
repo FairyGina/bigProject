@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import GlassCard from '../components/common/GlassCard';
@@ -147,7 +147,11 @@ const UserProfilePage = () => {
             }));
 
             try {
+<<<<<<< HEAD
                 const response = await axiosInstance.get('/user/me');
+=======
+                const response = await axiosInstance.get('/api/user/me');
+>>>>>>> upstream/UI5
                 const data = response.data || {};
                 if (data.userName) {
                     localStorage.setItem('userName', data.userName);
@@ -163,7 +167,11 @@ const UserProfilePage = () => {
                     birthDate: normalizeDate(data.birthDate),
                 }));
             } catch (error) {
+<<<<<<< HEAD
                 console.error('Failed to load user profile:', error);
+=======
+                console.error('사용자 프로필을 불러오지 못했습니다:', error);
+>>>>>>> upstream/UI5
             }
         };
 
@@ -212,7 +220,11 @@ const UserProfilePage = () => {
                     payload.confirmNewPassword = formData.confirmNewPassword;
                 }
             }
+<<<<<<< HEAD
             const response = await axiosInstance.put('/user/me', payload);
+=======
+            const response = await axiosInstance.put('/api/user/me', payload);
+>>>>>>> upstream/UI5
             const data = response.data || {};
             setFormData((prev) => ({
                 ...prev,

@@ -4,6 +4,7 @@ import com.aivle0102.bigproject.domain.UserInfo;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.Optional;
+import java.util.List;
 
 public interface UserInfoRepository extends JpaRepository<UserInfo, Integer> {
 
@@ -20,4 +21,9 @@ public interface UserInfoRepository extends JpaRepository<UserInfo, Integer> {
     boolean existsByUserNameAndUserState(String userName, String userState);
 
     Optional<UserInfo> findByProviderAndProviderId(String provider, String providerId);
+<<<<<<< HEAD
+=======
+
+    List<UserInfo> findByUserIdIn(List<String> userIds);
+>>>>>>> upstream/UI5
 }
