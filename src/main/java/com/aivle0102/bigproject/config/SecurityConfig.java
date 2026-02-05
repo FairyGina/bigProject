@@ -19,6 +19,7 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 import com.aivle0102.bigproject.security.CsrfCookieFilter;
 import com.aivle0102.bigproject.security.JwtAuthenticationFilter;
 import com.aivle0102.bigproject.security.oauth.CustomOAuth2UserService;
+import com.aivle0102.bigproject.security.oauth.HttpCookieOAuth2AuthorizationRequestRepository;
 import com.aivle0102.bigproject.security.oauth.OAuth2AuthenticationFailureHandler;
 import com.aivle0102.bigproject.security.oauth.OAuth2AuthenticationSuccessHandler;
 import org.springframework.security.web.authentication.www.BasicAuthenticationFilter;
