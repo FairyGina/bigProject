@@ -123,11 +123,27 @@ def apply_user_input(state: Dict[str, Any], user_input: str) -> Dict[str, Any]:
         if user_input == "트렌드 반영 안 함":
             state["trend_enabled"] = False
             state["country"] = None
+        # 재생성 요청: 수정사항 입력 모드로 전환
+        elif user_input == "레시피 다시 생성":
+            state["regenerate"] = True
+            state["await_revision"] = True
+            state["options"] = None
+            state.setdefault("messages", []).append({
+                "role": "assistant",
+                "content": "수정하고 싶은 내용을 입력해주세요.",
+            })
+            return state
         else:
             state["trend_enabled"] = True
             state["country"] = user_input
         state["trend_selected"] = True
     else:
+        # 재생성 단계에서 수정사항 입력 처리
+        if state.get("await_revision"):
+            state["revision_request"] = user_input or ""
+            state["await_revision"] = False
+            state["recipe_generated"] = False
+            return state
         if not state.get("base_done"):
             state["base_recipe"] = user_input or None
             state["base_done"] = True
@@ -153,6 +169,20 @@ def call_llm(prompt: str) -> str:
         ],
     )
     return response.output_text
+
+
+def build_revision_prompt(recipe_json: str, revision_request: str) -> str:
+    # 기존 레시피(JSON)을 수정사항에 맞게 재작성하도록 프롬프트 구성
+    return f"""
+아래 레시피 JSON을 사용자의 수정사항에 맞게 수정하세요.
+출력은 반드시 동일한 JSON 스키마만 반환합니다(설명/마크다운/코드펜스 금지).
+
+[기존 레시피 JSON]
+{recipe_json}
+
+[수정사항]
+{revision_request}
+"""
 
 
 def extract_json_from_text(text: str) -> str:
@@ -332,6 +362,39 @@ def log_trend(country: str, queries: List[str], results: List[Dict[str, Any]], s
 def try_generate_recipe(state: Dict[str, Any]) -> Dict[str, Any]:
     # graph.py에서 만든 state["prompt"]를 기반으로 레시피 생성
     prompt = state.get("prompt")
+    
+    # 재생성 모드: 기존 레시피(JSON) + 수정사항으로 재작성
+    if state.get("regenerate") and state.get("revision_request"):
+        # 0) 재생성: 기존 레시피(JSON) + 수정사항으로 재작성
+        recipe_json = state.get("recipe") or "{}"
+        revision_prompt = build_revision_prompt(recipe_json, state.get("revision_request") or "")
+        recipe_text = call_llm(revision_prompt)
+        recipe_json_text = extract_json_from_text(recipe_text)
+        recipe_payload: Dict[str, Any] = {}
+        if recipe_json_text:
+            try:
+                recipe_payload = json.loads(recipe_json_text)
+            except json.JSONDecodeError:
+                recipe_payload = {}
+        if recipe_payload:
+            rendered = render_recipe_text(recipe_payload)
+            state["recipe"] = recipe_json_text
+            state["messages"].append({
+                "role": "assistant",
+                "content": rendered
+            })
+        else:
+            state["recipe"] = recipe_text
+            state["messages"].append({
+                "role": "assistant",
+                "content": recipe_text
+            })
+        state["recipe_generated"] = True
+        state["regenerate"] = False
+        state["revision_request"] = ""
+        state["options"] = ["레시피 다시 생성", "저장"]
+        return state
+    
     if prompt and not state.get("recipe_generated"):
         # 1) 트렌드 요약 생성 (SerpAPI 사용 시)
         country = state.get("country") or ""
@@ -424,7 +487,9 @@ def on_text_submit(user_input: str, state: Dict[str, Any]):
     if user_input is None:
         user_input = ""
     state = apply_user_input(state, user_input)
-    state = run_graph(state)
+    # 재생성 수정 입력 중에는 그래프 진행을 멈춘다
+    if not state.get("await_revision"):
+        state = run_graph(state)
     state = try_generate_recipe(state)
     disable_input = should_disable_textbox(state)
     return (
