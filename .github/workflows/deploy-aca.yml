@@ -78,7 +78,10 @@ jobs:
             --name ${{ env.BACKEND_APP_NAME }} \
             --resource-group ${{ env.RESOURCE_GROUP }} \
             --image ${{ env.BACKEND_ACR }}.azurecr.io/${{ env.BACKEND_IMAGE_NAME }}:${{ github.sha }} \
-            --set-env-vars ANALYSIS_ENGINE_URL=http://${{ env.ANALYSIS_APP_NAME }}.wittysand-a0f4e87e.centralindia.azurecontainerapps.io
+            --set-env-vars ANALYSIS_ENGINE_URL=http://${{ env.ANALYSIS_APP_NAME }}.wittysand-a0f4e87e.centralindia.azurecontainerapps.io \
+              NAVER_CLIENT_ID=${{ secrets.NAVER_CLIENT_ID }} \
+              NAVER_CLIENT_SECRET=${{ secrets.NAVER_CLIENT_SECRET }} \
+              OAUTH2_REDIRECT_URI=https://bp-frontend-app.wittysand-a0f4e87e.centralindia.azurecontainerapps.io/oauth/callback
 
       # 7. Frontend Container App 업데이트
       - name: Deploy Frontend to ACA
