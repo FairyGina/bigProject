@@ -719,10 +719,15 @@ const RecipeAnalysis = () => {
     const showRecipeCase =
         Array.isArray(reportSections) &&
         reportSections.includes('RecipeCase');
+    const matchedAllergens = Array.isArray(recipe?.allergen?.matchedAllergens)
+        ? recipe.allergen.matchedAllergens
+        : [];
     const showAllergen =
-        allowAllergenSection &&
-        (Boolean(recipe?.allergen?.note) ||
-            (Array.isArray(recipe?.allergen?.matchedAllergens) && recipe.allergen.matchedAllergens.length > 0));
+        allowAllergenSection ||
+        (!reportSections && (Boolean(recipe?.allergen?.note) || matchedAllergens.length > 0));
+    const allergenNoteText =
+        recipe?.allergen?.note ||
+        (matchedAllergens.length ? `알레르기 성분: ${matchedAllergens.join(', ')}` : '알레르기 성분 요약이 없습니다.');
     const showInfluencer = allowInfluencer && influencers.length > 0;
     const showInfluencerImage = allowInfluencerImage && Boolean(imageBase64);
 
@@ -745,15 +750,101 @@ const RecipeAnalysis = () => {
             .replace(/"/g, '&quot;')
             .replace(/'/g, '&#39;');
 
-    const listHtml = (items) => {
+        const listHtml = (items) => {
         if (!items || items.length === 0) {
             return '<p class="muted">내용이 없습니다.</p>';
         }
         return `<ul>${items.map((item) => `<li>${escapeHtml(item)}</li>`).join('')}</ul>`;
     };
     const buildPrintableHtml = () => {
-        const sections = [
-            showSummary
+        const isSectionSelected = (key) => {
+            if (!Array.isArray(reportSections) || reportSections.length === 0) {
+                return true;
+            }
+            return reportSections.includes(key);
+        };
+
+        const marketMapRows = Array.isArray(evaluationResults) ? evaluationResults : [];
+        const marketMapHtml = showMap && marketMapRows.length
+            ? `
+  <div class="section">
+    <h2>글로벌 마켓 맵</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>국가</th>
+          <th>점수</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${marketMapRows
+                    .map(
+                        (row) => `
+        <tr>
+          <td>${escapeHtml(row?.country || '-')}</td>
+          <td>${escapeHtml(row?.totalScore ?? '-')}</td>
+        </tr>
+      `
+                    )
+                    .join('')}
+      </tbody>
+    </table>
+  </div>
+`
+            : '';
+
+        const renderProductCasesHtml = (cases) => {
+            if (!cases || cases.length === 0) {
+                return '<p class="muted">수출 부적합 사례가 확인되지 않습니다.</p>';
+            }
+            return `<ul>${cases
+                .map(
+                    (c) =>
+                        `<li>${escapeHtml(c?.country || '-')} - ${escapeHtml(c?.action || '-')} - ${escapeHtml(c?.violationReason || '-')}</li>`
+                )
+                .join('')}</ul>`;
+        };
+
+        const renderIngredientCasesHtml = (items) => {
+            if (!items || items.length === 0) {
+                return '<p class="muted">재료 기반 수출 부적합 사례가 확인되지 않습니다.</p>';
+            }
+            return items
+                .map((ing) => {
+                    const cases = Array.isArray(ing?.cases) ? ing.cases : [];
+                    const casesHtml = cases.length
+                        ? `<ul>${cases
+                            .map(
+                                (c) =>
+                                    `<li>${escapeHtml(c?.country || '-')} - ${escapeHtml(c?.action || '-')} - ${escapeHtml(c?.violationReason || '-')}</li>`
+                            )
+                            .join('')}</ul>`
+                        : '<p class="muted">해당 재료의 수출 부적합 사례가 없습니다.</p>';
+                    return `
+    <div>
+      <p><strong>[재료: ${escapeHtml(ing?.ingredient || '-')} ]</strong></p>
+      ${casesHtml}
+    </div>
+`;
+                })
+                .join('');
+        };
+
+        const recipeCaseHtml = showRecipeCase && (productCases.length || ingredientCases.length)
+            ? `
+  <div class="section">
+    <h2>국가 수출 부적합 사례</h2>
+    <h3>제품 사례</h3>
+    <p><strong>제품명:</strong> ${escapeHtml(recipe?.title || '-')}</p>
+    ${renderProductCasesHtml(productCases)}
+    <h3>재료 사례</h3>
+    ${renderIngredientCasesHtml(ingredientCases)}
+  </div>
+`
+            : '';
+
+        const sectionHtmlByKey = {
+            summary: showSummary
                 ? `
   <div class="section">
     <h2>요약본</h2>
@@ -761,7 +852,7 @@ const RecipeAnalysis = () => {
   </div>
 `
                 : '',
-            showExec
+            executiveSummary: showExec
                 ? `
   <div class="section">
     <h2>핵심 요약</h2>
@@ -776,7 +867,7 @@ const RecipeAnalysis = () => {
   </div>
 `
                 : '',
-            showMarket
+            marketSnapshot: showMarket
                 ? `
   <div class="section">
     <h2>시장 스냅샷</h2>
@@ -794,7 +885,7 @@ const RecipeAnalysis = () => {
   </div>
 `
                 : '',
-            showRisk
+            riskAssessment: showRisk
                 ? `
   <div class="section">
     <h2>리스크 & 대응</h2>
@@ -805,15 +896,7 @@ const RecipeAnalysis = () => {
   </div>
 `
                 : '',
-            showAllergen
-                ? `
-  <div class="section">
-    <h2>알레르기 성분 노트</h2>
-    <p>${escapeHtml(recipe?.allergen?.note || '알레르기 성분 요약이 없습니다.')}</p>
-  </div>
-`
-                : '',
-            showSwot
+            swot: showSwot
                 ? `
   <div class="section">
     <h2>SWOT</h2>
@@ -828,7 +911,7 @@ const RecipeAnalysis = () => {
   </div>
 `
                 : '',
-            showConceptIdeas
+            conceptIdeas: showConceptIdeas
                 ? `
   <div class="section">
     <h2>컨셉 아이디어</h2>
@@ -844,7 +927,7 @@ const RecipeAnalysis = () => {
   </div>
 `
                 : '',
-            showKpis
+            kpis: showKpis
                 ? `
   <div class="section">
     <h2>KPI 제안</h2>
@@ -859,7 +942,7 @@ const RecipeAnalysis = () => {
   </div>
 `
                 : '',
-            showNextSteps
+            nextSteps: showNextSteps
                 ? `
   <div class="section">
     <h2>제품 개발 추천안</h2>
@@ -867,7 +950,7 @@ const RecipeAnalysis = () => {
   </div>
 `
                 : '',
-            showInfluencer
+            influencer: showInfluencer
                 ? `
   <div class="section">
     <h2>인플루언서 추천</h2>
@@ -891,7 +974,7 @@ const RecipeAnalysis = () => {
   </div>
 `
                 : '',
-            showInfluencerImage
+            influencerImage: showInfluencerImage
                 ? `
   <div class="section">
     <h2>인플루언서 이미지</h2>
@@ -903,12 +986,51 @@ const RecipeAnalysis = () => {
   </div>
 `
                 : '',
-        ].filter(Boolean).join('');
+            allergenNote: showAllergen
+                ? `
+  <div class="section">
+    <h2>알레르기 성분 노트</h2>
+    <p>${escapeHtml(recipe?.allergen?.note || '알레르기 성분 요약이 없습니다.')}</p>
+  </div>
+`
+                : '',
+            RecipeCase: recipeCaseHtml,
+            globalMarketMap: marketMapHtml,
+        };
+
+        const layoutOrder = [
+            'globalMarketMap',
+            'executiveSummary',
+            'marketSnapshot',
+            'riskAssessment',
+            'swot',
+            'conceptIdeas',
+            'kpis',
+            'nextSteps',
+            'influencerImage',
+            'influencer',
+            'allergenNote',
+            'RecipeCase',
+            'summary',
+        ];
+
+        const orderedKeys = Array.isArray(reportSections) && reportSections.length
+            ? [
+                ...layoutOrder.filter((key) => reportSections.includes(key)),
+                ...reportSections.filter((key) => !layoutOrder.includes(key)),
+            ]
+            : layoutOrder;
+
+        const sections = orderedKeys
+            .filter((key) => isSectionSelected(key))
+            .map((key) => sectionHtmlByKey[key])
+            .filter(Boolean)
+            .join('');
         return `<!doctype html>
 <html lang="ko">
 <head>
   <meta charset="utf-8" />
-  <title>${escapeHtml(recipe?.title)} 리포트</title>
+  <title>${escapeHtml(recipe?.title)} 레시피 리포트</title>
   <style>
     :root { color-scheme: light; }
     body { font-family: "Pretendard","Noto Sans KR",Arial,sans-serif; margin: 32px; color: #1f2937; }
@@ -918,6 +1040,9 @@ const RecipeAnalysis = () => {
     p { margin: 6px 0; line-height: 1.5; }
     ul { margin: 6px 0 6px 18px; }
     li { margin: 4px 0; }
+    table { width: 100%; border-collapse: collapse; margin: 8px 0; font-size: 13px; }
+    th, td { border: 1px solid #e5e7eb; padding: 6px 8px; text-align: left; }
+    th { background: #f3f4f6; }
     .muted { color: #6b7280; }
     .section { border-top: 1px solid #e5e7eb; padding-top: 16px; margin-top: 16px; }
   </style>
@@ -1059,7 +1184,7 @@ const RecipeAnalysis = () => {
                             <div className="flex items-center justify-between mb-4">
                                 <h3 className="text-lg font-semibold text-[color:var(--text)]">
                                     <SectionTitle
-                                        title="Global Market Map"
+                                        title="글로벌 마켓 맵"
                                         help="국가별 긍/부정 피드백 및 점수를 지도로 시각화해 한눈에 비교하며, 점수가 표기된 동그라미를 누르면 해당 정보를 조회할 수 있습니다."
                                     />
                                 </h3>
@@ -1282,7 +1407,7 @@ const RecipeAnalysis = () => {
                                 />
 
                                 <p className="text-sm font-medium text-[color:var(--text)] whitespace-pre-line">
-                                    {recipe.allergen?.note}
+                                    {allergenNoteText}
                                 </p>
                             </div>
                         )}
