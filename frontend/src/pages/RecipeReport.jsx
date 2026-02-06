@@ -463,11 +463,11 @@ const RecipeReport = () => {
                         </div>
 
                         <div className="mt-6 space-y-4 text-sm text-[color:var(--text)]">
-                            <div>
+                            <div className="rounded-xl border border-[color:var(--border)] bg-[color:var(--surface-muted)] p-4">
                                 <p className="font-semibold text-[color:var(--text)]">설명</p>
                                 <p className="text-[color:var(--text-muted)] mt-1">{recipe.description || '설명이 없습니다.'}</p>
                             </div>
-                            <div>
+                            <div className="rounded-xl border border-[color:var(--border)] bg-[color:var(--surface-muted)] p-4">
                                 <p className="font-semibold text-[color:var(--text)]">재료</p>
                                 {recipe.ingredients?.length ? (
                                     <ul className="mt-2 space-y-2 text-sm text-[color:var(--text)]">
@@ -482,7 +482,7 @@ const RecipeReport = () => {
                                     <p className="text-[color:var(--text-muted)] mt-1">등록된 재료가 없습니다.</p>
                                 )}
                             </div>
-                            <div>
+                            <div className="rounded-xl border border-[color:var(--border)] bg-[color:var(--surface-muted)] p-4">
                                 <p className="font-semibold text-[color:var(--text)]">조리 단계</p>
                                 {recipe.steps?.length ? (
                                     <ol className="mt-2 space-y-2 list-decimal list-inside text-[color:var(--text)]">
@@ -504,63 +504,14 @@ const RecipeReport = () => {
                                 <button
                                     type="button"
                                     onClick={() => setCreateOpen((prev) => !prev)}
-                                    className="h-8 w-8 rounded-full border border-[color:var(--border)] text-[color:var(--text)] flex items-center justify-center"
+                                    className="px-3 py-1 rounded-full border border-[color:var(--border)] text-[color:var(--text)] text-xs font-semibold"
                                 >
-                                    +
+                                    {createOpen ? '취소' : '추가'}
                                 </button>
                             )}
                         </div>
 
-                        {listLoading && (
-                            <p className="text-sm text-[color:var(--text-muted)]">리포트 목록을 불러오는 중입니다...</p>
-                        )}
-
-                        {!listLoading && visibleReports.length === 0 && (
-                            <p className="text-sm text-[color:var(--text-muted)]">등록된 리포트가 없습니다.</p>
-                        )}
-
-                        <div className="space-y-3">
-                            {visibleReports.map((report) => (
-                                <div
-                                    key={report.id}
-                                    className="rounded-xl border border-[color:var(--border)] bg-[color:var(--surface-muted)] p-4 flex items-start justify-between gap-4"
-                                >
-                                    <div className="min-w-0 flex-1">
-                                        <p className="text-sm font-semibold text-[color:var(--text)]">리포트 #{report.id}</p>
-                                        <p className="text-xs text-[color:var(--text-muted)]">{report.summary || '요약 없음'}</p>
-                                        <p className="text-xs text-[color:var(--text-soft)]">{new Date(report.createdAt).toLocaleString()}</p>
-                                    </div>
-                                    <div className="relative shrink-0 self-stretch min-w-[96px]">
-                                        {isOwner && (
-                                            <div className="absolute top-0 right-0 flex items-center gap-3">
-                                                <button
-                                                    type="button"
-                                                    onClick={() => handleReportOpenYnToggle(report.id, report.openYn)}
-                                                    className="text-xs font-semibold text-[color:var(--accent)]"
-                                                >
-                                                    {report.openYn === 'Y' ? '🔓 공개' : '🔒 비공개'}
-                                                </button>
-                                                <button
-                                                    type="button"
-                                                    onClick={() => handleDeleteReport(report.id)}
-                                                    className="text-xs font-semibold text-[color:var(--danger)] hover:opacity-80 transition"
-                                                >
-                                                    삭제
-                                                </button>
-                                            </div>
-                                        )}
-                                        <button
-                                            type="button"
-                                            onClick={() => navigate(`/mainboard/reports/${report.id}`)}
-                                            className="absolute top-1/2 -translate-y-1/2 right-0 px-3 py-1 rounded-lg bg-[color:var(--accent)] text-[color:var(--accent-contrast)] text-xs font-semibold"
-                                        >
-                                            보기
-                                        </button>
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-                        {createOpen && isOwner && (
+                        {createOpen && isOwner ? (
                             <div className="mt-4 rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface)] p-4 space-y-4">
 
                                 <div className="space-y-3">
@@ -581,7 +532,7 @@ const RecipeReport = () => {
                                             value={targetCountry}
                                             onChange={(e) => setTargetCountry(e.target.value)}
                                             disabled={isCreateDisabled}
-                                            className="w-full rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 py-2 text-sm"
+                                            className="w-full rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-muted)] px-3 py-2 text-sm"
                                         >
                                             {TARGET_COUNTRY_OPTIONS.map((option) => (
                                                 <option key={option.value} value={option.value}>
@@ -596,7 +547,7 @@ const RecipeReport = () => {
                                             value={targetPersona}
                                             onChange={(e) => setTargetPersona(e.target.value)}
                                             disabled={isCreateDisabled}
-                                            className="w-full rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 py-2 text-sm"
+                                            className="w-full rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-muted)] px-3 py-2 text-sm"
                                         >
                                             {TARGET_PERSONA_OPTIONS.map((option) => (
                                                 <option key={option} value={option}>
@@ -611,7 +562,7 @@ const RecipeReport = () => {
                                             value={priceRange}
                                             onChange={(e) => setPriceRange(e.target.value)}
                                             disabled={isCreateDisabled}
-                                            className="w-full rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 py-2 text-sm"
+                                            className="w-full rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-muted)] px-3 py-2 text-sm"
                                         >
                                             {PRICE_RANGE_OPTIONS.map((option) => (
                                                 <option key={option} value={option}>
@@ -628,7 +579,7 @@ const RecipeReport = () => {
                                         value={generationOption}
                                         onChange={(e) => handleGenerationOptionChange(e.target.value)}
                                         disabled={isCreateDisabled}
-                                        className="w-full rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 py-2 text-sm"
+                                        className="w-full rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-muted)] px-3 py-2 text-sm"
                                     >
                                         {GENERATION_OPTIONS.map((option) => (
                                             <option key={option.value} value={option.value}>
@@ -643,7 +594,8 @@ const RecipeReport = () => {
                                         <p className="text-sm font-semibold text-[color:var(--text)]">리포트 생성 항목</p>
                                         <span className="text-xs text-[color:var(--text-soft)]">필수 항목은 해제할 수 없습니다.</span>
                                     </div>
-                                    <div className="grid grid-cols-2 gap-2">
+                                    <div className="rounded-xl border border-[color:var(--border)] bg-[color:var(--surface-muted)] p-3">
+                                        <div className="grid grid-cols-2 gap-2">
                                         {REPORT_SECTION_OPTIONS.map((item) => {
                                             const checked = reportSections.includes(item.key);
                                             const isRequired = item.required;
@@ -664,6 +616,7 @@ const RecipeReport = () => {
                                                 </label>
                                             );
                                         })}
+                                        </div>
                                     </div>
                                 </div>
 
@@ -698,6 +651,58 @@ const RecipeReport = () => {
                                     )}
                                 </button>
                             </div>
+                        ) : (
+                            <>
+                                {listLoading && (
+                                    <p className="text-sm text-[color:var(--text-muted)]">리포트 목록을 불러오는 중입니다...</p>
+                                )}
+
+                                {!listLoading && visibleReports.length === 0 && (
+                                    <p className="text-sm text-[color:var(--text-muted)]">등록된 리포트가 없습니다.</p>
+                                )}
+
+                                <div className="space-y-3">
+                                    {visibleReports.map((report) => (
+                                        <div
+                                            key={report.id}
+                                            className="rounded-xl border border-[color:var(--border)] bg-[color:var(--surface-muted)] p-4 flex items-start justify-between gap-4"
+                                        >
+                                            <div className="min-w-0 flex-1">
+                                                <p className="text-sm font-semibold text-[color:var(--text)]">리포트 #{report.id}</p>
+                                                <p className="text-xs text-[color:var(--text-muted)]">{report.summary || '요약 없음'}</p>
+                                                <p className="text-xs text-[color:var(--text-soft)]">{new Date(report.createdAt).toLocaleString()}</p>
+                                            </div>
+                                            <div className="relative shrink-0 self-stretch min-w-[96px]">
+                                                {isOwner && (
+                                                    <div className="absolute top-0 right-0 flex items-center gap-3">
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => handleReportOpenYnToggle(report.id, report.openYn)}
+                                                            className="text-xs font-semibold text-[color:var(--accent)]"
+                                                        >
+                                                            {report.openYn === 'Y' ? '🔓 공개' : '🔒 비공개'}
+                                                        </button>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => handleDeleteReport(report.id)}
+                                                            className="text-xs font-semibold text-[color:var(--danger)] hover:opacity-80 transition"
+                                                        >
+                                                            삭제
+                                                        </button>
+                                                    </div>
+                                                )}
+                                                <button
+                                                    type="button"
+                                                    onClick={() => navigate(`/mainboard/reports/${report.id}`)}
+                                                    className="absolute top-1/2 -translate-y-1/2 right-0 px-3 py-1 rounded-lg bg-[color:var(--accent)] text-[color:var(--accent-contrast)] text-xs font-semibold"
+                                                >
+                                                    보기
+                                                </button>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </>
                         )}
                     </div>
                 </div>

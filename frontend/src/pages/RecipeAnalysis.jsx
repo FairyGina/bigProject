@@ -1214,15 +1214,17 @@ const RecipeAnalysis = () => {
                                     </h3>
                                 </div>
                                 <div className="mt-4 space-y-3 text-sm text-[color:var(--text)]">
-                                    <p><strong>결론:</strong> {exec.decision || '-'}</p>
-                                    <p><strong>시장 적합도:</strong> {exec.marketFitScore || '-'}점</p>
-                                    <p><strong>성공 가능성:</strong> {exec.successProbability || '-'}</p>
-                                    <p><strong>추천 전략:</strong> {exec.recommendation || '-'}</p>
-                                    <div>
+                                    <div className="rounded-xl border border-[color:var(--border)] bg-[color:var(--surface-muted)] p-3 space-y-2">
+                                        <p><strong>결론:</strong> {exec.decision || '-'}</p>
+                                        <p><strong>시장 적합도:</strong> {exec.marketFitScore || '-'}점</p>
+                                        <p><strong>성공 가능성:</strong> {exec.successProbability || '-'}</p>
+                                        <p><strong>추천 전략:</strong> {exec.recommendation || '-'}</p>
+                                    </div>
+                                    <div className="rounded-xl border border-[color:var(--border)] bg-[color:var(--surface-muted)] p-3">
                                         <p className="font-semibold text-[color:var(--text)] mb-2">핵심 강점</p>
                                         {renderList(exec.keyPros)}
                                     </div>
-                                    <div>
+                                    <div className="rounded-xl border border-[color:var(--border)] bg-[color:var(--surface-muted)] p-3">
                                         <p className="font-semibold text-[color:var(--text)] mb-2">주요 리스크</p>
                                         {renderList(exec.topRisks)}
                                     </div>
@@ -1239,19 +1241,19 @@ const RecipeAnalysis = () => {
                                     />
                                 </h3>
                                 <div className="space-y-4 text-sm text-[color:var(--text)]">
-                                    <div>
+                                    <div className="rounded-xl border border-[color:var(--border)] bg-[color:var(--surface-muted)] p-3">
                                         <p className="font-semibold text-[color:var(--text)]">타깃 페르소나 니즈</p>
                                         <p className="text-[color:var(--text-muted)]">{personaNeeds.needs || '-'}</p>
                                         <p className="mt-2">구매 요인: {personaNeeds.purchaseDrivers || '-'}</p>
                                         <p>장벽: {personaNeeds.barriers || '-'}</p>
                                     </div>
-                                    <div>
+                                    <div className="rounded-xl border border-[color:var(--border)] bg-[color:var(--surface-muted)] p-3">
                                         <p className="font-semibold text-[color:var(--text)]">트렌드 시그널</p>
                                         {renderList(trendSignals.trendNotes)}
                                         <p className="mt-2">가격대: {trendSignals.priceRangeNotes || '-'}</p>
                                         <p>채널: {trendSignals.channelSignals || '-'}</p>
                                     </div>
-                                    <div>
+                                    <div className="rounded-xl border border-[color:var(--border)] bg-[color:var(--surface-muted)] p-3">
                                         <p className="font-semibold text-[color:var(--text)]">경쟁 구도</p>
                                         <p className="text-[color:var(--text-muted)]">{competition.localCompetitors || '-'}</p>
                                         <p className="mt-2">차별화: {competition.differentiation || '-'}</p>
@@ -1270,10 +1272,14 @@ const RecipeAnalysis = () => {
                                                 help="제품 출시 및 시장 적용 과정에서 예상되는 주요 리스크와, 이를 완화하기 위한 대응 전략을 정리한 항목입니다."
                                             />
                                         </h3>
-                                        <p className="text-sm font-semibold text-[color:var(--text)] mb-2">리스크</p>
-                                        {renderList(risk.riskList)}
-                                        <p className="mt-4 text-sm font-semibold text-[color:var(--text)] mb-2">완화 전략</p>
-                                        {renderList(risk.mitigations)}
+                                        <div className="rounded-xl border border-[color:var(--border)] bg-[color:var(--surface-muted)] p-3">
+                                            <p className="text-sm font-semibold text-[color:var(--text)] mb-2">리스크</p>
+                                            {renderList(risk.riskList)}
+                                        </div>
+                                        <div className="mt-4 rounded-xl border border-[color:var(--border)] bg-[color:var(--surface-muted)] p-3">
+                                            <p className="text-sm font-semibold text-[color:var(--text)] mb-2">완화 전략</p>
+                                            {renderList(risk.mitigations)}
+                                        </div>
                                     </div>
                                 )}
                                 {showSwot && (
@@ -1284,14 +1290,22 @@ const RecipeAnalysis = () => {
                                                 help="제품을 분석해서 강점 Strength, 약점 Weakenesses, 기회 Opportunities, 위협 Threats을 보여주는 단어입니다."
                                             />
                                         </h3>
-                                        <p className="text-sm font-semibold text-[color:var(--text)] mb-2">Strengths</p>
-                                        {renderList(swot.strengths)}
-                                        <p className="mt-3 text-sm font-semibold text-[color:var(--text)] mb-2">Weaknesses</p>
-                                        {renderList(swot.weaknesses)}
-                                        <p className="mt-3 text-sm font-semibold text-[color:var(--text)] mb-2">Opportunities</p>
-                                        {renderList(swot.opportunities)}
-                                        <p className="mt-3 text-sm font-semibold text-[color:var(--text)] mb-2">Threats</p>
-                                        {renderList(swot.threats)}
+                                        <div className="rounded-xl border border-[color:var(--border)] bg-[color:var(--surface-muted)] p-3">
+                                            <p className="text-sm font-semibold text-[color:var(--text)] mb-2">Strengths</p>
+                                            {renderList(swot.strengths)}
+                                        </div>
+                                        <div className="mt-3 rounded-xl border border-[color:var(--border)] bg-[color:var(--surface-muted)] p-3">
+                                            <p className="text-sm font-semibold text-[color:var(--text)] mb-2">Weaknesses</p>
+                                            {renderList(swot.weaknesses)}
+                                        </div>
+                                        <div className="mt-3 rounded-xl border border-[color:var(--border)] bg-[color:var(--surface-muted)] p-3">
+                                            <p className="text-sm font-semibold text-[color:var(--text)] mb-2">Opportunities</p>
+                                            {renderList(swot.opportunities)}
+                                        </div>
+                                        <div className="mt-3 rounded-xl border border-[color:var(--border)] bg-[color:var(--surface-muted)] p-3">
+                                            <p className="text-sm font-semibold text-[color:var(--text)] mb-2">Threats</p>
+                                            {renderList(swot.threats)}
+                                        </div>
                                     </div>
                                 )}
                             </div>
@@ -1348,7 +1362,9 @@ const RecipeAnalysis = () => {
                                         help="제품 기획/개발을 추진할 때 추천하는 다음 단계입니다."
                                     />
                                 </h3>
-                                {renderList(nextSteps)}
+                                <div className="rounded-xl border border-[color:var(--border)] bg-[color:var(--surface-muted)] p-3">
+                                    {renderList(nextSteps)}
+                                </div>
                             </div>
                         )}
                     </div>
@@ -1406,9 +1422,11 @@ const RecipeAnalysis = () => {
                                     help="해당 레시피 대로 제품을 생산 시, 목표 국가에 대해 표기해야 하는 알레르기 정보입니다."
                                 />
 
-                                <p className="text-sm font-medium text-[color:var(--text)] whitespace-pre-line">
-                                    {allergenNoteText}
-                                </p>
+                                <div className="rounded-xl border border-[color:var(--border)] bg-[color:var(--surface-muted)] p-3">
+                                    <p className="text-sm font-medium text-[color:var(--text)] whitespace-pre-line">
+                                        {allergenNoteText}
+                                    </p>
+                                </div>
                             </div>
                         )}
 
@@ -1423,7 +1441,7 @@ const RecipeAnalysis = () => {
                                 </h3>
 
                                 {/* 완제품 */}
-                                <div className="mb-5">
+                                <div className="mb-5 rounded-xl border border-[color:var(--border)] bg-[color:var(--surface-muted)] p-3">
                                     <p className="font-semibold">제품명: {recipe.title}</p>
 
                                     {productCases.length === 0 ? (
@@ -1448,7 +1466,7 @@ const RecipeAnalysis = () => {
                                     </p>
                                 ) : (
                                     ingredientCases.map((ing, idx) => (
-                                        <div key={idx} className="mb-4">
+                                        <div key={idx} className="mb-4 rounded-xl border border-[color:var(--border)] bg-[color:var(--surface-muted)] p-3">
                                             <p className="font-medium">[재료: {ing.ingredient}]</p>
 
                                             {ing.cases.length === 0 ? (
@@ -1478,9 +1496,11 @@ const RecipeAnalysis = () => {
                                     help="현재까지 보고된 내용을 종합해, 최종 보고서를 요약한 정보입니다."
                                 />
 
-                                <p className="mt-4 text-sm font-medium text-[color:var(--text)] whitespace-pre-line">
-                                    {recipe.summary}
-                                </p>
+                                <div className="rounded-xl border border-[color:var(--border)] bg-[color:var(--surface-muted)] p-3 mt-4">
+                                    <p className="text-sm font-medium text-[color:var(--text)] whitespace-pre-line">
+                                        {recipe.summary}
+                                    </p>
+                                </div>
                             </div>
                         )}
 

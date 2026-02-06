@@ -1109,11 +1109,11 @@ const UserCreateRecipe = () => {
                                 </div>
 
                                 <div className="space-y-4 text-sm text-[color:var(--text)]">
-                                    <div>
+                                    <div className="rounded-xl border border-[color:var(--border)] bg-[color:var(--surface-muted)] p-4">
                                         <p className="font-semibold text-[color:var(--text)]">설명</p>
                                         <p className="text-[color:var(--text-muted)] mt-1">{createdRecipe?.description || '설명이 없습니다.'}</p>
                                     </div>
-                                    <div>
+                                    <div className="rounded-xl border border-[color:var(--border)] bg-[color:var(--surface-muted)] p-4">
                                         <p className="font-semibold text-[color:var(--text)]">재료</p>
                                         {createdRecipe?.ingredients?.length ? (
                                             <ul className="mt-2 space-y-2 text-sm text-[color:var(--text)]">
@@ -1128,7 +1128,7 @@ const UserCreateRecipe = () => {
                                             <p className="text-[color:var(--text-muted)] mt-1">등록된 재료가 없습니다.</p>
                                         )}
                                     </div>
-                                    <div>
+                                    <div className="rounded-xl border border-[color:var(--border)] bg-[color:var(--surface-muted)] p-4">
                                         <p className="font-semibold text-[color:var(--text)]">조리 단계</p>
                                         {createdRecipe?.steps?.length ? (
                                             <ol className="mt-2 space-y-2 list-decimal list-inside text-[color:var(--text)]">
