@@ -8,10 +8,10 @@ import re
 
 # DB Connection Details - Support both Spring format and legacy format
 def parse_spring_datasource_url(url):
-    """Parse jdbc:postgresql://host:port/database format"""
+    """Parse jdbc:postgresql://host:port/database?params format"""
     if not url:
         return None, None, None
-    match = re.match(r'jdbc:postgresql://([^:]+):(\d+)/(.+)', url)
+    match = re.match(r'jdbc:postgresql://([^:]+):(\d+)/([^?]+)', url)
     if match:
         return match.group(1), match.group(2), match.group(3)
     return None, None, None
@@ -32,7 +32,8 @@ def get_db_connection():
         dbname=DB_NAME,
         user=DB_USER,
         password=DB_PASS,
-        port=DB_PORT
+        port=DB_PORT,
+        sslmode='require'
     )
 
 def load_export_trends():
@@ -187,6 +188,8 @@ def load_amazon_reviews():
             recommendation_intent_hybrid BOOLEAN
         );
         CREATE INDEX IF NOT EXISTS idx_amazon_reviews_asin ON amazon_reviews (asin);
+        CREATE INDEX IF NOT EXISTS idx_amazon_reviews_sentiment ON amazon_reviews (sentiment_score);
+        CREATE INDEX IF NOT EXISTS idx_amazon_reviews_rating ON amazon_reviews (rating);
     """)
     conn.commit()
     
