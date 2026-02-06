@@ -41,6 +41,13 @@ button, .primary {
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 MODEL_NAME = "gpt-4.1-mini"
 SERPAPI_API_KEY = os.getenv("SERPAPI_API_KEY")
+API_BASE_URL = os.getenv("API_BASE_URL", "http://localhost:8080")
+
+REGEN_OPTION = "레시피 다시 생성"
+SAVE_OPTION = "저장"
+SAVE_DONE_OPTION = "저장(완료)"
+SAVE_PUBLIC_OPTION = "공개 저장"
+SAVE_PRIVATE_OPTION = "비공개 저장"
 
 SYSTEM_PROMPT = (
     "당신은 레시피 생성 도우미입니다. "
@@ -120,17 +127,47 @@ def apply_user_input(state: Dict[str, Any], user_input: str) -> Dict[str, Any]:
         })
     options = state.get("options")
     if options:
+        if state.get("await_save_visibility"): #저장 시 공개 비공개 여부
+            if user_input == SAVE_PUBLIC_OPTION:
+                state["save_open_yn"] = "Y"
+                state["do_save"] = True
+                state["await_save_visibility"] = False
+                state["options"] = None
+                return state
+            if user_input == SAVE_PRIVATE_OPTION:
+                state["save_open_yn"] = "N"
+                state["do_save"] = True
+                state["await_save_visibility"] = False
+                state["options"] = None
+                return state
+            return state
         if user_input == "트렌드 반영 안 함":
             state["trend_enabled"] = False
             state["country"] = None
         # 재생성 요청: 수정사항 입력 모드로 전환
-        elif user_input == "레시피 다시 생성":
+        elif user_input == REGEN_OPTION:
             state["regenerate"] = True
             state["await_revision"] = True
+            state["save_disabled"] = False
+            state["saved_recipe_id"] = None
             state["options"] = None
             state.setdefault("messages", []).append({
                 "role": "assistant",
                 "content": "수정하고 싶은 내용을 입력해주세요.",
+            })
+            return state
+        elif user_input == SAVE_OPTION or user_input == SAVE_DONE_OPTION: #방금 저장했는데 또 저장하려고 할때
+            if state.get("save_disabled"):
+                state.setdefault("messages", []).append({
+                    "role": "assistant",
+                    "content": "이미 저장된 레시피입니다.",
+                })
+                return state
+            state["await_save_visibility"] = True
+            state["options"] = [SAVE_PUBLIC_OPTION, SAVE_PRIVATE_OPTION]
+            state.setdefault("messages", []).append({
+                "role": "assistant",
+                "content": "공개 여부를 선택해주세요.",
             })
             return state
         else:
@@ -238,6 +275,135 @@ def call_llm_with_system(system_prompt: str, prompt: str) -> str:
         ],
     )
     return response.output_text
+
+
+def _normalize_list(value: Any) -> List[str]:
+    if value is None:
+        return []
+    if isinstance(value, list):
+        return [str(x).strip() for x in value if str(x).strip()]
+    if isinstance(value, str):
+        raw = value.strip()
+        if not raw:
+            return []
+        if "\n" in raw:
+            return [v.strip() for v in raw.split("\n") if v.strip()]
+        return [v.strip() for v in raw.split(",") if v.strip()]
+    return [str(value).strip()] if str(value).strip() else []
+
+
+def _extract_recipe_payload(state: Dict[str, Any]) -> Dict[str, Any] | None:
+    recipe_text = state.get("recipe") or ""
+    if not recipe_text:
+        return None
+    recipe_json = extract_json_from_text(recipe_text)
+    if not recipe_json:
+        recipe_json = recipe_text.strip()
+    try:
+        payload = json.loads(recipe_json)
+        return payload if isinstance(payload, dict) else None
+    except Exception:
+        return None
+
+
+def _build_save_payload(payload: Dict[str, Any], open_yn: str) -> Dict[str, Any]:
+    return {
+        "title": (payload.get("title") or "").strip(),
+        "description": (payload.get("description") or "").strip(),
+        "ingredients": _normalize_list(payload.get("ingredients")),
+        "steps": _normalize_list(payload.get("steps")),
+        "imageBase64": payload.get("imageBase64") or "",
+        "targetCountry": (payload.get("targetCountry") or "").strip(),
+        "openYn": open_yn,
+        "draft": bool(payload.get("draft", False)),
+        "regenerateReport": False,
+        "reportSections": [],
+    }
+
+
+def _build_backend_session(request: gr.Request | None) -> requests.Session:
+    session = requests.Session()
+    if request is None:
+        return session
+    headers = {}
+    try:
+        req_headers = request.headers or {}
+        auth = req_headers.get("authorization") or req_headers.get("Authorization")
+        if auth:
+            headers["Authorization"] = auth
+        cookie_header = req_headers.get("cookie") or req_headers.get("Cookie")
+        if cookie_header:
+            headers["Cookie"] = cookie_header
+        if headers:
+            session.headers.update(headers)
+    except Exception:
+        pass
+    try:
+        if getattr(request, "cookies", None):
+            session.cookies.update(request.cookies)
+    except Exception:
+        pass
+    return session
+
+
+def _fetch_csrf(session: requests.Session) -> Dict[str, str] | None:
+    try:
+        resp = session.get(f"{API_BASE_URL}/api/csrf", timeout=10)
+        if not resp.ok:
+            return None
+        data = resp.json()
+        if not isinstance(data, dict):
+            return None
+        if "headerName" in data and "token" in data:
+            return {"headerName": data["headerName"], "token": data["token"]}
+    except Exception:
+        return None
+    return None
+
+
+def save_recipe_to_backend(state: Dict[str, Any], request: gr.Request | None) -> Dict[str, Any]:
+    payload = _extract_recipe_payload(state)
+    if not payload:
+        state.setdefault("messages", []).append({
+            "role": "assistant",
+            "content": "레시피 내용을 JSON으로 파싱하지 못했습니다. 다시 생성 후 저장해주세요.",
+        })
+        state["options"] = [REGEN_OPTION, SAVE_OPTION]
+        return state
+    open_yn = state.get("save_open_yn") or "N"
+    save_payload = _build_save_payload(payload, open_yn)
+    session = _build_backend_session(request)
+    headers = {"Content-Type": "application/json"}
+    csrf = _fetch_csrf(session)
+    if csrf:
+        headers[csrf["headerName"]] = csrf["token"]
+    try:
+        resp = session.post(
+            f"{API_BASE_URL}/api/recipes",
+            json=save_payload,
+            headers=headers,
+            timeout=20,
+        )
+        if resp.ok:
+            data = resp.json() if resp.headers.get("Content-Type", "").startswith("application/json") else {}
+            state["saved_recipe_id"] = data.get("id")
+            state["save_disabled"] = True
+            state.setdefault("messages", []).append({
+                "role": "assistant",
+                "content": "저장이 완료되었습니다.",
+            })
+        else:
+            state.setdefault("messages", []).append({
+                "role": "assistant",
+                "content": f"저장에 실패했습니다. (HTTP {resp.status_code})",
+            })
+    except Exception as e:
+        state.setdefault("messages", []).append({
+            "role": "assistant",
+            "content": f"저장 중 오류가 발생했습니다: {e}",
+        })
+    state["options"] = [REGEN_OPTION, SAVE_DONE_OPTION if state.get("save_disabled") else SAVE_OPTION]
+    return state
 
 
 def parse_json_array(text: str) -> List[str]:
@@ -392,7 +558,7 @@ def try_generate_recipe(state: Dict[str, Any]) -> Dict[str, Any]:
         state["recipe_generated"] = True
         state["regenerate"] = False
         state["revision_request"] = ""
-        state["options"] = ["레시피 다시 생성", "저장"]
+        state["options"] = [REGEN_OPTION, SAVE_OPTION]
         return state
     
     if prompt and not state.get("recipe_generated"):
@@ -467,6 +633,7 @@ def try_generate_recipe(state: Dict[str, Any]) -> Dict[str, Any]:
                 "content": recipe_text
             })
         state["recipe_generated"] = True
+        state["save_disabled"] = False
     return state
 
 
@@ -482,13 +649,23 @@ def init_chat():
     )
 
 
-def on_text_submit(user_input: str, state: Dict[str, Any]):
+def on_text_submit(user_input: str, state: Dict[str, Any], request: gr.Request | None = None):
     # 텍스트 입력 시 다음 단계로 진행
     if user_input is None:
         user_input = ""
     state = apply_user_input(state, user_input)
+    if state.get("do_save"):
+        state["do_save"] = False
+        state = save_recipe_to_backend(state, request)
+        disable_input = should_disable_textbox(state)
+        return (
+            state,
+            messages_to_chatbot(state.get("messages", [])),
+            gr.update(choices=state.get("options") or [], value=None),
+            gr.update(value="", interactive=not disable_input),
+        )
     # 재생성 수정 입력 중에는 그래프 진행을 멈춘다
-    if not state.get("await_revision"):
+    if not state.get("await_revision") and not state.get("await_save_visibility"):
         state = run_graph(state)
     state = try_generate_recipe(state)
     disable_input = should_disable_textbox(state)
@@ -500,7 +677,7 @@ def on_text_submit(user_input: str, state: Dict[str, Any]):
     )
 
 
-def on_option_change(choice: str, state: Dict[str, Any]):
+def on_option_change(choice: str, state: Dict[str, Any], request: gr.Request | None = None):
     # 옵션 선택 시 다음 단계로 진행(빈 선택은 무시)
     if not choice:
         return (
@@ -509,12 +686,7 @@ def on_option_change(choice: str, state: Dict[str, Any]):
             gr.update(choices=state.get("options") or [], value=None),
             gr.update(value="", interactive=not should_disable_textbox(state)),
         )
-    return on_text_submit(choice, state)
-
-
-def on_next_click(state: Dict[str, Any]):
-    # 빈 입력으로 다음 단계만 진행
-    return on_text_submit("", state)
+    return on_text_submit(choice, state, request)
 
 
 with gr.Blocks() as demo:
@@ -523,14 +695,12 @@ with gr.Blocks() as demo:
 
     chatbot = gr.Chatbot()
     textbox = gr.Textbox(label="메시지 입력")
-    next_btn = gr.Button("다음")
     options = gr.Radio(choices=[], label="옵션 선택")
 
     state = gr.State(make_initial_state())
 
     demo.load(init_chat, None, [state, chatbot, options, textbox])
     textbox.submit(on_text_submit, [textbox, state], [state, chatbot, options, textbox])
-    next_btn.click(on_next_click, [state], [state, chatbot, options, textbox])
     options.change(on_option_change, [options, state], [state, chatbot, options, textbox])
 
 demo.queue()
