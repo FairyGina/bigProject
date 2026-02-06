@@ -1,0 +1,1549 @@
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { useLocation, useNavigate, useParams } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
+import axiosInstance from '../axiosConfig';
+
+const RecipeAnalysis = () => {
+    const { user } = useAuth();
+    const navigate = useNavigate();
+    const { id, reportId } = useParams();
+    const location = useLocation();
+    const rawName = user?.userName || localStorage.getItem('userName') || '게스트';
+    const maskedName = rawName.length <= 1 ? '*' : `${rawName.slice(0, -1)}*`;
+    const userId = user?.userId || localStorage.getItem('userId') || null;
+
+    const [recipe, setRecipe] = useState(null);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState('');
+    const [influencers, setInfluencers] = useState([]);
+    const [imageBase64, setImageBase64] = useState('');
+    const [influencerLoading, setInfluencerLoading] = useState(false);
+    const [publishLoading, setPublishLoading] = useState(false);
+    const [mapError, setMapError] = useState('');
+    const [mapReady, setMapReady] = useState(false);
+    const mapRef = useRef(null);
+    const mapInstanceRef = useRef(null);
+    const mapMarkersRef = useRef([]);
+    const mapInfoWindowRef = useRef(null);
+    const personaRunRef = useRef(null);
+    const [evaluationResults, setEvaluationResults] = useState([]);
+    const targetMetaKey = (recipeId) => `recipeTargetMeta:${recipeId}`;
+
+    const [productCases, setProductCases] = useState([]);
+    const [ingredientCases, setIngredientCases] = useState([]);
+
+    const readTargetMeta = (recipeId) => {
+        const cached =
+            sessionStorage.getItem(targetMetaKey(recipeId)) ||
+            localStorage.getItem(targetMetaKey(recipeId));
+        if (!cached) {
+            return null;
+        }
+        try {
+            return JSON.parse(cached);
+        } catch (err) {
+            return null;
+        }
+    };
+
+    const influencerMetaKey = (recipeId, reportIdValue) =>
+        reportIdValue ? `reportInfluencerMeta:${reportIdValue}` : `recipeInfluencerMeta:${recipeId}`;
+    const influencerListKey = (recipeId, reportIdValue) =>
+        reportIdValue ? `reportInfluencers:${reportIdValue}` : `recipeInfluencers:${recipeId}`;
+    const influencerImageKey = (recipeId, reportIdValue) =>
+        reportIdValue ? `reportInfluencerImage:${reportIdValue}` : `recipeInfluencerImage:${recipeId}`;
+    const readInfluencerMeta = (recipeId, reportIdValue) => {
+        const cached =
+            sessionStorage.getItem(influencerMetaKey(recipeId, reportIdValue)) ||
+            localStorage.getItem(influencerMetaKey(recipeId, reportIdValue));
+        if (!cached) {
+            return null;
+        }
+        try {
+            return JSON.parse(cached);
+        } catch (err) {
+            return null;
+        }
+    };
+    const isInfluencerMetaMatch = (meta, currentRecipe) =>
+        Boolean(meta) &&
+        meta.title === (currentRecipe?.title ?? '') &&
+        meta.summary === (currentRecipe?.summary ?? '');
+    const persistReportInfluencers = async (recs, image) => {
+        if (!reportId) {
+            return;
+        }
+        try {
+            await axiosInstance.put(`/api/reports/${reportId}/influencers`, {
+                influencers: recs || [],
+                influencerImageBase64: image || '',
+            });
+        } catch (err) {
+            console.error('인플루언서를 저장하지 못했습니다.', err);
+        }
+    };
+
+    useEffect(() => {
+        const fetchRecipe = async () => {
+            try {
+                setLoading(true);
+                if (reportId) {
+                    const res = await axiosInstance.get(`/api/reports/${reportId}`);
+                    const data = res.data || {};
+                    setRecipe({
+                        id: data.recipeId,
+                        title: data.recipeTitle,
+                        description: data.recipeDescription,
+                        ingredients: data.ingredients || [],
+                        steps: data.steps || [],
+                        imageBase64: data.imageBase64 || '',
+                        report: data.report || {},
+                        allergen: data.allergen || {},
+                        summary: data.summary || '',
+                        influencers: data.influencers || [],
+                        influencerImageBase64: data.influencerImageBase64 || '',
+                        status: data.recipeStatus || 'PUBLISHED',
+                        user_id: data.recipeUserId || null,
+                        openYn: data.recipeOpenYn || null,
+                    });
+                    return;
+                }
+                const res = await axiosInstance.get(`/api/recipes/${id}`);
+                setRecipe(res.data);
+            } catch (err) {
+                console.error('레시피를 불러오지 못했습니다.', err);
+                setError('레시피 정보를 불러오지 못했습니다.');
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        if (reportId || id) {
+            fetchRecipe();
+        }
+    }, [id, reportId]);
+
+    const report = recipe?.report || null;
+    const hasReport = report && Object.keys(report).length > 0;
+    const isRecipeOnly = !hasReport;
+    const reportSections = Array.isArray(report?._sections) ? report._sections : null;
+    const allowInfluencer = reportSections
+        ? reportSections.includes('influencer') || reportSections.includes('influencerImage')
+        : Boolean(recipe?.influencers?.length || recipe?.influencerImageBase64);
+    const allowInfluencerImage = reportSections
+        ? reportSections.includes('influencerImage')
+        : Boolean(recipe?.influencerImageBase64);
+    const allowMapSection = Array.isArray(reportSections) && reportSections.includes('globalMarketMap');
+    const allowAllergenSection = Array.isArray(reportSections) && reportSections.includes('allergenNote');
+    const showMap = allowMapSection && Array.isArray(evaluationResults) && evaluationResults.length > 0;
+
+    useEffect(() => {
+        const seededInfluencers = location.state?.influencers;
+        const seededImage = location.state?.influencerImageBase64;
+        if (Array.isArray(seededInfluencers) && seededInfluencers.length && allowInfluencer) {
+            setInfluencers(seededInfluencers);
+        }
+        if (seededImage && allowInfluencerImage) {
+            setImageBase64(seededImage);
+        }
+    }, [allowInfluencer, allowInfluencerImage, location.state]);
+
+    useEffect(() => {
+        if (!showMap) {
+            return;
+        }
+        const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
+        if (!apiKey) {
+            setMapError('Google Maps API 키가 없습니다.');
+            return;
+        }
+
+        const initMap = (retry = 0) => {
+            if (!mapRef.current) {
+                if (retry < 10) {
+                    setTimeout(() => initMap(retry + 1), 100);
+                } else {
+                    setMapError('지도 초기화에 실패했습니다.');
+                }
+                return;
+            }
+            if (!window.google?.maps) {
+                if (retry < 20) {
+                    setTimeout(() => initMap(retry + 1), 150);
+                } else {
+                    setMapError('Google Maps 로딩에 실패했습니다. API 키와 설정을 확인하세요.');
+                }
+                return;
+            }
+            setMapError('');
+            const map = new window.google.maps.Map(mapRef.current, {
+                center: { lat: 20, lng: 0 },
+                zoom: 1,
+                minZoom: 1,
+                maxZoom: 8,
+                disableDefaultUI: false,
+                gestureHandling: 'greedy',
+                scrollwheel: true,
+                styles: [
+                    { featureType: 'administrative', elementType: 'labels', stylers: [{ visibility: 'off' }] },
+                    { featureType: 'poi', elementType: 'all', stylers: [{ visibility: 'off' }] },
+                    { featureType: 'road', elementType: 'all', stylers: [{ visibility: 'off' }] },
+                ],
+            });
+            mapInstanceRef.current = map;
+            setMapReady(true);
+        };
+
+        const existing = document.querySelector('script[data-google-maps]');
+        if (existing) {
+            if (window.google?.maps) {
+                initMap();
+            } else {
+                existing.addEventListener('load', () => initMap(), { once: true });
+                existing.addEventListener('error', () => setMapError('Google Maps script failed to load.'), { once: true });
+                initMap();
+            }
+            return;
+        }
+
+        window.__initRecipeMap = () => initMap();
+        const script = document.createElement('script');
+        script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&v=weekly&callback=__initRecipeMap`;
+        script.async = true;
+        script.defer = true;
+        script.dataset.googleMaps = 'true';
+        script.onerror = () => setMapError('Google Maps 스크립트 로딩에 실패했습니다.');
+        document.body.appendChild(script);
+    }, [showMap]);
+
+    useEffect(() => {
+        if (Array.isArray(recipe?.influencers) && recipe.influencers.length) {
+            setInfluencers(recipe.influencers);
+        }
+        if (recipe?.influencerImageBase64) {
+            setImageBase64(recipe.influencerImageBase64);
+        }
+        if (Array.isArray(recipe?.report?.evaluationResults) && recipe.report.evaluationResults.length) {
+            setEvaluationResults(aggregateEvaluations(recipe.report.evaluationResults));
+        }
+    }, [recipe]);
+
+    useEffect(() => {
+        const exportRisks = recipe?.report?.exportRisks;
+        const normalizeCase = (c) => ({
+            ...c,
+            caseId: c?.case_id ?? c?.caseId,
+            announcementDate: c?.announcement_date ?? c?.announcementDate,
+            violationReason: c?.violation_reason ?? c?.violationReason,
+            matchedIngredient: c?.matched_ingredient ?? c?.matchedIngredient,
+        });
+        const nextProductCases = Array.isArray(exportRisks?.product_cases?.cases)
+            ? exportRisks.product_cases.cases.map(normalizeCase)
+            : [];
+        const nextIngredientCases = Array.isArray(exportRisks?.ingredient_cases)
+            ? exportRisks.ingredient_cases.map((item) => ({
+                ...item,
+                cases: Array.isArray(item?.cases) ? item.cases.map(normalizeCase) : [],
+            }))
+            : [];
+        setProductCases(nextProductCases);
+        setIngredientCases(nextIngredientCases);
+    }, [recipe]);
+
+    useEffect(() => {
+        console.log('[EXPORT] exportRisks', recipe?.report?.exportRisks);
+        console.log('[EXPORT] productCases', productCases.length, productCases);
+        console.log('[EXPORT] ingredientCases', ingredientCases.length, ingredientCases);
+    }, [recipe, productCases, ingredientCases]);
+
+    useEffect(() => {
+        const fetchInfluencers = async () => {
+            if (!recipe) {
+                return;
+            }
+            if (!allowInfluencer) {
+                setInfluencers([]);
+                setImageBase64('');
+                return;
+            }
+            if (Array.isArray(recipe?.influencers) && recipe.influencers.length) {
+                setInfluencers(recipe.influencers);
+            }
+            if (recipe?.influencerImageBase64) {
+                if (allowInfluencerImage) {
+                    setImageBase64(recipe.influencerImageBase64);
+                } else {
+                    setImageBase64('');
+                }
+            }
+            const existingRecs = Array.isArray(recipe?.influencers) ? recipe.influencers : [];
+            if (existingRecs.length > 0) {
+                if (allowInfluencerImage && !recipe?.influencerImageBase64 && !imageBase64) {
+                    setInfluencerLoading(true);
+                    try {
+                        const topExisting =
+                            existingRecs.find((item) => item?.name && item?.imageUrl) ||
+                            existingRecs.find((item) => item?.name);
+                        if (topExisting?.name) {
+                            const imageRes = await axiosInstance.post('/api/images/generate', {
+                                recipe: recipe.title,
+                                influencerName: topExisting.name,
+                                influencerImageUrl: topExisting.imageUrl || '',
+                                additionalStyle: 'clean studio, natural lighting',
+                            });
+                            const generated = imageRes.data?.imageBase64 || '';
+                            setImageBase64(generated);
+                            if (generated) {
+                                try {
+                                    sessionStorage.setItem(influencerImageKey(recipe.id, reportId), generated);
+                                } catch (err) {
+                                    // 캐시 오류는 무시
+                                }
+                                try {
+                                    localStorage.setItem(influencerImageKey(recipe.id, reportId), generated);
+                                } catch (err) {
+                                    // 캐시 오류는 무시
+                                }
+                            }
+                            await persistReportInfluencers(existingRecs, generated);
+                        }
+                    } catch (err) {
+                        console.error('인플루언서 이미지 생성에 실패했습니다', err);
+                    } finally {
+                        setInfluencerLoading(false);
+                    }
+                }
+                return;
+            }
+            if (
+                (recipe?.influencers?.length || 0) > 0 &&
+                (!allowInfluencerImage || recipe?.influencerImageBase64 || imageBase64)
+            ) {
+                return;
+            }
+            if ((recipe?.influencers?.length || 0) > 0 && recipe?.influencerImageBase64) {
+                return;
+            }
+            if (influencers.length && imageBase64) {
+                return;
+            }
+            const cachedInfluencers =
+                sessionStorage.getItem(influencerListKey(recipe.id, reportId)) ||
+                localStorage.getItem(influencerListKey(recipe.id, reportId));
+            const cachedImage =
+                sessionStorage.getItem(influencerImageKey(recipe.id, reportId)) ||
+                localStorage.getItem(influencerImageKey(recipe.id, reportId));
+            const cachedMeta = readInfluencerMeta(recipe.id, reportId);
+            if (cachedMeta && !isInfluencerMetaMatch(cachedMeta, recipe)) {
+                sessionStorage.removeItem(influencerListKey(recipe.id, reportId));
+                sessionStorage.removeItem(influencerImageKey(recipe.id, reportId));
+                sessionStorage.removeItem(influencerMetaKey(recipe.id, reportId));
+                localStorage.removeItem(influencerListKey(recipe.id, reportId));
+                localStorage.removeItem(influencerImageKey(recipe.id, reportId));
+                localStorage.removeItem(influencerMetaKey(recipe.id, reportId));
+            }
+            if (cachedInfluencers) {
+                try {
+                    const parsed = JSON.parse(cachedInfluencers);
+                    if (Array.isArray(parsed)) {
+                        setInfluencers(parsed);
+                    }
+                } catch (e) {
+                    // 캐시 파싱 오류는 무시
+                }
+            }
+            if (cachedImage && !imageBase64 && allowInfluencerImage) {
+                setImageBase64(cachedImage);
+            }
+            if (
+                cachedInfluencers &&
+                (!allowInfluencerImage || cachedImage || imageBase64)
+            ) {
+                return;
+            }
+            if (cachedInfluencers && cachedImage) {
+                return;
+            }
+            setInfluencerLoading(true);
+            try {
+                const targetMeta = readTargetMeta(recipe.id) || {};
+                const payload = {
+                    recipe: recipe.title,
+                    targetCountry: targetMeta.targetCountry || 'US',
+                    targetPersona: targetMeta.targetPersona || '20~30대 직장인, 간편식 선호',
+                    priceRange: targetMeta.priceRange || 'USD 6~9',
+                };
+                const influencerRes = await axiosInstance.post('/api/influencers/recommend', payload);
+                const recs = influencerRes.data?.recommendations ?? [];
+                const trimmedRecs = recs.slice(0, 3);
+                let generatedImage = '';
+                setInfluencers(trimmedRecs);
+                if (trimmedRecs.length) {
+                    const metaJson = JSON.stringify({
+                        id: recipe.id,
+                        title: recipe.title,
+                        summary: recipe.summary,
+                    });
+                    try {
+                        sessionStorage.setItem(influencerMetaKey(recipe.id, reportId), metaJson);
+                        sessionStorage.setItem(influencerListKey(recipe.id, reportId), JSON.stringify(trimmedRecs));
+                    } catch (err) {
+                        // 캐시 오류는 무시
+                    }
+                    try {
+                        localStorage.setItem(influencerMetaKey(recipe.id, reportId), metaJson);
+                        localStorage.setItem(influencerListKey(recipe.id, reportId), JSON.stringify(trimmedRecs));
+                    } catch (err) {
+                        // 캐시 오류는 무시
+                    }
+                }
+
+                const top =
+                    trimmedRecs.find((item) => item?.name && item?.imageUrl) ||
+                    trimmedRecs.find((item) => item?.name);
+                if (allowInfluencerImage && top?.name) {
+                    const imageRes = await axiosInstance.post('/api/images/generate', {
+                        recipe: recipe.title,
+                        influencerName: top.name,
+                        influencerImageUrl: top.imageUrl || '',
+                        additionalStyle: 'clean studio, natural lighting',
+                    });
+                    generatedImage = imageRes.data?.imageBase64 || '';
+                    setImageBase64(generatedImage);
+                    if (generatedImage) {
+                        try {
+                            sessionStorage.setItem(influencerImageKey(recipe.id, reportId), generatedImage);
+                        } catch (err) {
+                            // 캐시 오류는 무시
+                        }
+                        try {
+                            localStorage.setItem(influencerImageKey(recipe.id, reportId), generatedImage);
+                        } catch (err) {
+                            // 캐시 오류는 무시
+                        }
+                    }
+                }
+                await persistReportInfluencers(trimmedRecs, generatedImage);
+            } catch (err) {
+                console.error('인플루언서 생성에 실패했습니다.', err);
+            } finally {
+                setInfluencerLoading(false);
+            }
+        };
+
+        fetchInfluencers();
+    }, [allowInfluencer, allowInfluencerImage, imageBase64, influencers.length, recipe]);
+    const countryCoords = useMemo(
+        () => ({
+            '미국': { lat: 39.8283, lng: -98.5795 },
+            '한국': { lat: 36.5, lng: 127.9 },
+            '일본': { lat: 36.2048, lng: 138.2529 },
+            '중국': { lat: 35.8617, lng: 104.1954 },
+            '영국': { lat: 55.3781, lng: -3.436 },
+            '프랑스': { lat: 46.2276, lng: 2.2137 },
+            '독일': { lat: 51.1657, lng: 10.4515 },
+            '캐나다': { lat: 56.1304, lng: -106.3468 },
+            '호주': { lat: -25.2744, lng: 133.7751 },
+            '인도': { lat: 20.5937, lng: 78.9629 },
+            'United States': { lat: 39.8283, lng: -98.5795 },
+            'South Korea': { lat: 36.5, lng: 127.9 },
+            'Japan': { lat: 36.2048, lng: 138.2529 },
+            'China': { lat: 35.8617, lng: 104.1954 },
+            'United Kingdom': { lat: 55.3781, lng: -3.436 },
+            'France': { lat: 46.2276, lng: 2.2137 },
+            'Germany': { lat: 51.1657, lng: 10.4515 },
+            'Canada': { lat: 56.1304, lng: -106.3468 },
+            'Australia': { lat: -25.2744, lng: 133.7751 },
+            'India': { lat: 20.5937, lng: 78.9629 },
+        }),
+        []
+    );
+
+    const clearMapMarkers = () => {
+        mapMarkersRef.current.forEach((marker) => marker.setMap(null));
+        mapMarkersRef.current = [];
+    };
+
+    const escapeMapHtml = (value) =>
+        String(value ?? '')
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
+
+    const aggregateEvaluations = (items) => {
+        if (!Array.isArray(items) || items.length === 0) {
+            return [];
+        }
+        if (items.some((item) => Array.isArray(item?.feedbacks))) {
+            return items;
+        }
+        const byCountry = new Map();
+        items.forEach((item) => {
+            const country = item?.country;
+            if (!country) {
+                return;
+            }
+            const entry = byCountry.get(country) || {
+                country,
+                totalScoreSum: 0,
+                totalScoreCount: 0,
+                feedbacks: [],
+            };
+            if (Number.isFinite(item?.totalScore)) {
+                entry.totalScoreSum += item.totalScore;
+                entry.totalScoreCount += 1;
+            }
+            if (entry.feedbacks.length < 10 && (item?.positiveFeedback || item?.negativeFeedback)) {
+                entry.feedbacks.push({
+                    personaName: item?.personaName || '심사위원',
+                    positiveFeedback: item?.positiveFeedback || '',
+                    negativeFeedback: item?.negativeFeedback || '',
+                });
+            }
+            byCountry.set(country, entry);
+        });
+        return Array.from(byCountry.values()).map((entry) => ({
+            country: entry.country,
+            totalScore:
+                entry.totalScoreCount > 0
+                    ? Math.round(entry.totalScoreSum / entry.totalScoreCount)
+                    : 0,
+            feedbacks: entry.feedbacks,
+        }));
+    };
+
+    const ensureMapInfoStyles = () => {
+        if (document.getElementById('map-info-style')) {
+            return;
+        }
+        const style = document.createElement('style');
+        style.id = 'map-info-style';
+        style.textContent = `
+            .gm-style-iw,
+            .gm-style-iw-c {
+                padding: 0 !important;
+            }
+            .gm-style-iw-d {
+                overflow: visible !important;
+                padding-top: 0 !important;
+                margin-top: 0 !important;
+            }
+            .gm-ui-hover-effect {
+                display: none !important;
+            }
+        `;
+        document.head.appendChild(style);
+    };
+
+    const normalizeCountryKey = (value) => {
+        if (!value) return '';
+        const key = String(value).trim();
+        const map = {
+            'US': '미국',
+            'USA': '미국',
+            'UK': '영국',
+            'UAE': '아랍에미리트',
+            'KOREA': '한국',
+            'SOUTH KOREA': '한국',
+            'JAPAN': '일본',
+            'CHINA': '중국',
+            'UNITED STATES': '미국',
+            'UNITED KINGDOM': '영국',
+            'FRANCE': '프랑스',
+            'GERMANY': '독일',
+            'CANADA': '캐나다',
+            'AUSTRALIA': '호주',
+            'INDIA': '인도',
+        };
+        const upper = key.toUpperCase();
+        return map[upper] || key;
+    };
+
+    const plotEvaluations = (evaluations) => {
+        const map = mapInstanceRef.current;
+        if (!map || !Array.isArray(evaluations)) {
+            return;
+        }
+        ensureMapInfoStyles();
+        const infoWindow = mapInfoWindowRef.current || new window.google.maps.InfoWindow();
+        mapInfoWindowRef.current = infoWindow;
+        clearMapMarkers();
+        evaluations.forEach((item) => {
+            const coord = countryCoords[normalizeCountryKey(item.country)];
+            if (!coord) {
+                return;
+            }
+            const marker = new window.google.maps.Marker({
+                map,
+                position: coord,
+                label: {
+                    text: String(item.totalScore ?? ''),
+                    color: '#f8fafc',
+                    fontSize: '12px',
+                    fontWeight: '700',
+                },
+                icon: {
+                    path: window.google.maps.SymbolPath.CIRCLE,
+                    scale: 10,
+                    fillColor: '#f97316',
+                    fillOpacity: 0.9,
+                    strokeColor: '#0f172a',
+                    strokeWeight: 2,
+                },
+            });
+            marker.addListener('click', () => {
+                const country = escapeMapHtml(item.country || '국가');
+                const feedbacks = Array.isArray(item.feedbacks) ? item.feedbacks.slice(0, 10) : [];
+                window.__closeMapInfoWindow = () => infoWindow.close();
+                const feedbackHtml = feedbacks.length
+                    ? feedbacks
+                        .map((fb) => {
+                            const name = escapeMapHtml(fb?.personaName || '심사위원');
+                            const positive = escapeMapHtml(fb?.positiveFeedback || '내용 없음');
+                            const negative = escapeMapHtml(fb?.negativeFeedback || '내용 없음');
+                            return `
+                                <div style="margin-top:8px;color:#111827;">
+                                    <div style="font-weight:700;color:#111827;">심사위원: ${name}</div>
+                                    <div style="font-size:12px;color:#111827;"><strong>긍정:</strong> ${positive}</div>
+                                    <div style="font-size:12px;color:#111827;"><strong>부정:</strong> ${negative}</div>
+                                </div>
+                            `;
+                        })
+                        .join('')
+                    : '<div style="font-size:12px;color:#111827;">피드백 없음</div>';
+                const content = `
+                    <div style="min-width:240px;max-width:320px;color:#111827;padding:0 36px 10px 12px;margin:0;position:relative;">
+                        <button
+                            type="button"
+                            onclick="window.__closeMapInfoWindow && window.__closeMapInfoWindow()"
+                            style="position:absolute;top:-6px;right:8px;border:0;background:transparent;font-size:22px;line-height:1;color:#6b7280;cursor:pointer;padding:0 6px;"
+                            aria-label="닫기"
+                        >
+                            ×
+                        </button>
+                        <div style="font-weight:800;margin:0 0 4px 0;color:#111827;">${country}</div>
+                        <div style="font-size:12px;line-height:1.5;color:#111827;">${feedbackHtml}</div>
+                    </div>
+                `;
+                infoWindow.setContent(content);
+                infoWindow.open({ map, anchor: marker });
+            });
+            mapMarkersRef.current.push(marker);
+        });
+    };
+    useEffect(() => {
+        if (!mapReady || evaluationResults.length === 0) {
+            return;
+        }
+        plotEvaluations(evaluationResults);
+    }, [mapReady, evaluationResults]);
+
+    useEffect(() => {
+        const runPersonaEvaluation = async () => {
+            if (!recipe || !report || !mapReady) {
+                return;
+            }
+            if (evaluationResults.length > 0) {
+                return;
+            }
+            if (personaRunRef.current === recipe.id) {
+                return;
+            }
+            personaRunRef.current = recipe.id;
+            try {
+                const countries = Object.keys(countryCoords)
+                    .filter((c) => /[가-힣]/.test(c))
+                    .slice(0, 10);
+                const ageRes = await axiosInstance.post('/api/persona/age-group', {
+                    recipe: `${recipe.title || ''} ${recipe.description || ''}`.trim(),
+                    countries,
+                });
+                const targets = ageRes.data || [];
+                const personaRes = await axiosInstance.post('/api/persona/batch', {
+                    recipeSummary: recipe.summary || JSON.stringify(report || {}),
+                    targets,
+                });
+                const personas = personaRes.data || [];
+                const evalRes = await axiosInstance.post('/api/evaluation', {
+                    personas,
+                    report: JSON.stringify(report || {}),
+                });
+                setEvaluationResults(aggregateEvaluations(evalRes.data || []));
+            } catch (err) {
+                console.error('페르소나 평가를 실패했습니다.', err);
+            }
+        };
+
+        runPersonaEvaluation();
+    }, [recipe, report, mapReady, countryCoords]);
+
+    const isOwner =
+        (userId &&
+            (recipe?.user_id === userId ||
+                recipe?.userId === userId ||
+                recipe?.authorId === userId)) ||
+        (!userId &&
+            (recipe?.user_name === rawName ||
+                recipe?.userName === rawName ||
+                recipe?.authorName === rawName));
+
+    const handlePublish = async () => {
+        if (!recipe || recipe.status !== 'DRAFT') {
+            return;
+        }
+        setPublishLoading(true);
+        try {
+            const res = await axiosInstance.put(`/api/recipes/${recipe.id}/publish`, {
+                influencers,
+                influencerImageBase64: imageBase64,
+            });
+            setRecipe(res.data);
+            navigate(`/mainboard/recipes/${recipe.id}`);
+        } catch (err) {
+            console.error('레시피 공개 처리에 실패했습니다.', err);
+            setError('레시피 등록 확정에 실패했습니다.');
+        } finally {
+            setPublishLoading(false);
+        }
+    };
+    const showExec = Boolean(report?.executiveSummary);
+    const showMarket = Boolean(report?.marketSnapshot);
+    const showRisk = Boolean(report?.riskAssessment);
+    const showSwot = Boolean(report?.swot);
+    const showConceptIdeas = Array.isArray(report?.conceptIdeas) && report.conceptIdeas.length > 0;
+    const showKpis = Array.isArray(report?.kpis) && report.kpis.length > 0;
+    const showNextSteps = Array.isArray(report?.nextSteps) && report.nextSteps.length > 0;
+    const showSummary = Boolean(recipe?.summary);
+    const showRecipeCase =
+        Array.isArray(reportSections) &&
+        reportSections.includes('RecipeCase');
+    const matchedAllergens = Array.isArray(recipe?.allergen?.matchedAllergens)
+        ? recipe.allergen.matchedAllergens
+        : [];
+    const showAllergen =
+        allowAllergenSection ||
+        (!reportSections && (Boolean(recipe?.allergen?.note) || matchedAllergens.length > 0));
+    const allergenNoteText =
+        recipe?.allergen?.note ||
+        (matchedAllergens.length ? `알레르기 성분: ${matchedAllergens.join(', ')}` : '알레르기 성분 요약이 없습니다.');
+    const showInfluencer = allowInfluencer && influencers.length > 0;
+    const showInfluencerImage = allowInfluencerImage && Boolean(imageBase64);
+
+    const exec = report?.executiveSummary || {};
+    const market = report?.marketSnapshot || {};
+    const personaNeeds = market?.personaNeeds || {};
+    const trendSignals = market?.trendSignals || {};
+    const competition = market?.competition || {};
+    const risk = report?.riskAssessment || {};
+    const swot = report?.swot || {};
+    const conceptIdeas = Array.isArray(report?.conceptIdeas) ? report.conceptIdeas : [];
+    const kpis = Array.isArray(report?.kpis) ? report.kpis : [];
+    const nextSteps = Array.isArray(report?.nextSteps) ? report.nextSteps : [];
+
+    const escapeHtml = (value) =>
+        String(value ?? '')
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
+
+        const listHtml = (items) => {
+        if (!items || items.length === 0) {
+            return '<p class="muted">내용이 없습니다.</p>';
+        }
+        return `<ul>${items.map((item) => `<li>${escapeHtml(item)}</li>`).join('')}</ul>`;
+    };
+    const buildPrintableHtml = () => {
+        const isSectionSelected = (key) => {
+            if (!Array.isArray(reportSections) || reportSections.length === 0) {
+                return true;
+            }
+            return reportSections.includes(key);
+        };
+
+        const marketMapRows = Array.isArray(evaluationResults) ? evaluationResults : [];
+        const marketMapHtml = showMap && marketMapRows.length
+            ? `
+  <div class="section">
+    <h2>글로벌 마켓 맵</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>국가</th>
+          <th>점수</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${marketMapRows
+                    .map(
+                        (row) => `
+        <tr>
+          <td>${escapeHtml(row?.country || '-')}</td>
+          <td>${escapeHtml(row?.totalScore ?? '-')}</td>
+        </tr>
+      `
+                    )
+                    .join('')}
+      </tbody>
+    </table>
+  </div>
+`
+            : '';
+
+        const renderProductCasesHtml = (cases) => {
+            if (!cases || cases.length === 0) {
+                return '<p class="muted">수출 부적합 사례가 확인되지 않습니다.</p>';
+            }
+            return `<ul>${cases
+                .map(
+                    (c) =>
+                        `<li>${escapeHtml(c?.country || '-')} - ${escapeHtml(c?.action || '-')} - ${escapeHtml(c?.violationReason || '-')}</li>`
+                )
+                .join('')}</ul>`;
+        };
+
+        const renderIngredientCasesHtml = (items) => {
+            if (!items || items.length === 0) {
+                return '<p class="muted">재료 기반 수출 부적합 사례가 확인되지 않습니다.</p>';
+            }
+            return items
+                .map((ing) => {
+                    const cases = Array.isArray(ing?.cases) ? ing.cases : [];
+                    const casesHtml = cases.length
+                        ? `<ul>${cases
+                            .map(
+                                (c) =>
+                                    `<li>${escapeHtml(c?.country || '-')} - ${escapeHtml(c?.action || '-')} - ${escapeHtml(c?.violationReason || '-')}</li>`
+                            )
+                            .join('')}</ul>`
+                        : '<p class="muted">해당 재료의 수출 부적합 사례가 없습니다.</p>';
+                    return `
+    <div>
+      <p><strong>[재료: ${escapeHtml(ing?.ingredient || '-')} ]</strong></p>
+      ${casesHtml}
+    </div>
+`;
+                })
+                .join('');
+        };
+
+        const recipeCaseHtml = showRecipeCase && (productCases.length || ingredientCases.length)
+            ? `
+  <div class="section">
+    <h2>국가 수출 부적합 사례</h2>
+    <h3>제품 사례</h3>
+    <p><strong>제품명:</strong> ${escapeHtml(recipe?.title || '-')}</p>
+    ${renderProductCasesHtml(productCases)}
+    <h3>재료 사례</h3>
+    ${renderIngredientCasesHtml(ingredientCases)}
+  </div>
+`
+            : '';
+
+        const sectionHtmlByKey = {
+            summary: showSummary
+                ? `
+  <div class="section">
+    <h2>요약본</h2>
+    <p>${escapeHtml(recipe?.summary || '요약 결과가 없습니다.')}</p>
+  </div>
+`
+                : '',
+            executiveSummary: showExec
+                ? `
+  <div class="section">
+    <h2>핵심 요약</h2>
+    <p><strong>결론:</strong> ${escapeHtml(exec.decision || '-')}</p>
+    <p><strong>시장 적합도:</strong> ${escapeHtml(exec.marketFitScore || '-')}점</p>
+    <p><strong>성공 가능성:</strong> ${escapeHtml(exec.successProbability || '-')}</p>
+    <p><strong>추천 전략:</strong> ${escapeHtml(exec.recommendation || '-')}</p>
+    <h3>핵심 강점</h3>
+    ${listHtml(exec.keyPros)}
+    <h3>주요 리스크</h3>
+    ${listHtml(exec.topRisks)}
+  </div>
+`
+                : '',
+            marketSnapshot: showMarket
+                ? `
+  <div class="section">
+    <h2>시장 스냅샷</h2>
+    <h3>타깃 페르소나 니즈</h3>
+    <p>${escapeHtml(personaNeeds.needs || '-')}</p>
+    <p>구매 요인: ${escapeHtml(personaNeeds.purchaseDrivers || '-')}</p>
+    <p>장벽: ${escapeHtml(personaNeeds.barriers || '-')}</p>
+    <h3>트렌드 시그널</h3>
+    ${listHtml(trendSignals.trendNotes)}
+    <p>가격대: ${escapeHtml(trendSignals.priceRangeNotes || '-')}</p>
+    <p>채널: ${escapeHtml(trendSignals.channelSignals || '-')}</p>
+    <h3>경쟁 구도</h3>
+    <p>${escapeHtml(competition.localCompetitors || '-')}</p>
+    <p>차별화: ${escapeHtml(competition.differentiation || '-')}</p>
+  </div>
+`
+                : '',
+            riskAssessment: showRisk
+                ? `
+  <div class="section">
+    <h2>리스크 & 대응</h2>
+    <h3>리스크</h3>
+    ${listHtml(risk.riskList)}
+    <h3>완화 전략</h3>
+    ${listHtml(risk.mitigations)}
+  </div>
+`
+                : '',
+            swot: showSwot
+                ? `
+  <div class="section">
+    <h2>SWOT</h2>
+    <h3>강점</h3>
+    ${listHtml(swot.strengths)}
+    <h3>약점</h3>
+    ${listHtml(swot.weaknesses)}
+    <h3>기회</h3>
+    ${listHtml(swot.opportunities)}
+    <h3>위협</h3>
+    ${listHtml(swot.threats)}
+  </div>
+`
+                : '',
+            conceptIdeas: showConceptIdeas
+                ? `
+  <div class="section">
+    <h2>컨셉 아이디어</h2>
+    ${conceptIdeas.length ? conceptIdeas.map((idea) => `
+      <div>
+        <p><strong>${escapeHtml(idea.name || '')}</strong></p>
+        <p>SCAMPER: ${escapeHtml(idea.scamperFocus || '-')}</p>
+        <p>포지셔닝: ${escapeHtml(idea.positioning || '-')}</p>
+        <p>기대효과: ${escapeHtml(idea.expectedEffect || '-')}</p>
+        <p>리스크: ${escapeHtml(idea.risks || '-')}</p>
+      </div>
+    `).join('') : '<p class="muted">내용이 없습니다.</p>'}
+  </div>
+`
+                : '',
+            kpis: showKpis
+                ? `
+  <div class="section">
+    <h2>KPI 제안</h2>
+    ${kpis.length ? kpis.map((kpi) => `
+      <div>
+        <p><strong>${escapeHtml(kpi.name || '')}</strong></p>
+        <p>목표: ${escapeHtml(kpi.target || '-')}</p>
+        <p>측정: ${escapeHtml(kpi.method || '-')}</p>
+        <p>인사이트: ${escapeHtml(kpi.insight || '-')}</p>
+      </div>
+    `).join('') : '<p class="muted">내용이 없습니다.</p>'}
+  </div>
+`
+                : '',
+            nextSteps: showNextSteps
+                ? `
+  <div class="section">
+    <h2>제품 개발 추천안</h2>
+    ${listHtml(nextSteps)}
+  </div>
+`
+                : '',
+            influencer: showInfluencer
+                ? `
+  <div class="section">
+    <h2>인플루언서 추천</h2>
+    ${
+                    influencers.length
+                        ? influencers
+                            .slice(0, 5)
+                            .map(
+                                (inf) => `
+        <div>
+          <p><strong>${escapeHtml(inf.name || '')}</strong> (${escapeHtml(inf.platform || '-')})</p>
+          <p class="muted">${escapeHtml(inf.profileUrl || '')}</p>
+          <p>${escapeHtml(inf.rationale || '-')}</p>
+          ${inf.riskNotes ? `<p class="muted">주의: ${escapeHtml(inf.riskNotes)}</p>` : ''}
+        </div>
+      `
+                            )
+                            .join('')
+                        : '<p class="muted">추천 결과가 없습니다.</p>'
+                }
+  </div>
+`
+                : '',
+            influencerImage: showInfluencerImage
+                ? `
+  <div class="section">
+    <h2>인플루언서 이미지</h2>
+    ${
+                    imageBase64
+                        ? `<img src="data:image/png;base64,${imageBase64}" alt="influencer" style="max-width:100%; border-radius:12px;"/>`
+                        : '<p class="muted">이미지 생성 결과가 없습니다.</p>'
+                }
+  </div>
+`
+                : '',
+            allergenNote: showAllergen
+                ? `
+  <div class="section">
+    <h2>알레르기 성분 노트</h2>
+    <p>${escapeHtml(recipe?.allergen?.note || '알레르기 성분 요약이 없습니다.')}</p>
+  </div>
+`
+                : '',
+            RecipeCase: recipeCaseHtml,
+            globalMarketMap: marketMapHtml,
+        };
+
+        const layoutOrder = [
+            'globalMarketMap',
+            'executiveSummary',
+            'marketSnapshot',
+            'riskAssessment',
+            'swot',
+            'conceptIdeas',
+            'kpis',
+            'nextSteps',
+            'influencerImage',
+            'influencer',
+            'allergenNote',
+            'RecipeCase',
+            'summary',
+        ];
+
+        const orderedKeys = Array.isArray(reportSections) && reportSections.length
+            ? [
+                ...layoutOrder.filter((key) => reportSections.includes(key)),
+                ...reportSections.filter((key) => !layoutOrder.includes(key)),
+            ]
+            : layoutOrder;
+
+        const sections = orderedKeys
+            .filter((key) => isSectionSelected(key))
+            .map((key) => sectionHtmlByKey[key])
+            .filter(Boolean)
+            .join('');
+        return `<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <title>${escapeHtml(recipe?.title)} 레시피 리포트</title>
+  <style>
+    :root { color-scheme: light; }
+    body { font-family: "Pretendard","Noto Sans KR",Arial,sans-serif; margin: 32px; color: #1f2937; }
+    h1 { font-size: 24px; margin-bottom: 8px; }
+    h2 { font-size: 18px; margin: 24px 0 8px; }
+    h3 { font-size: 15px; margin: 16px 0 6px; }
+    p { margin: 6px 0; line-height: 1.5; }
+    ul { margin: 6px 0 6px 18px; }
+    li { margin: 4px 0; }
+    table { width: 100%; border-collapse: collapse; margin: 8px 0; font-size: 13px; }
+    th, td { border: 1px solid #e5e7eb; padding: 6px 8px; text-align: left; }
+    th { background: #f3f4f6; }
+    .muted { color: #6b7280; }
+    .section { border-top: 1px solid #e5e7eb; padding-top: 16px; margin-top: 16px; }
+  </style>
+</head>
+<body>
+  <h1>${escapeHtml(recipe?.title)} 레시피 리포트</h1>
+  <p class="muted">${escapeHtml(recipe?.description)}</p>
+  ${sections}
+</body>
+</html>`;
+    };
+
+    const handlePdfDownload = () => {
+        if ((allowInfluencer && influencers.length === 0) || (allowInfluencerImage && !imageBase64)) {
+            return;
+        }
+        const html = buildPrintableHtml();
+        const win = window.open('', '_blank', 'width=900,height=1000');
+        if (!win) {
+            return;
+        }
+        win.document.write(html);
+        win.document.close();
+        win.focus();
+        const waitForImages = () => {
+            const images = Array.from(win.document.images || []);
+            if (!images.length) {
+                win.print();
+                return;
+            }
+            let loaded = 0;
+            const done = () => {
+                loaded += 1;
+                if (loaded === images.length) {
+                    win.print();
+                }
+            };
+            images.forEach((img) => {
+                if (img.complete) {
+                    done();
+                } else {
+                    img.onload = done;
+                    img.onerror = done;
+                }
+            });
+            setTimeout(() => {
+                if (loaded < images.length) {
+                    win.print();
+                }
+            }, 1500);
+        };
+        if (win.document.readyState === 'complete') {
+            waitForImages();
+        } else {
+            win.onload = waitForImages;
+        }
+    };
+
+    const renderList = (items) => {
+        if (!items || items.length === 0) {
+            return <p className="text-sm text-[color:var(--text-muted)]">내용이 없습니다.</p>;
+        }
+        return (
+            <ul className="space-y-2 text-sm text-[color:var(--text)]">
+                {items.map((item, idx) => (
+                    <li key={`${idx}-${item}`} className="flex gap-2">
+                        <span className="text-[color:var(--accent)]">?</span>
+                        <span>{item}</span>
+                    </li>
+                ))}
+            </ul>
+        );
+    };
+    const HelpTooltip = ({ label, description }) => (
+        <span className="relative inline-flex items-center group ml-2 align-middle">
+            <span className="inline-flex h-5 w-5 items-center justify-center rounded-full border border-[color:var(--border)] text-[10px] font-semibold text-[color:var(--text-muted)] bg-[color:var(--surface)]">
+                ?
+            </span>
+            <span className="sr-only">{label}</span>
+            <span className="pointer-events-none absolute left-1/2 top-full z-10 mt-2 w-56 -translate-x-1/2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 py-2 text-xs text-[color:var(--text)] opacity-0 shadow-[0_12px_30px_var(--shadow)] transition group-hover:opacity-100">
+                {description}
+            </span>
+        </span>
+    );
+    const SectionTitle = ({ title, help }) => (
+        <h3 className="text-lg font-semibold text-[color:var(--text)] mb-3 flex items-center">
+            {title}
+            {help && <HelpTooltip label={title} description={help} />}
+        </h3>
+    );
+
+
+    if (loading) {
+        return (
+            <div className="rounded-[2.5rem] bg-[color:var(--surface)]/90 border border-[color:var(--border)] shadow-[0_30px_80px_var(--shadow)] p-10 backdrop-blur">
+                <p className="text-[color:var(--text-muted)]">레포트를 불러오는 중입니다...</p>
+            </div>
+        );
+    }
+
+    if (error || !recipe) {
+        return (
+            <div className="rounded-[2.5rem] bg-[color:var(--surface)]/90 border border-[color:var(--border)] shadow-[0_30px_80px_var(--shadow)] p-10 backdrop-blur">
+                <p className="text-[color:var(--danger)]">{error || '레시피 정보를 찾을 수 없습니다.'}</p>
+            </div>
+        );
+    }
+
+    return (
+        <div className="relative">
+            <div className="pointer-events-none absolute -top-16 -right-6 h-64 w-64 rounded-full bg-[color:var(--bg-3)] blur-3xl opacity-70" />
+            <div className="pointer-events-none absolute bottom-6 left-16 h-52 w-52 rounded-full bg-[color:var(--surface-muted)] blur-3xl opacity-60" />
+
+            <div className="rounded-[2.5rem] bg-[color:var(--surface)]/90 border border-[color:var(--border)] shadow-[0_30px_80px_var(--shadow)] p-8 md:p-10 backdrop-blur">
+                <div className="flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
+                    <div>
+                        <p className="text-xs uppercase tracking-[0.4em] text-[color:var(--text-soft)] mb-2">Recipe Report</p>
+                        <h2 className="text-2xl md:text-3xl font-semibold text-[color:var(--text)]">레시피 보고서</h2>
+                    </div>
+                    <div className="flex items-center gap-3">
+                        <div className="text-right">
+                            <p className="text-sm font-semibold text-[color:var(--text)]">{maskedName}</p>
+                        </div>
+                        <div
+                            className="h-10 w-10 rounded-full shadow-[0_10px_20px_var(--shadow)]"
+                            style={{ background: 'linear-gradient(135deg, var(--avatar-1), var(--avatar-2))' }}
+                        />
+                    </div>
+                </div>
+
+                {!report && (
+                    <div className="mt-6 p-4 rounded-xl border border-[color:var(--danger)]/40 bg-[color:var(--danger-bg)] text-sm text-[color:var(--danger)]">
+                        보고서 데이터가 없습니다.
+                    </div>
+                )}
+                <div className="mt-8 grid grid-cols-1 lg:grid-cols-[1fr_1fr] gap-6">
+                    {showMap && (
+                        <div className="lg:col-span-2 rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[0_12px_30px_var(--shadow)] p-6">
+                            <div className="flex items-center justify-between mb-4">
+                                <h3 className="text-lg font-semibold text-[color:var(--text)]">
+                                    <SectionTitle
+                                        title="글로벌 마켓 맵"
+                                        help="국가별 긍/부정 피드백 및 점수를 지도로 시각화해 한눈에 비교하며, 점수가 표기된 동그라미를 누르면 해당 정보를 조회할 수 있습니다."
+                                    />
+                                </h3>
+                                <span className="text-xs text-[color:var(--text-soft)]">World View</span>
+                            </div>
+                            <div className="h-[260px] rounded-xl border border-[color:var(--border)] bg-[color:var(--surface-muted)] overflow-hidden">
+                                {mapError ? (
+                                    <div className="h-full flex items-center justify-center text-sm text-[color:var(--text-muted)]">
+                                        {mapError}
+                                    </div>
+                                ) : (
+                                    <div ref={mapRef} className="h-full w-full" />
+                                )}
+                            </div>
+                        </div>
+                    )}
+
+                    <div className="space-y-6 min-w-0">
+                        {showExec && (
+                            <div className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[0_12px_30px_var(--shadow)] p-6">
+                                <div className="flex items-center justify-between">
+                                    <h3 className="text-lg font-semibold text-[color:var(--text)]">
+                                        <SectionTitle
+                                            title="핵심 요약"
+                                            help="이 레시피의 시장 적합도와 성공 가능성을 종합해, 출시 여부 판단에 필요한 핵심 정보를 요약한 정보입니다."
+                                        />
+                                    </h3>
+                                </div>
+                                <div className="mt-4 space-y-3 text-sm text-[color:var(--text)]">
+                                    <p><strong>결론:</strong> {exec.decision || '-'}</p>
+                                    <p><strong>시장 적합도:</strong> {exec.marketFitScore || '-'}점</p>
+                                    <p><strong>성공 가능성:</strong> {exec.successProbability || '-'}</p>
+                                    <p><strong>추천 전략:</strong> {exec.recommendation || '-'}</p>
+                                    <div>
+                                        <p className="font-semibold text-[color:var(--text)] mb-2">핵심 강점</p>
+                                        {renderList(exec.keyPros)}
+                                    </div>
+                                    <div>
+                                        <p className="font-semibold text-[color:var(--text)] mb-2">주요 리스크</p>
+                                        {renderList(exec.topRisks)}
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        {showMarket && (
+                            <div className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[0_12px_30px_var(--shadow)] p-6">
+                                <h3 className="text-lg font-semibold text-[color:var(--text)] mb-4">
+                                    <SectionTitle
+                                        title="시장 스냅샷"
+                                        help="타깃 시장의 소비자 니즈, 트렌드, 경쟁 환경을 요약한 시장 개요입니다."
+                                    />
+                                </h3>
+                                <div className="space-y-4 text-sm text-[color:var(--text)]">
+                                    <div>
+                                        <p className="font-semibold text-[color:var(--text)]">타깃 페르소나 니즈</p>
+                                        <p className="text-[color:var(--text-muted)]">{personaNeeds.needs || '-'}</p>
+                                        <p className="mt-2">구매 요인: {personaNeeds.purchaseDrivers || '-'}</p>
+                                        <p>장벽: {personaNeeds.barriers || '-'}</p>
+                                    </div>
+                                    <div>
+                                        <p className="font-semibold text-[color:var(--text)]">트렌드 시그널</p>
+                                        {renderList(trendSignals.trendNotes)}
+                                        <p className="mt-2">가격대: {trendSignals.priceRangeNotes || '-'}</p>
+                                        <p>채널: {trendSignals.channelSignals || '-'}</p>
+                                    </div>
+                                    <div>
+                                        <p className="font-semibold text-[color:var(--text)]">경쟁 구도</p>
+                                        <p className="text-[color:var(--text-muted)]">{competition.localCompetitors || '-'}</p>
+                                        <p className="mt-2">차별화: {competition.differentiation || '-'}</p>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        {(showRisk || showSwot) && (
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                {showRisk && (
+                                    <div className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[0_12px_30px_var(--shadow)] p-6">
+                                        <h3 className="text-lg font-semibold text-[color:var(--text)] mb-3">
+                                            <SectionTitle
+                                                title="리스크 & 대응"
+                                                help="제품 출시 및 시장 적용 과정에서 예상되는 주요 리스크와, 이를 완화하기 위한 대응 전략을 정리한 항목입니다."
+                                            />
+                                        </h3>
+                                        <p className="text-sm font-semibold text-[color:var(--text)] mb-2">리스크</p>
+                                        {renderList(risk.riskList)}
+                                        <p className="mt-4 text-sm font-semibold text-[color:var(--text)] mb-2">완화 전략</p>
+                                        {renderList(risk.mitigations)}
+                                    </div>
+                                )}
+                                {showSwot && (
+                                    <div className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[0_12px_30px_var(--shadow)] p-6">
+                                        <h3 className="text-lg font-semibold text-[color:var(--text)] mb-3 flex items-center">
+                                            <SectionTitle
+                                                title="SWOT"
+                                                help="제품을 분석해서 강점 Strength, 약점 Weakenesses, 기회 Opportunities, 위협 Threats을 보여주는 단어입니다."
+                                            />
+                                        </h3>
+                                        <p className="text-sm font-semibold text-[color:var(--text)] mb-2">Strengths</p>
+                                        {renderList(swot.strengths)}
+                                        <p className="mt-3 text-sm font-semibold text-[color:var(--text)] mb-2">Weaknesses</p>
+                                        {renderList(swot.weaknesses)}
+                                        <p className="mt-3 text-sm font-semibold text-[color:var(--text)] mb-2">Opportunities</p>
+                                        {renderList(swot.opportunities)}
+                                        <p className="mt-3 text-sm font-semibold text-[color:var(--text)] mb-2">Threats</p>
+                                        {renderList(swot.threats)}
+                                    </div>
+                                )}
+                            </div>
+                        )}
+
+                        {showConceptIdeas && (
+                            <div className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[0_12px_30px_var(--shadow)] p-6">
+                                <h3 className="text-lg font-semibold text-[color:var(--text)] mb-4">
+                                    <SectionTitle
+                                        title="컨셉 아이디어"
+                                        help="현재 레시피 기준으로 새로운 제품을 만들 경우 추천하는 제품 컨셉 아이디어입니다."
+                                    />
+                                </h3>
+                                <div className="space-y-4">
+                                    {conceptIdeas.map((idea, idx) => (
+                                        <div key={`${idea.name}-${idx}`} className="rounded-xl border border-[color:var(--border)] bg-[color:var(--surface-muted)] p-4">
+                                            <p className="text-sm font-semibold text-[color:var(--text)]">{idea.name || `아이디어 ${idx + 1}`}</p>
+                                            <p className="text-sm text-[color:var(--text-muted)] mt-1">SCAMPER: {idea.scamperFocus || '-'}</p>
+                                            <p className="text-sm text-[color:var(--text-muted)]">포지셔닝: {idea.positioning || '-'}</p>
+                                            <p className="text-sm text-[color:var(--text-muted)]">기대효과: {idea.expectedEffect || '-'}</p>
+                                            <p className="text-sm text-[color:var(--text-muted)]">리스크: {idea.risks || '-'}</p>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+
+                        {showKpis && (
+                            <div className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[0_12px_30px_var(--shadow)] p-6">
+                                <h3 className="text-lg font-semibold text-[color:var(--text)] mb-4 flex items-center">
+                                    <SectionTitle
+                                        title="KPI 제안"
+                                        help="제품 출시 이후 성과를 측정하고 개선 방향을 판단하기 위한 핵심 지표를 제안합니다."
+                                    />
+                                </h3>
+                                <div className="space-y-3">
+                                    {kpis.map((kpi, idx) => (
+                                        <div key={`${kpi.name}-${idx}`} className="rounded-xl border border-[color:var(--border)] bg-[color:var(--surface-muted)] p-4 text-sm">
+                                            <p className="font-semibold text-[color:var(--text)]">{kpi.name || `KPI ${idx + 1}`}</p>
+                                            <p className="text-[color:var(--text-muted)]">목표: {kpi.target || '-'}</p>
+                                            <p className="text-[color:var(--text-muted)]">측정: {kpi.method || '-'}</p>
+                                            <p className="text-[color:var(--text-muted)]">인사이트: {kpi.insight || '-'}</p>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+
+                        {showNextSteps && (
+                            <div className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[0_12px_30px_var(--shadow)] p-6">
+                                <h3 className="text-lg font-semibold text-[color:var(--text)] mb-3">
+                                    <SectionTitle
+                                        title="제품 개발 추천안"
+                                        help="제품 기획/개발을 추진할 때 추천하는 다음 단계입니다."
+                                    />
+                                </h3>
+                                {renderList(nextSteps)}
+                            </div>
+                        )}
+                    </div>
+
+                    <div className="space-y-6 min-w-0">
+                        {/*인플루언서 추천+이미지*/}
+                        {showInfluencerImage && (
+                            <div className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[0_12px_30px_var(--shadow)] p-6">
+                                <h3 className="text-lg font-semibold text-[color:var(--text)] mb-3">
+                                    <SectionTitle
+                                        title="인플루언서 이미지"
+                                        help="인플루언서 추천 기반으로 만들어진 인플루언서 이미지입니다."
+                                    />
+                                </h3>
+                                <div className="min-h-[320px] rounded-xl border border-[color:var(--border)] bg-[color:var(--surface-muted)] flex items-center justify-center overflow-hidden">
+                                    <img
+                                        src={`data:image/png;base64,${imageBase64}`}
+                                        alt="influencer"
+                                        className="h-full w-full object-contain"
+                                    />
+                                </div>
+                            </div>
+                        )}
+
+                        {showInfluencer && (
+                            <div className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[0_12px_30px_var(--shadow)] p-6">
+                                <h3 className="text-lg font-semibold text-[color:var(--text)] mb-3">
+                                    <SectionTitle
+                                        title="인플루언서 추천"
+                                        help="해당 비슷한 제품을 접하거나 올렸던 인플루언서 중 이 제품에 제일 적합할 인플루언서들을 추천합니다."
+                                    />
+                                </h3>
+                                <div className="space-y-4">
+                                    {influencers.slice(0, 3).map((inf, idx) => (
+                                        <div key={`${inf.name}-${idx}`} className="rounded-xl border border-[color:var(--border)] bg-[color:var(--surface-muted)] p-4">
+                                            <p className="text-sm font-semibold text-[color:var(--text)]">{inf.name}</p>
+                                            <p className="text-xs text-[color:var(--text-soft)] break-all">{inf.platform || '-'} · {inf.profileUrl || '링크 없음'}</p>
+                                            <p className="mt-2 text-xs text-[color:var(--text-muted)]">{inf.rationale || '-'}</p>
+                                            {inf.riskNotes && (
+                                                <p className="mt-2 text-xs text-[color:var(--danger)]">주의: {inf.riskNotes}</p>
+                                            )}
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+
+
+
+                        {/* 알레르기 쉘 */}
+                        {showAllergen && (
+                            <div className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[0_12px_30px_var(--shadow)] p-6">
+                                <SectionTitle
+                                    title="알레르기 성분 노트"
+                                    help="해당 레시피 대로 제품을 생산 시, 목표 국가에 대해 표기해야 하는 알레르기 정보입니다."
+                                />
+
+                                <p className="text-sm font-medium text-[color:var(--text)] whitespace-pre-line">
+                                    {allergenNoteText}
+                                </p>
+                            </div>
+                        )}
+
+                        {/* 🔥 국가 수출 부적합 사례 카드*/}
+                        {showRecipeCase && (
+                            <div className="lg:col-span-2 rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[0_12px_30px_var(--shadow)] p-6">
+                                <h3 className="text-lg font-semibold text-[color:var(--text)] mb-4">
+                                    <SectionTitle
+                                        title="국가 수출 부적합 사례"
+                                        help="해당 레시피의 최종 제품과 재료를 한국에서 목표 국가로 수출했을 때 발생한 부적합 사례를 보여주는 정보입니다."
+                                    />
+                                </h3>
+
+                                {/* 완제품 */}
+                                <div className="mb-5">
+                                    <p className="font-semibold">제품명: {recipe.title}</p>
+
+                                    {productCases.length === 0 ? (
+                                        <p className="text-sm text-[color:var(--text-muted)] ml-2">
+                                            수출 부적합 사례가 확인되지 않았습니다.
+                                        </p>
+                                    ) : (
+                                        <ul className="list-disc ml-5 text-sm">
+                                            {productCases.map((c, i) => (
+                                                <li key={i}>
+                                                    {c.country} - {c.action || '-'} - {c.violationReason || '-'}
+                                                </li>
+                                            ))}
+                                        </ul>
+                                    )}
+                                </div>
+
+                                {/* 재료별 */}
+                                {ingredientCases.length === 0 ? (
+                                    <p className="text-sm text-[color:var(--text-muted)] ml-2">
+                                        재료 기준 수출 부적합 사례가 확인되지 않았습니다.
+                                    </p>
+                                ) : (
+                                    ingredientCases.map((ing, idx) => (
+                                        <div key={idx} className="mb-4">
+                                            <p className="font-medium">[재료: {ing.ingredient}]</p>
+
+                                            {ing.cases.length === 0 ? (
+                                                <p className="text-sm text-[color:var(--text-muted)] ml-2">
+                                                    해당 재료의 수출 부적합 사례가 없습니다.
+                                                </p>
+                                            ) : (
+                                                <ul className="list-disc ml-5 text-sm">
+                                                    {ing.cases.map((c, i) => (
+                                                        <li key={i}>
+                                                            {c.country} - {c.action || '-'} - {c.violationReason || '-'}
+                                                        </li>
+                                                    ))}
+                                                </ul>
+                                            )}
+                                        </div>
+                                    ))
+                                )}
+
+                            </div>
+                        )}
+                        {/* 최종 보고서 요약본 */}
+                        {showSummary && (
+                            <div className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[0_12px_30px_var(--shadow)] p-6">
+                                <SectionTitle
+                                    title="최종 보고서 요약"
+                                    help="현재까지 보고된 내용을 종합해, 최종 보고서를 요약한 정보입니다."
+                                />
+
+                                <p className="mt-4 text-sm font-medium text-[color:var(--text)] whitespace-pre-line">
+                                    {recipe.summary}
+                                </p>
+                            </div>
+                        )}
+
+
+
+                        {recipe.status === 'DRAFT' && isOwner && !isRecipeOnly && (
+                            <button
+                                type="button"
+                                className="w-full py-2 rounded-xl bg-[color:var(--accent)] text-[color:var(--accent-contrast)] text-sm font-semibold hover:bg-[color:var(--accent-strong)] transition disabled:opacity-60 disabled:cursor-not-allowed"
+                                onClick={handlePublish}
+                                disabled={
+                                    publishLoading ||
+                                    influencerLoading ||
+                                    (allowInfluencer && influencers.length === 0) ||
+                                    (allowInfluencerImage && !imageBase64)
+                                }
+                            >
+                                {publishLoading ? '등록 중...' : '등록 확정'}
+                            </button>
+                        )}
+                        {recipe.status === 'PUBLISHED' && (
+                            <button
+                                type="button"
+                                className="w-full py-2 rounded-xl bg-[color:var(--accent)] text-[color:var(--accent-contrast)] text-sm font-semibold hover:bg-[color:var(--accent-strong)] transition disabled:opacity-60 disabled:cursor-not-allowed"
+                                onClick={handlePdfDownload}
+                                disabled={
+                                    (allowInfluencer && influencers.length === 0) ||
+                                    (allowInfluencerImage && !imageBase64)
+                                }
+                            >
+                                {(allowInfluencer && influencers.length === 0) ||
+                                (allowInfluencerImage && !imageBase64)
+                                    ? allowInfluencerImage
+                                        ? '이미지 생성 중...'
+                                        : '인플루언서 준비 중...'
+                                    : 'PDF 다운로드'}
+                            </button>
+                        )}
+                        <button
+                            type="button"
+                            onClick={() => {
+                                const fromReview = location.state?.fromReview;
+                                if (fromReview) {
+                                    navigate('/mainboard/create/manual', {
+                                        state: {
+                                            reviewRecipeId: recipe.id,
+                                            influencers,
+                                            influencerImageBase64: imageBase64,
+                                        },
+                                    });
+                                } else {
+                                    navigate(`/mainboard/recipes/${recipe.id}`);
+                                }
+                            }}
+                            className="w-full py-2 rounded-xl border border-[color:var(--border)] text-sm text-[color:var(--text)] hover:bg-[color:var(--surface-muted)] transition"
+                        >
+                            요약으로 돌아가기
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+};
+
+export default RecipeAnalysis;
