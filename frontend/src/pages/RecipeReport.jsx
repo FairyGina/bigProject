@@ -337,6 +337,7 @@ const RecipeReport = () => {
         if (!id) return;
         const next = recipeOpenYn === 'Y' ? 'N' : 'Y';
         try {
+            await axiosInstance.get('/api/csrf');
             const res = await axiosInstance.put(`/api/recipes/${id}/visibility`, { openYn: next });
             setRecipeOpenYn(res.data?.openYn || next);
         } catch (err) {
