@@ -1,5 +1,5 @@
 ﻿import React from 'react';
-import { ChevronDown, ChevronRight, LogOut } from 'lucide-react';
+import { ChevronDown, ChevronRight, LogOut, MessageCircle } from 'lucide-react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 
@@ -25,7 +25,7 @@ const menuItems = [
     { title: labels.hub, path: '/mainboard' },
 ];
 
-const Sidebar = () => {
+const Sidebar = ({ onOpenChatbot }) => {
     const navigate = useNavigate();
     const location = useLocation();
     const { logout } = useAuth();
@@ -260,6 +260,14 @@ const Sidebar = () => {
                 </nav>
 
                 <div className="mt-auto">
+                    <button
+                        type="button"
+                        onClick={onOpenChatbot}
+                        className="flex items-center gap-3 w-full px-4 py-3 text-[color:var(--text)] hover:bg-[color:var(--surface-muted)] rounded-xl transition"
+                    >
+                        <MessageCircle size={18} />
+                        <span className="text-sm font-semibold">도움말 챗봇</span>
+                    </button>
                     <button
                         onClick={handleLogout}
                         className="flex items-center gap-3 w-full px-4 py-3 text-[color:var(--danger)] hover:bg-[color:var(--danger-bg)] rounded-xl transition"

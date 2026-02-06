@@ -9,6 +9,8 @@ import GlassCard from '../common/GlassCard';
 const MainLayout = ({ children }) => {
     const navigate = useNavigate();
     const [showExpiryModal, setShowExpiryModal] = useState(false);
+    const [showChatbot, setShowChatbot] = useState(false);
+    const helperChatUrl = import.meta.env.VITE_HELPER_CHAT_URL || 'http://localhost:7861';
 
     useEffect(() => {
         const deferredUntil = localStorage.getItem('passwordChangeDeferredUntil');
@@ -29,7 +31,7 @@ const MainLayout = ({ children }) => {
             style={{ background: 'linear-gradient(135deg, var(--bg-1), var(--bg-2), var(--bg-3))' }}
         >
             {/* 고정 사이드바 */}
-            <Sidebar />
+            <Sidebar onOpenChatbot={() => setShowChatbot(true)} />
 
             {/* 메인 콘텐츠 영역 */}
             <div className="flex-1 p-6 md:p-10 flex flex-col">
@@ -81,6 +83,31 @@ const MainLayout = ({ children }) => {
                             </div>
                         </GlassCard>
                     </motion.div>
+                </div>
+            )}
+
+            {showChatbot && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-6">
+                    <div className="w-full max-w-5xl">
+                        <GlassCard className="p-4 md:p-6">
+                            <div className="flex items-center justify-between mb-3">
+                                <h3 className="text-lg font-bold">도움말 챗봇</h3>
+                                <button
+                                    onClick={() => setShowChatbot(false)}
+                                    className="px-3 py-1 rounded-lg text-[color:var(--text-muted)] hover:text-[color:var(--text)] hover:bg-[color:var(--surface-muted)] transition"
+                                >
+                                    닫기
+                                </button>
+                            </div>
+                            <div className="w-full h-[70vh] rounded-xl overflow-hidden border border-[color:var(--border)] bg-white">
+                                <iframe
+                                    title="도움말 챗봇"
+                                    src={helperChatUrl}
+                                    className="w-full h-full"
+                                />
+                            </div>
+                        </GlassCard>
+                    </div>
                 </div>
             )}
         </div>
