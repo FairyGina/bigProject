@@ -238,7 +238,6 @@ const Sidebar = ({ onOpenChatbot }) => {
                             >
                                 {labels.finalSelection}
                             </button>
-                            {/*
                             <button
                                 type="button"
                                 onClick={() => {
@@ -254,7 +253,6 @@ const Sidebar = ({ onOpenChatbot }) => {
                             >
                                 {labels.remoteMeeting}
                             </button>
-                            */}
                         </div>
                     )}
                 </nav>

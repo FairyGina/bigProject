@@ -8,6 +8,7 @@ const PasswordCheckPage = () => {
     const navigate = useNavigate();
     const [password, setPassword] = useState('');
     const [error, setError] = useState('');
+    const isDemoAdmin = localStorage.getItem('userId') === 'super';
 
     const handlePasswordCheck = async () => {
         setError('');
@@ -53,6 +54,11 @@ const PasswordCheckPage = () => {
 
             <div className="w-full max-w-md text-left">
                 <label className="block text-sm font-bold mb-4 ml-1 text-[color:var(--text-muted)]">비밀번호 확인</label>
+                {isDemoAdmin && (
+                    <p className="mb-3 text-xs font-semibold text-[color:var(--text-soft)]">
+                        심사용 관리자 비밀번호는 1234입니다.
+                    </p>
+                )}
                 <input
                     type="password"
                     value={password}

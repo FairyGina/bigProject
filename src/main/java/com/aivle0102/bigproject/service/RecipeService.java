@@ -722,8 +722,11 @@ public class RecipeService {
     private RecipeResponse toResponse(Recipe recipe, List<RecipeIngredient> ingredients, MarketReport report, String authorName) {
         List<String> ingredientNames = ingredients == null ? List.of()
                 : ingredients.stream().map(RecipeIngredient::getIngredientName).toList();
-        Map<String, Object> reportMap = report == null ? new LinkedHashMap<>() : new LinkedHashMap<>(readJsonMap(report.getContent()));
-        MarketReport evalReport = resolveEvaluationReport(report, recipe.getId());
+        MarketReport primaryReport = resolvePrimaryReport(recipe, report);
+        Map<String, Object> reportMap = primaryReport == null
+                ? new LinkedHashMap<>()
+                : new LinkedHashMap<>(readJsonMap(primaryReport.getContent()));
+        MarketReport evalReport = resolveEvaluationReport(primaryReport, recipe.getId());
         if (evalReport != null) {
             reportMap.put("evaluationResults", readEvaluationResults(evalReport));
         }
@@ -751,8 +754,8 @@ public class RecipeService {
 
 // 🔹 3. 기본 데이터 읽기
         Map<String, Object> allergenMap = buildAllergenResponse(recipe);
-        List<Map<String, Object>> influencers = readInfluencers(report);
-        String influencerImage = influencers.isEmpty() ? null : readInfluencerImage(report);
+        List<Map<String, Object>> influencers = readInfluencers(primaryReport);
+        String influencerImage = influencers.isEmpty() ? null : readInfluencerImage(primaryReport);
 
 // 🔹 4. Draft 상태에서 섹션 기준 필터링
         if (STATUS_DRAFT.equalsIgnoreCase(recipe.getStatus())) {
@@ -775,7 +778,7 @@ public class RecipeService {
                 recipe.getImageBase64(),
                 reportMap,
                 allergenMap,
-                report == null ? null : report.getSummary(),
+                primaryReport == null ? null : primaryReport.getSummary(),
                 influencers,
                 influencerImage,
                 recipe.getStatus(),
@@ -784,6 +787,19 @@ public class RecipeService {
                 authorName,
                 recipe.getCreatedAt()
         );
+    }
+
+    private MarketReport resolvePrimaryReport(Recipe recipe, MarketReport candidate) {
+        if (recipe == null || recipe.getId() == null) {
+            return candidate;
+        }
+        if (candidate != null && REPORT_TYPE_AI.equalsIgnoreCase(defaultIfBlank(candidate.getReportType(), ""))) {
+            return candidate;
+        }
+        MarketReport latestAi = marketReportRepository
+                .findTopByRecipe_IdAndReportTypeOrderByCreatedAtDesc(recipe.getId(), REPORT_TYPE_AI)
+                .orElse(null);
+        return latestAi != null ? latestAi : candidate;
     }
 
     private ReportDetailResponse toReportDetailResponse(Recipe recipe, MarketReport report) {

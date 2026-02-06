@@ -22,6 +22,7 @@ import PasswordCheckPage from '../pages/PasswordCheckPage';
 import UserProfilePage from '../pages/UserProfilePage';
 import FinalSelectionPage from '../pages/FinalSelectionPage';
 import FinalEvaluationPage from '../pages/FinalEvaluationPage';
+import RemoteMeetingPage from '../pages/RemoteMeetingPage';
 
 // 인증이 필요한 라우트 보호 컴포넌트
 const ProtectedRoute = ({ children }) => {
@@ -77,6 +78,7 @@ const AppRoutes = () => {
                                 <Route path="/" element={<MainBoard />} />
                                 <Route path="notice" element={<NoticeBoard />} />
                                 <Route path="final-selection" element={<FinalSelectionPage />} />
+                                <Route path="final-selection/meeting" element={<RemoteMeetingPage />} />
                                 <Route path="final-selection/result" element={<FinalEvaluationPage />} />
                                 <Route path="user-hub" element={<Navigate to="user-hub/recipes" replace />} />
                                 <Route path="user-hub/recipes" element={<UserBoard />} />

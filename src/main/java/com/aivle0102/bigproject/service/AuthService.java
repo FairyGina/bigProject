@@ -40,6 +40,13 @@ public class AuthService {
     private static final int MAX_LOGIN_FAILURES = 5;
     private static final int SEQUENTIAL_LENGTH = 3;
     private static final int PASSWORD_EXPIRY_MONTHS = 6;
+    private static final String DEMO_USER_ID = "super";
+    private static final String DEMO_PASSWORD = "1234";
+    private static final String DEMO_USER_NAME = "관리자";
+    private static final String DEMO_COMPANY_NAME = "(주)관리자기업";
+    private static final String DEMO_INDUSTRY = "식품가공/조리식품";
+    private static final String DEMO_TARGET_COUNTRY = "US";
+    private static final LocalDate DEMO_BIRTH_DATE = LocalDate.of(1990, 1, 1);
 
     @Transactional
     public UserResponse join(SignUpRequest request) {
@@ -75,6 +82,51 @@ public class AuthService {
         userInfoRepository.save(userInfo);
 
         return toUserResponse(userInfo, null);
+    }
+
+    @Transactional
+    public UserResponse demoLogin() {
+        Company company = companyRepository.findFirstByCompanyNameIgnoreCase(DEMO_COMPANY_NAME)
+                .orElseGet(() -> companyRepository.save(
+                        Company.builder()
+                                .companyName(DEMO_COMPANY_NAME)
+                                .industry(DEMO_INDUSTRY)
+                                .targetCountry(DEMO_TARGET_COUNTRY)
+                                .createdAt(LocalDateTime.now())
+                                .updatedAt(LocalDateTime.now())
+                                .build()
+                ));
+        Long companyId = company == null ? null : company.getCompanyId();
+
+        String hashedPassword = passwordEncoder.encode(DEMO_PASSWORD);
+        UserInfo userInfo = userInfoRepository.findByUserId(DEMO_USER_ID).orElse(null);
+        if (userInfo == null) {
+            userInfo = UserInfo.builder()
+                    .userId(DEMO_USER_ID)
+                    .userPw(hashedPassword)
+                    .userName(DEMO_USER_NAME)
+                    .birthDate(DEMO_BIRTH_DATE)
+                    .userState("1")
+                    .joinDate(LocalDateTime.now())
+                    .loginFailCount(0)
+                    .passwordChangedAt(OffsetDateTime.now())
+                    .companyId(companyId)
+                    .build();
+        } else {
+            userInfo.setUserPw(hashedPassword);
+            userInfo.setLoginFailCount(0);
+            userInfo.setPasswordChangedAt(OffsetDateTime.now());
+            userInfo.setUserState("1");
+            userInfo.setUserName(DEMO_USER_NAME);
+            userInfo.setCompanyId(companyId);
+            if (userInfo.getBirthDate() == null) {
+                userInfo.setBirthDate(DEMO_BIRTH_DATE);
+            }
+        }
+
+        userInfoRepository.save(userInfo);
+        String accessToken = jwtTokenProvider.createToken(userInfo.getUserId(), userInfo.getUserName());
+        return toUserResponse(userInfo, accessToken);
     }
 
     private Company resolveCompany(SignUpRequest request) {
