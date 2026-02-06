@@ -107,15 +107,23 @@ def build_trend_query_prompt(country: str) -> str:
 당신은 식품/외식 트렌드 리서치 전문가입니다.
 국가: {country}
 
-조건:
-- 2025~2026 트렌드 중심 (가능하면 최신 연도 명시)
-- 요리/레시피/외식 트렌드 모두 포함
-- 신메뉴 개발 아이디어에 바로 활용 가능한 키워드/콘셉트 중심
-- 검색 엔진에서 잘 먹히는 키워드 조합
-- 한국어/영어 혼합 가능(필요 시 현지 언어도 포함)
+  목표:
+  - 2025~2026 트렌드 기반의 실전형 검색 쿼리 4개 생성
 
-출력:
+  작성 규칙:
+  - 요리/레시피/외식 트렌드 모두 포함
+  - 검색 엔진에 잘 맞는 짧고 명확한 키워드 조합
+  - 한국어/영어 혼합 가능(필요 시 현지 언어 포함)
+  - 건강/비건 일반론으로 쏠리지 않게 축 분산
+  - AI/데이터/기술 중심 키워드는 제외
+
+  출력:
 - 쿼리 4개를 JSON 배열로만 반환
+- 아래 4가지 축을 반드시 각각 반영해 분산된 쿼리를 만들 것:
+  1) 메뉴 개발/푸드서비스 트렌드
+  2) 맛/텍스처/형태 트렌드
+  3) 카테고리(음료/디저트/스낵) 트렌드
+  4) 리포트/전망/산업 트렌드
 """
 
 def apply_user_input(state: Dict[str, Any], user_input: str) -> Dict[str, Any]:
@@ -575,12 +583,25 @@ def try_generate_recipe(state: Dict[str, Any]) -> Dict[str, Any]:
             query_text = call_llm(build_trend_query_prompt(country))
             print("[trend] query_text:", query_text)
             queries = parse_json_array(query_text)
+            print("[trend] parsed queries count:", len(queries))
             print("[trend] parsed queries:", queries)
             if queries:
-                results = serpapi_search(queries[0], country)
+                selected_query = queries[0]
+                print("[trend] selected query:", selected_query)
+                results = serpapi_search(selected_query, country)
                 print("[trend] results count:", len(results))
+                for idx, item in enumerate(results, start=1):
+                    print(
+                        f"[trend] result {idx}:",
+                        {
+                            "title": item.get("title"),
+                            "date": item.get("date"),
+                            "link": item.get("link"),
+                        },
+                    )
                 if results:
                     trend_summary = summarize_trends(TREND_SUMMARY_PROMPT, results)
+                    print("[trend] summary size:", len(trend_summary or ""))
                     log_trend(country, queries, results, trend_summary)
         else:
             print("[trend] trend search skipped", {

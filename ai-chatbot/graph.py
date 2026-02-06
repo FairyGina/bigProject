@@ -9,7 +9,6 @@ from langgraph.graph import StateGraph, END
 FORECAST_PATH = Path(__file__).resolve().parent / "forecast_3m_new.csv"
 FORECAST_JSON_PATH = Path(__file__).resolve().parent / "forecast_top_2026_02.json"
 FORECAST_PERIOD = "2026.02"
-FORECAST_TOPN = 7
 FORECAST_TOPN_PREPROCESS = 10
 FORECAST_COUNTRIES = {"미국", "중국", "일본", "베트남", "독일"}
 FORECAST_SELECTED_TOKEN = "__FORECAST_SELECTED__"
@@ -86,8 +85,6 @@ class RecipeState(TypedDict):
     recipe: Optional[str]
     report: Optional[str]
     prompt: Optional[str]
-    trend_query_prompt: Optional[str]
-    trend_summary_prompt: Optional[str]
     trend_forecast_items: Optional[List[str]]
     trend_forecast_period: Optional[str]
 
@@ -221,22 +218,12 @@ def generate_recipe_node(state):
     - 한국에서 해외를 대상으로 수출하는 메뉴임을 고려하여 레시피를 생성한다.
     - 한국의 식문화를 참고하면서, 해외 현지 재료 및 트렌드를 고려하여 레시피를 생성한다.
     - 현지 수요/트렌드와 충돌하면 현지 적합성을 우선한다.
-    - 수요예측 결과는 '재료'가 아닌 컨셉에만 반영, '설명/소개'에만 반영한다.
+    - 근거 없는 충돌 조합은 피한다.
+    - 메뉴 정체성을 깨는 조합은 피한다.
 
     [수출 수요예측 참고]
-    {forecast_block}
-    
-    [요리 상식 규칙]
-    - 조미료만으로 구성된 레시피는 생성하지 않는다.
-    - 명확한 맛의 방향(짠맛, 단맛, 감칠맛 등)을 유지한다.
-    - 근거 없는 충돌 조합은 피한다.
-    - 강한 산성 재료와 유제품은 고온 조리하지 않는다.
-    - 메뉴 정체성을 깨는 조합은 피한다.
-    - 조미는 단계적으로 추가한다.
-    - 조리 순서와 과정은 물리적으로 가능해야 한다.
-    - 하나의 명확한 요리 문화(한식, 양식, 일식, 중식 등)를 기준으로 한다.
-    - 이질적인 재료끼리 섞지 않는다.
-    - 최종 검증: 정체성/조합/조리 순서를 점검한다.
+    {forecast_block}는 재료가 아닌 컨셉에만 반영한다.
+    생성된 레시피와 어울리지 않는 조합이면 절대 반영하지 않는다.
 
     [맛의 상호작용 규칙]
     - 기본 맛(단맛, 신맛, 쓴맛, 짠맛, 감칠맛)은 독립적으로 더해지지 않으며,
@@ -329,8 +316,6 @@ def make_initial_state():
         "recipe": None,
         "report": None,
         "prompt": None,
-        "trend_query_prompt": None,
-        "trend_summary_prompt": None,
         "trend_forecast_items": None,
         "trend_forecast_period": None,
         "feedback": None,
