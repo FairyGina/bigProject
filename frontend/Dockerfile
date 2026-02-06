@@ -32,6 +32,7 @@ COPY --from=builder /app/dist /usr/share/nginx/html
 # Default environment variables for Nginx proxy pass
 ENV BACKEND_URL=http://backend:8080
 ENV ANALYSIS_ENGINE_URL=http://analysis-engine:8000
+ENV CHATBOT_URL=http://ai-chatbot:7860
 
 EXPOSE 80
 
