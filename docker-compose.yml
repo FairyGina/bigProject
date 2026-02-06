@@ -99,12 +99,19 @@ services:
       dockerfile: Dockerfile
     container_name: bigproject-analysis
     restart: unless-stopped
+
     volumes:
-      - ./analysis-engine/cleaned_merged_export_trends.csv:/app/cleaned_merged_export_trends.csv
-      - ./analysis-engine/amz_insight_data.csv:/app/amz_insight_data.csv
+      - ./analysis-engine:/app
+    command: >
+      /bin/sh -c "python migrate_db.py && uvicorn main:app --host 0.0.0.0 --port 8000"
     environment:
       - OPENAI_API_KEY=${OPENAI_API_KEY}
       - SERPAPI_API_KEY=${SERPAPI_API_KEY}
+      - POSTGRES_DB=${DB_NAME:-bigproject}
+      - POSTGRES_USER=${DB_USER:-postgres}
+      - POSTGRES_PASSWORD=${DB_PASSWORD:-postgres}
+      - DB_HOST=db
+      - DB_PORT=5432
     ports:
       - "8000:8000"
     networks:

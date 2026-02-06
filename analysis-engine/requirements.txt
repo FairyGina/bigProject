@@ -10,3 +10,4 @@ huggingface_hub<0.25.0
 langchain-openai
 langgraph
 openai
+psycopg2-binary==2.9.9

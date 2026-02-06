@@ -16,6 +16,29 @@ from sklearn.feature_extraction.text import CountVectorizer
 from collections import Counter
 import gradio as gr
 from chatbot_app import demo as chatbot_demo
+import psycopg2
+from psycopg2.extras import RealDictCursor
+
+# DB Connection Details
+DB_HOST = os.environ.get("DB_HOST", "db")
+DB_NAME = os.environ.get("POSTGRES_DB", "bigproject")
+DB_USER = os.environ.get("POSTGRES_USER", "postgres")
+DB_PASS = os.environ.get("POSTGRES_PASSWORD", "postgres")
+DB_PORT = os.environ.get("DB_PORT", "5432")
+
+def get_db_connection():
+    try:
+        conn = psycopg2.connect(
+            host=DB_HOST,
+            dbname=DB_NAME,
+            user=DB_USER,
+            password=DB_PASS,
+            port=DB_PORT
+        )
+        return conn
+    except Exception as e:
+        print(f"DB Connection Failed: {e}")
+        return None
 
 # 국가 매핑
 COUNTRY_MAPPING = {
@@ -248,176 +271,112 @@ def get_diverging_keywords(keywords_analysis: List[Dict], top_n: int = 10, thres
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # [수정] 클라우드(ACA) 마운트 경로와 로컬 경로를 모두 대응할 수 있도록 변경
-    BASE_DATA_DIR = "/app/data" if os.path.exists("/app/data") else "."
+    global df, growth_summary_df, df_consumer
+    global GLOBAL_MEAN_SENTIMENT, GLOBAL_STD_SENTIMENT, GLOBAL_MEAN_RATING
+
+    print("🚀 Starting Analysis Engine with DB Support...")
     
-    csv_path = os.path.join(BASE_DATA_DIR, 'cleaned_merged_export_trends.csv')
-    consumer_csv_path = os.path.join(BASE_DATA_DIR, 'amz_insight_data.csv')
+    conn = get_db_connection()
+    if conn:
+        try:
+            # 1. Load Export Trends (Small enough for memory)
+            print("Loading export_trends from DB...")
+            query = "SELECT * FROM export_trends"
+            temp_df = pd.read_sql(query, conn)
+            
+            if not temp_df.empty:
+                # Expand JSONB trend_data if exists
+                if 'trend_data' in temp_df.columns:
+                    print("Expanding trend_data JSONB...")
+                    # Handle potential string vs dict format
+                    def parse_trend(x):
+                        if isinstance(x, dict): return x
+                        if isinstance(x, str):
+                            try: return json.loads(x)
+                            except: return {}
+                        return {}
+                    
+                    trends = pd.json_normalize(temp_df['trend_data'].map(parse_trend))
+                    df = pd.concat([temp_df.drop(columns=['trend_data']), trends], axis=1)
+                else:
+                    df = temp_df
 
-    # 만약 위 경로에 파일이 없고, 상위 디렉토리에 있다면 (로컬 테스트용 예외 처리)
-    if not os.path.exists(csv_path) and os.path.exists(os.path.join("..", "cleaned_merged_export_trends.csv")):
-        csv_path = os.path.join("..", "cleaned_merged_export_trends.csv")
-        
-    if not os.path.exists(consumer_csv_path) and os.path.exists(os.path.join("..", "amz_insight_data.csv")):
-        consumer_csv_path = os.path.join("..", "amz_insight_data.csv")
-            
-    try:
-        # 기존 수출 데이터 로드
-        if os.path.exists(csv_path):
-            print(f"데이터 로드 중: {csv_path}")
-            # 1-1. 'period' 컬럼을 문자열로 읽기 위해 dtype 지정
-            df = pd.read_csv(csv_path, low_memory=False, dtype={'period': str})
-            
-            # 1-2. period 변환 및 정렬
-            if 'period' in df.columns:
-                def convert_period(val):
-                    try:
-                        if pd.isna(val) or val == '': return ''
-                        s = str(val).strip()
-                        
-                        # Case 1: "2022.10" (7글자) -> 2022-10
-                        # Case 2: "2022.1"  (6글자) -> 2022-01
-                        # Case 3: "2022.01" (7글자) -> 2022-01
-                        
-                        parts = s.split('.')
-                        year = parts[0]
-                        if len(parts) > 1:
-                            month_part = parts[1]
-                        # "10", "11", "12"는 그대로
-                            if len(month_part) == 2:
-                                month = month_part
-                            # 한 글자인 경우:
-                            # 데이터셋 분석 결과 1월은 '01'로, 10월은 '1'로(0이 탈락) 저장된 패턴 확인됨
-                            elif len(month_part) == 1:
-                                if month_part == '1':
-                                    month = '10' # 1 -> 10월
-                                else:
-                                    month = '0' + month_part # 2~9 -> 02~09월
-                            else:
-                                month = str(month_part)[:2].zfill(2)
-                        else:
-                            month = '01' # 월 정보 없으면 default
-                            
-                        return f"{year}-{month}"
-                    except: return ''
+                # Numeric Cleanups
+                numeric_cols = df.select_dtypes(include=[np.number]).columns
+                df[numeric_cols] = df[numeric_cols].fillna(0)
                 
-                df['period_str'] = df['period'].apply(convert_period)
-                # 잘못된 변환으로 중복된 period가 생길 수 있으므로 이를 방지하기 위한 추가 정렬
-                df = df.sort_values(by=['country_name', 'item_name', 'period_str'])
+                # Growth Matrix Calculation
+                print("Calculating Growth Matrix...")
+                summaries = []
+                group_cols = ['country_code', 'item_name']
+                if 'country_code' not in df.columns:
+                     group_cols = ['country_name', 'item_name']
+                     
+                grouped = df.groupby(group_cols)
+                for name, group in grouped:
+                    if len(group) < 24: continue
+                    group = group.sort_values('period_str')
+                    recent_12 = group.tail(12)
+                    prev_12 = group.iloc[-24:-12]
+                    
+                    weight_col = 'export_weight' if 'export_weight' in group.columns else None
+                    if weight_col:
+                        w_curr = recent_12[weight_col].sum()
+                        w_prev = prev_12[weight_col].sum()
+                    else: 
+                         w_curr = recent_12['export_value'].sum()
+                         w_prev = prev_12['export_value'].sum()
+    
+                    weight_growth = ((w_curr - w_prev) / w_prev * 100) if w_prev > 0 else 0
+                    
+                    p_curr = recent_12['unit_price'].mean()
+                    p_prev = prev_12['unit_price'].mean()
+                    price_growth = ((p_curr - p_prev) / p_prev * 100) if p_prev > 0 else 0
+                    
+                    total_value = recent_12['export_value'].sum()
+                    
+                    summaries.append({
+                        'country': name[0] if 'country_code' in df.columns else COUNTRY_MAPPING.get(name[0], name[0]),
+                        'item_csv_name': name[1],
+                        'weight_growth': round(weight_growth, 1),
+                        'price_growth': round(price_growth, 1),
+                        'total_value': total_value
+                    })
+                growth_summary_df = pd.DataFrame(summaries)
+                print("Export Trends Loaded & Matrix Calculated.")
+            else:
+                print("⚠️ export_trends table is empty.")
+                df = pd.DataFrame()
+                growth_summary_df = pd.DataFrame()
 
-            # 2. 결측치 처리 (Interpolation 제거 -> 0 채움)
-            numeric_cols = df.select_dtypes(include=[np.number]).columns
-            df[numeric_cols] = df[numeric_cols].fillna(0)
+            # 2. Global Consumer Stats (Count/Mean only - no data loading)
+            print("Calculating Global Consumer Stats from DB...")
+            df_consumer = None  # DO NOT LOAD HUGE DATA
             
-            if 'export_value' in df.columns:
-                df['export_value'] = pd.to_numeric(df['export_value'], errors='coerce').fillna(0)
+            with conn.cursor() as cur:
+                cur.execute("SELECT AVG(sentiment_score), STDDEV(sentiment_score), AVG(rating) FROM amazon_reviews")
+                row = cur.fetchone()
+                if row and row[0] is not None:
+                     GLOBAL_MEAN_SENTIMENT = float(row[0])
+                     GLOBAL_STD_SENTIMENT = float(row[1]) if row[1] is not None else 0.3
+                     GLOBAL_MEAN_RATING = float(row[2])
+                     print(f"Global Stats: Sent={GLOBAL_MEAN_SENTIMENT:.2f}, Std={GLOBAL_STD_SENTIMENT:.2f}, Rating={GLOBAL_MEAN_RATING:.2f}")
+                else:
+                     print("⚠️ amazon_reviews table empty or stats unavailable.")
             
-            # 3. Growth Matrix(산점도)용 요약 데이터 미리 계산
-            # 각 (국가, 아이템) 별로 최근 1년 vs 직전 1년 성장률 계산
-            print("성장 매트릭스 계산 중...")
-            summaries = []
-            
-            # 그룹핑하여 계산
-            group_cols = ['country_code', 'item_name']
-            if 'country_code' not in df.columns:
-                 group_cols = ['country_name', 'item_name']
-                 
-            grouped = df.groupby(group_cols)
-            
-            for name, group in grouped:
-                if len(group) < 24: continue # 최소 2년치 데이터 필요
-                
-                # 정렬 보장
-                group = group.sort_values('period_str')
-                
-                recent_12 = group.tail(12)
-                prev_12 = group.iloc[-24:-12]
-                
-                # 양적 성장 (수출 중량)
-                weight_col = 'export_weight' if 'export_weight' in group.columns else None
-                if weight_col:
-                    w_curr = recent_12[weight_col].sum()
-                    w_prev = prev_12[weight_col].sum()
-                else: 
-                     w_curr = recent_12['export_value'].sum()
-                     w_prev = prev_12['export_value'].sum()
-
-                # 단, 분모가 0이면 성장률 계산 불가 -> 0 또는 예외처리
-                weight_growth = ((w_curr - w_prev) / w_prev * 100) if w_prev > 0 else 0
-                
-                # 질적 성장 (수출 단가)
-                # 단가는 합계가 아니라 평균으로 비교
-                p_curr = recent_12['unit_price'].mean()
-                p_prev = prev_12['unit_price'].mean()
-                price_growth = ((p_curr - p_prev) / p_prev * 100) if p_prev > 0 else 0
-                
-                # 버블 크기 (수출 규모)
-                total_value = recent_12['export_value'].sum()
-                
-                summaries.append({
-                    'country': name[0] if 'country_code' in df.columns else COUNTRY_MAPPING.get(name[0], name[0]),
-                    'item_csv_name': name[1],
-                    'weight_growth': round(weight_growth, 1),
-                    'price_growth': round(price_growth, 1),
-                    'total_value': total_value
-                })
-            
-            growth_summary_df = pd.DataFrame(summaries)
-            print("데이터 로딩 및 요약 완료.")
-            
-        else:
-            print(f"경고: {csv_path} 파일을 찾을 수 없습니다.")
-            df = pd.DataFrame()
-            growth_summary_df = pd.DataFrame()
-
-        # 소비자 리뷰 데이터 로드
-        if os.path.exists(consumer_csv_path):
-            print(f"소비자 데이터 로드 중: {consumer_csv_path}")
-            df_consumer = pd.read_csv(consumer_csv_path, low_memory=False)
-            
-            # 리스트 형태의 문자열 컬럼 파싱 (safe eval)
-            import ast
-            def parse_list(x):
-                try:
-                    return ast.literal_eval(x) if isinstance(x, str) and x.startswith('[') else []
-                except:
-                    return []
-
-            list_cols = ['quality_issues_semantic', 'packaging_keywords', 'texture_terms', 
-                         'ingredients', 'health_keywords', 'dietary_keywords', 'delivery_issues_semantic']
-            
-            for col in list_cols:
-                if col in df_consumer.columns:
-                    df_consumer[col] = df_consumer[col].apply(parse_list)
-            
-            print("소비자 데이터 로드 완료.")
-            
-            # --- [중요] 전역 통계 계산 (Z-Score용) ---
-            # 1. 평점 숫자 변환
-            if 'rating' in df_consumer.columns:
-                df_consumer['rating'] = pd.to_numeric(df_consumer['rating'], errors='coerce').fillna(3.0)
-            
-            # 2. 감성 점수 생성 (없으면 평점 기반)
-            if 'sentiment_score' not in df_consumer.columns:
-                df_consumer['sentiment_score'] = (df_consumer['rating'] - 1) / 4
-                
-            GLOBAL_MEAN_SENTIMENT = df_consumer['sentiment_score'].mean()
-            GLOBAL_STD_SENTIMENT = df_consumer['sentiment_score'].std()
-            GLOBAL_MEAN_RATING = df_consumer['rating'].mean()
-            
-            print(f"Global Stats - Sentiment Mean: {GLOBAL_MEAN_SENTIMENT:.3f}, Std: {GLOBAL_STD_SENTIMENT:.3f}, Rating Mean: {GLOBAL_MEAN_RATING:.3f}")
-
-        else:
-            print(f"경고: {consumer_csv_path} 파일을 찾을 수 없습니다.")
-            df_consumer = pd.DataFrame()
-            
-    except Exception as e:
-        print(f"데이터 로드 중 오류 발생: {e}")
+        except Exception as e:
+            print(f"DB Initialization Failed: {e}")
+            import traceback
+            traceback.print_exc()
+        finally:
+            conn.close()
+    else:
+        print("❌ DB Connection Failed. Starting with empty state.")
         df = pd.DataFrame()
         growth_summary_df = pd.DataFrame()
-        df_consumer = pd.DataFrame()
+
     yield
-    print("서버를 종료합니다.")
+    print("Shutting down...")
 
 app = FastAPI(title="K-Food Export Analysis Engine", lifespan=lifespan)
 
@@ -632,72 +591,37 @@ async def analyze(country: str = Query(...), item: str = Query(...)):
 async def analyze_consumer(item_id: str = Query(None, description="ASIN"), item_name: str = Query(None, description="제품명/키워드")):
     global df_consumer, GLOBAL_MEAN_SENTIMENT, GLOBAL_STD_SENTIMENT, GLOBAL_MEAN_RATING
     
-    try:
-        if df_consumer is None or df_consumer.empty:
-            print("데이터가 로드되지 않았습니다. 재로딩 시도...")
-            # 비상용 로드 로직 (lifespan 실패 시)
-            csv_path = 'amz_insight_data.csv'
-            if not os.path.exists(csv_path):
-                 parent_consumer_path = os.path.join('..', csv_path)
-                 if os.path.exists(parent_consumer_path):
-                     csv_path = parent_consumer_path
-            
-            if os.path.exists(csv_path):
-                df_consumer = pd.read_csv(csv_path, low_memory=False)
-                # 리스트 컬럼 파싱 (약식)
-                list_cols = ['quality_issues_semantic', 'packaging_keywords', 'ingredients']
-                import ast
-                for col in list_cols:
-                    if col in df_consumer.columns:
-                        try:
-                            df_consumer[col] = df_consumer[col].apply(lambda x: ast.literal_eval(x) if isinstance(x, str) and x.startswith('[') else [])
-                        except: pass
-            else:
-                return JSONResponse(status_code=503, content={"has_data": False, "message": "Consumer data is not currently available."})
-        
-        # 전역 통계 Lazy Init (변수가 없거나 초기값인 경우)
-        try:
-            if 'GLOBAL_MEAN_SENTIMENT' not in globals() or (GLOBAL_STD_SENTIMENT == 0.3 and GLOBAL_MEAN_SENTIMENT == 0.5):
-                 print("전역 통계 재계산 중...")
-                 if 'rating' in df_consumer.columns:
-                     df_consumer['rating'] = pd.to_numeric(df_consumer['rating'], errors='coerce').fillna(3.0)
-                 if 'sentiment_score' not in df_consumer.columns:
-                     if 'rating' in df_consumer.columns:
-                         df_consumer['sentiment_score'] = (df_consumer['rating'] - 1) / 4
-                     else:
-                         df_consumer['sentiment_score'] = 0.5
-                 
-                 GLOBAL_MEAN_SENTIMENT = df_consumer['sentiment_score'].mean()
-                 GLOBAL_STD_SENTIMENT = df_consumer['sentiment_score'].std()
-                 GLOBAL_MEAN_RATING = df_consumer['rating'].mean()
-        except Exception as e:
-            print(f"전역 통계 계산 오류: {e}")
-
-    except Exception as e:
-        return JSONResponse(status_code=500, content={"has_data": False, "message": f"Server Initialization Error: {str(e)}"})
-
-    # 메인 로직 실행
-    # 1. 필터링 로직
-    filtered = pd.DataFrame()
     
-    # 모드 A: 키워드/카테고리 분석 (권장)
-    try:
-        # Mode A: Keyword/Category Analysis
-        if item_name:
-            # Fallback to searching in review text if title is missing
-            target_col = 'title' if 'title' in df_consumer.columns else 'cleaned_text'
-            
-            if target_col in df_consumer.columns:
-                filtered = df_consumer[df_consumer[target_col].str.contains(item_name, case=False, na=False)].copy()
-            else:
-                 return {"has_data": False, "message": "Search unavailable (missing text columns)."}
-        # Mode B: Specific ASIN Analysis
-        elif item_id:
-            filtered = df_consumer[df_consumer['asin'] == item_id].copy()
-            
-        if filtered.empty:
-            return {"has_data": False, "message": "해당 조건의 데이터가 없습니다."}
+    conn = get_db_connection()
+    if not conn:
+         return JSONResponse(status_code=500, content={"has_data": False, "message": "Database Connection Error"})
 
+    try:
+        # DB에서 직접 조회 (Memory Efficient)
+        if item_name:
+            query = """
+                SELECT * FROM amazon_reviews 
+                WHERE title ILIKE %s OR cleaned_text ILIKE %s
+            """
+            search_pattern = f"%{item_name}%"
+            filtered = pd.read_sql(query, conn, params=(search_pattern, search_pattern))
+            
+        elif item_id:
+            query = "SELECT * FROM amazon_reviews WHERE asin = %s"
+            filtered = pd.read_sql(query, conn, params=(item_id,))
+        else:
+            filtered = pd.DataFrame()
+            
+    except Exception as e:
+        print(f"Data Fetch Error: {e}")
+        filtered = pd.DataFrame()
+    finally:
+        conn.close()
+
+    if filtered.empty:
+        return {"has_data": False, "message": "해당 조건의 데이터가 없습니다."}
+
+    try:
         # === [중요] 데이터 결측치 처리 및 대체 로직 ===
         # 평점 데이터 숫자 변환
         if 'rating' in filtered.columns:
@@ -727,6 +651,12 @@ async def analyze_consumer(item_id: str = Query(None, description="ASIN"), item_
         if col not in filtered.columns:
             filtered[col] = None
             
+    # 4. 파생 변수 초기화 (DB에 없거나 계산되지 않은 경우)
+    required_cols = ['value_perception_hybrid', 'price_sensitive', 'sensory_conflict']
+    for col in required_cols:
+         if col not in filtered.columns:
+             filtered[col] = 0.5 if col == 'value_perception_hybrid' else (0.0 if col == 'price_sensitive' else False)
+
     total_count = filtered.shape[0]
     
     # =========================================================
@@ -922,20 +852,28 @@ async def analyze_consumer(item_id: str = Query(None, description="ASIN"), item_
     fig_nss.update_layout(height=300, margin=dict(l=20, r=20, t=50, b=20))
 
     # ASIN별 NSS vs CAS 산점도
-    asin_stats = df_consumer.groupby('asin').agg(
-        total=('sentiment_score', 'count'),
-        pos_count=('sentiment_score', lambda x: (x >= 0.75).sum()),
-        neg_count=('sentiment_score', lambda x: (x <= 0.25).sum())
-    ).reset_index()
-    
-    cas_counts = df_consumer[
-        (df_consumer['repurchase_intent_hybrid'] == True) & 
-        (df_consumer['recommendation_intent_hybrid'] == True)
-    ].groupby('asin').size().reset_index(name='adv_count')
-    
-    asin_stats = pd.merge(asin_stats, cas_counts, on='asin', how='left').fillna(0)
-    asin_stats['nss'] = (asin_stats['pos_count'] - asin_stats['neg_count']) / asin_stats['total'] * 100
-    asin_stats['cas'] = asin_stats['adv_count'] / asin_stats['total']
+    # ASIN별 NSS vs CAS 산점도 (Global Comparative Analysis)
+    # 메모리 문제로 전체 데이터(df_consumer) 로딩을 안하므로, 
+    # 비교 분석 대신 현재 검색된 상품들의 분포만 보여주거나, DB 집계가 필요함.
+    # 여기서는 검색된 데이터(filtered) 내의 ASIN들만 비교하는 것으로 축소.
+    try:
+        asin_stats = filtered.groupby('asin').agg(
+            total=('sentiment_score', 'count'),
+            pos_count=('sentiment_score', lambda x: (x >= 0.75).sum()),
+            neg_count=('sentiment_score', lambda x: (x <= 0.25).sum())
+        ).reset_index()
+        
+        cas_counts = filtered[
+            (filtered['repurchase_intent_hybrid'] == True) & 
+            (filtered['recommendation_intent_hybrid'] == True)
+        ].groupby('asin').size().reset_index(name='adv_count')
+        
+        asin_stats = pd.merge(asin_stats, cas_counts, on='asin', how='left').fillna(0)
+        asin_stats['nss'] = (asin_stats['pos_count'] - asin_stats['neg_count']) / asin_stats['total'] * 100
+        asin_stats['cas'] = asin_stats['adv_count'] / asin_stats['total']
+    except Exception as e:
+        print(f"ASIN Stats Error: {e}")
+        asin_stats = pd.DataFrame(columns=['asin', 'nss', 'cas', 'total']) # Empty fallback
     
     current_asins = filtered['asin'].unique()
     fig_scatter_nss = go.Figure()
@@ -1011,12 +949,12 @@ async def analyze_consumer(item_id: str = Query(None, description="ASIN"), item_
     value_score = filtered['value_perception_hybrid'].mean()
     price_sensitive_ratio = filtered['price_sensitive'].mean() if 'price_sensitive' in filtered.columns else 0
     
-    marketing_stats = df_consumer.groupby('asin').agg(
+    marketing_stats = filtered.groupby('asin').agg(
         avg_value=('value_perception_hybrid', 'mean'),
         price_sens=('price_sensitive', 'mean')
     ).reset_index()
-    if 'title' in df_consumer.columns:
-        titles = df_consumer.groupby('asin')['title'].first().reset_index()
+    if 'title' in filtered.columns:
+        titles = filtered.groupby('asin')['title'].first().reset_index()
         marketing_stats = pd.merge(marketing_stats, titles, on='asin', how='left')
     else:
         marketing_stats['title'] = marketing_stats['asin']
