@@ -4,13 +4,27 @@ import psycopg2
 from psycopg2.extras import execute_values
 import json
 import numpy as np
+import re
 
-# DB Connection Details
-DB_HOST = os.environ.get("DB_HOST", "db")
-DB_NAME = os.environ.get("POSTGRES_DB", "bigproject")
-DB_USER = os.environ.get("POSTGRES_USER", "postgres")
-DB_PASS = os.environ.get("POSTGRES_PASSWORD", "postgres")
-DB_PORT = os.environ.get("DB_PORT", "5432")
+# DB Connection Details - Support both Spring format and legacy format
+def parse_spring_datasource_url(url):
+    """Parse jdbc:postgresql://host:port/database format"""
+    if not url:
+        return None, None, None
+    match = re.match(r'jdbc:postgresql://([^:]+):(\d+)/(.+)', url)
+    if match:
+        return match.group(1), match.group(2), match.group(3)
+    return None, None, None
+
+# Try Spring format first, fall back to legacy format
+SPRING_URL = os.environ.get("SPRING_DATASOURCE_URL", "")
+_parsed_host, _parsed_port, _parsed_db = parse_spring_datasource_url(SPRING_URL)
+
+DB_HOST = _parsed_host or os.environ.get("DB_HOST", "db")
+DB_PORT = _parsed_port or os.environ.get("DB_PORT", "5432")
+DB_NAME = _parsed_db or os.environ.get("POSTGRES_DB", "bigproject")
+DB_USER = os.environ.get("SPRING_DATASOURCE_USERNAME") or os.environ.get("POSTGRES_USER", "postgres")
+DB_PASS = os.environ.get("SPRING_DATASOURCE_PASSWORD") or os.environ.get("POSTGRES_PASSWORD", "postgres")
 
 def get_db_connection():
     return psycopg2.connect(
