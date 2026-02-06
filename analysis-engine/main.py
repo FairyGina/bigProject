@@ -390,9 +390,6 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="K-Food Export Analysis Engine", lifespan=lifespan)
 
-# Chatbot Integration
-app = gr.mount_gradio_app(app, chatbot_demo, path="/chatbot")
-
 app.add_middleware(
     CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"]
 )
