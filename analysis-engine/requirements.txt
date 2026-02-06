@@ -6,6 +6,7 @@ scikit-learn==1.4.0
 numpy
 python-multipart
 gradio
+huggingface_hub<0.25.0
 langchain-openai
 langgraph
 openai

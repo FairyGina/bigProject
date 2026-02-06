@@ -23,12 +23,15 @@ RUN npm run build
 # Production stage
 FROM nginx:alpine
 
-# Nginx templates support environment variables substitution
-# Copy our config as a template
+# Copy our config as a template for envsubst
 COPY nginx.conf /etc/nginx/templates/default.conf.template
 
 # Copy built assets from builder
 COPY --from=builder /app/dist /usr/share/nginx/html
+
+# Default environment variables for Nginx proxy pass
+ENV BACKEND_URL=http://backend:8080
+ENV ANALYSIS_ENGINE_URL=http://analysis-engine:8000
 
 EXPOSE 80
 

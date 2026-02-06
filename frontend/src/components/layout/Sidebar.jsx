@@ -18,6 +18,9 @@ const labels = {
     logout: '로그아웃',
     confirmNavigation: '작성 중인 내용이 사라집니다. 이동할까요?',
     confirmLogout: '로그아웃 하시겠습니까?',
+    testVisual: '데이터 시각화',
+    exportAnalysis: '수출 분석',
+    consumerAnalysis: '소비자 분석',
 };
 
 const menuItems = [
@@ -29,28 +32,30 @@ const Sidebar = () => {
     const navigate = useNavigate();
     const location = useLocation();
     const { logout } = useAuth();
+
+    // Active state logic
     const userHubActive = location.pathname.startsWith('/mainboard/user-hub');
     const createActive = location.pathname.startsWith('/mainboard/create');
     const finalSelectionActive = location.pathname.startsWith('/mainboard/final-selection');
+    const visualActive = location.pathname.startsWith('/mainboard/visual');
+
     const isExactPath = (path) => location.pathname === path || location.pathname === `${path}/`;
     const userHubSelected = isExactPath('/mainboard/user-hub');
     const createSelected = isExactPath('/mainboard/create');
     const finalSelectionSelected = isExactPath('/mainboard/final-selection');
+
+    // Open state management
     const [userHubOpen, setUserHubOpen] = React.useState(userHubActive);
     const [createOpen, setCreateOpen] = React.useState(createActive);
     const [finalSelectionOpen, setFinalSelectionOpen] = React.useState(finalSelectionActive);
+    const [visualOpen, setVisualOpen] = React.useState(visualActive);
 
     React.useEffect(() => {
-        if (userHubActive) {
-            setUserHubOpen(true);
-        }
-        if (createActive) {
-            setCreateOpen(true);
-        }
-        if (finalSelectionActive) {
-            setFinalSelectionOpen(true);
-        }
-    }, [userHubActive, createActive, finalSelectionActive]);
+        if (userHubActive) setUserHubOpen(true);
+        if (createActive) setCreateOpen(true);
+        if (finalSelectionActive) setFinalSelectionOpen(true);
+        if (visualActive) setVisualOpen(true);
+    }, [userHubActive, createActive, finalSelectionActive, visualActive]);
 
     const isActive = (path) => {
         if (!path) {

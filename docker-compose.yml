@@ -75,7 +75,7 @@ services:
       context: ./frontend
       dockerfile: Dockerfile
       args:
-        - VITE_API_URL=/api
+        - VITE_API_URL=/
     container_name: bigproject-frontend
     restart: unless-stopped
     depends_on:

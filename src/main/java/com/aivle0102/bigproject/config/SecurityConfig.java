@@ -27,6 +27,8 @@ import org.springframework.security.web.csrf.CsrfTokenRequestAttributeHandler;
 
 import lombok.RequiredArgsConstructor;
 
+import org.springframework.beans.factory.annotation.Value;
+
 @Configuration
 @EnableWebSecurity
 @RequiredArgsConstructor
@@ -37,6 +39,9 @@ public class SecurityConfig {
         private final OAuth2AuthenticationSuccessHandler oAuth2AuthenticationSuccessHandler;
         private final OAuth2AuthenticationFailureHandler oAuth2AuthenticationFailureHandler;
         private final HttpCookieOAuth2AuthorizationRequestRepository httpCookieOAuth2AuthorizationRequestRepository;
+
+        @Value("${app.cors.allowed-origins}")
+        private List<String> allowedOrigins;
 
         @Bean
         @ConditionalOnProperty(name = "app.oauth2.enabled", havingValue = "true")
@@ -99,8 +104,7 @@ public class SecurityConfig {
         @Bean
         public CorsConfigurationSource corsConfigurationSource() {
                 CorsConfiguration configuration = new CorsConfiguration();
-                configuration.setAllowedOrigins(List.of(
-                                "https://bp-frontend-app.wittysand-a0f4e87e.centralindia.azurecontainerapps.io"));
+                configuration.setAllowedOrigins(allowedOrigins);
                 configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS"));
                 configuration.setAllowedHeaders(List.of("*"));
                 configuration.setAllowCredentials(true);
