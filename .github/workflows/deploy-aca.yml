@@ -20,6 +20,9 @@ env:
   ANALYSIS_ACR: "bpanalysis"
   ANALYSIS_IMAGE_NAME: "analysis-engine"
   ANALYSIS_APP_NAME: "bp-analysis-app"
+  CHATBOT_ACR: "bpchatbot"
+  CHATBOT_IMAGE_NAME: "ai-chatbot"
+  CHATBOT_APP_NAME: "bp-chatbot-app"
 
 jobs:
   build-and-deploy:
@@ -94,3 +97,22 @@ jobs:
             --name ${{ env.ANALYSIS_APP_NAME }} \
             --resource-group ${{ env.RESOURCE_GROUP }} \
             --image ${{ env.ANALYSIS_ACR }}.azurecr.io/${{ env.ANALYSIS_IMAGE_NAME }}:${{ github.sha }}
+
+      # 9. AI Chatbot 이미지 빌드 및 푸시
+      - name: ACR Login for Chatbot
+        run: |
+          TOKEN=$(az acr login --name ${{ env.CHATBOT_ACR }} --expose-token --output tsv --query accessToken)
+          echo $TOKEN | docker login ${{ env.CHATBOT_ACR }}.azurecr.io --username 00000000-0000-0000-0000-000000000000 --password-stdin
+      
+      - name: Build and Push Chatbot Image
+        run: |
+          docker build -t ${{ env.CHATBOT_ACR }}.azurecr.io/${{ env.CHATBOT_IMAGE_NAME }}:${{ github.sha }} ./ai-chatbot
+          docker push ${{ env.CHATBOT_ACR }}.azurecr.io/${{ env.CHATBOT_IMAGE_NAME }}:${{ github.sha }}
+
+      # 10. AI Chatbot Container App 업데이트
+      - name: Deploy Chatbot to ACA
+        run: |
+          az containerapp update \
+            --name ${{ env.CHATBOT_APP_NAME }} \
+            --resource-group ${{ env.RESOURCE_GROUP }} \
+            --image ${{ env.CHATBOT_ACR }}.azurecr.io/${{ env.CHATBOT_IMAGE_NAME }}:${{ github.sha }}

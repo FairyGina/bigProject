@@ -86,7 +86,7 @@ services:
     networks:
       - bigproject-network
     healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://localhost/ || exit 1"]
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1/ || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -107,6 +107,22 @@ services:
       - SERPAPI_API_KEY=${SERPAPI_API_KEY}
     ports:
       - "8000:8000"
+    networks:
+      - bigproject-network
+
+  # AI Chatbot (Gradio)
+  ai-chatbot:
+    build:
+      context: ./ai-chatbot
+      dockerfile: Dockerfile
+    container_name: bigproject-chatbot
+    restart: unless-stopped
+    ports:
+      - "7860:7860"
+    environment:
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - SERPAPI_API_KEY=${SERPAPI_API_KEY}
+      - GRADIO_ROOT_PATH=/ai/recipe
     networks:
       - bigproject-network
 

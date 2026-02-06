@@ -537,5 +537,6 @@ demo.queue()
 demo.launch(
     server_name=os.getenv("GRADIO_SERVER_NAME", "0.0.0.0"),
     server_port=7860,
+    root_path=os.getenv("GRADIO_ROOT_PATH", ""),
     css=CUSTOM_CSS,
 )
