@@ -1109,7 +1109,7 @@ const RecipeAnalysis = () => {
             <ul className="space-y-2 text-sm text-[color:var(--text)]">
                 {items.map((item, idx) => (
                     <li key={`${idx}-${item}`} className="flex gap-2">
-                        <span className="text-[color:var(--accent)]">?</span>
+                        <span className="text-[color:var(--accent)]">•</span>
                         <span>{item}</span>
                     </li>
                 ))}
