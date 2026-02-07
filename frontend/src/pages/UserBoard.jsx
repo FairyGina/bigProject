@@ -19,7 +19,7 @@ const UserBoard = () => {
         const fetchRecipes = async () => {
             try {
                 setLoading(true);
-                const res = await axiosInstance.get('/api/recipes/me');
+                const res = await axiosInstance.get('/recipes/me');
                 setRecipes(res.data || []);
             } catch (err) {
                 console.error('레시피 목록을 불러오지 못했습니다.', err);
@@ -38,7 +38,7 @@ const UserBoard = () => {
         }
         setPublishLoadingId(recipe.id);
         try {
-            const res = await axiosInstance.put(`/api/recipes/${recipe.id}/publish`, {});
+            const res = await axiosInstance.put(`/recipes/${recipe.id}/publish`, {});
             const updated = res.data || recipe;
             setRecipes((prev) =>
                 prev.map((item) => (item.id === recipe.id ? { ...item, ...updated } : item))

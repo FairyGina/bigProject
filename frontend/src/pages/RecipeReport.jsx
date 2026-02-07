@@ -157,7 +157,7 @@ const RecipeReport = () => {
         if (!id) return;
         try {
             setLoading(true);
-            const res = await axiosInstance.get(`/api/recipes/${id}`);
+            const res = await axiosInstance.get(`/recipes/${id}`);
             setRecipe(res.data || null);
             setRecipeOpenYn(res.data?.openYn || 'N');
         } catch (err) {
@@ -172,7 +172,7 @@ const RecipeReport = () => {
         if (!id) return;
         try {
             setListLoading(true);
-            const res = await axiosInstance.get(`/api/recipes/${id}/reports`);
+            const res = await axiosInstance.get(`/recipes/${id}/reports`);
             setReports(res.data || []);
         } catch (err) {
             console.error('보고서 목록을 불러오지 못했습니다.', err);
@@ -225,7 +225,7 @@ const RecipeReport = () => {
                 reportSections,
                 openYn: reportOpenYn,
             };
-            const res = await axiosInstance.post(`/api/recipes/${id}/reports`, payload);
+            const res = await axiosInstance.post(`/recipes/${id}/reports`, payload);
             if (res.data?.reportId) {
                 if (res.data?.recipeOpenYn) {
                     setRecipeOpenYn(res.data.recipeOpenYn);
@@ -234,7 +234,7 @@ const RecipeReport = () => {
                 const needsInfluencer =
                     reportSections.includes('influencer') || reportSections.includes('influencerImage');
                 if (needsInfluencer) {
-                    const recRes = await axiosInstance.post('/api/influencers/recommend', {
+                    const recRes = await axiosInstance.post('/influencers/recommend', {
                         recipe: recipe?.title || '',
                         targetCountry,
                         targetPersona,
@@ -248,7 +248,7 @@ const RecipeReport = () => {
                             trimmedRecs.find((item) => item?.name && item?.imageUrl) ||
                             trimmedRecs.find((item) => item?.name);
                         if (top?.name) {
-                            const imageRes = await axiosInstance.post('/api/images/generate', {
+                            const imageRes = await axiosInstance.post('/images/generate', {
                                 recipe: recipe?.title || '',
                                 influencerName: top.name,
                                 influencerImageUrl: top.imageUrl || '',
@@ -257,7 +257,7 @@ const RecipeReport = () => {
                             imageBase64 = imageRes.data?.imageBase64 || '';
                         }
                     }
-                    await axiosInstance.put(`/api/reports/${nextReportId}/influencers`, {
+                    await axiosInstance.put(`/reports/${nextReportId}/influencers`, {
                         influencers: trimmedRecs,
                         influencerImageBase64: imageBase64,
                     });
@@ -303,8 +303,8 @@ const RecipeReport = () => {
         setTargetRecommendLoading(true);
         setError('');
         try {
-            await axiosInstance.get('/api/csrf');
-            const res = await axiosInstance.post('/api/recipes/recommend-targets', {
+            await axiosInstance.get('/csrf');
+            const res = await axiosInstance.post('/recipes/recommend-targets', {
                 title: recipe?.title || '',
                 description: recipe?.description || '',
                 ingredients: recipe?.ingredients || [],
@@ -332,7 +332,7 @@ const RecipeReport = () => {
         if (!id) return;
         const next = recipeOpenYn === 'Y' ? 'N' : 'Y';
         try {
-            const res = await axiosInstance.put(`/api/recipes/${id}/visibility`, { openYn: next });
+            const res = await axiosInstance.put(`/recipes/${id}/visibility`, { openYn: next });
             setRecipeOpenYn(res.data?.openYn || next);
         } catch (err) {
             console.error('레시피 공개 여부 변경에 실패했습니다.', err);
@@ -344,7 +344,7 @@ const RecipeReport = () => {
         if (!reportId) return;
         const next = current === 'Y' ? 'N' : 'Y';
         try {
-            const res = await axiosInstance.put(`/api/reports/${reportId}/visibility`, { openYn: next });
+            const res = await axiosInstance.put(`/reports/${reportId}/visibility`, { openYn: next });
             const nextOpenYn = res.data?.reportOpenYn || next;
             setReports((prev) =>
                 prev.map((item) => (item.id === reportId ? { ...item, openYn: nextOpenYn } : item))
@@ -363,7 +363,7 @@ const RecipeReport = () => {
         const confirmed = window.confirm('\ud574\ub2f9 \ub9ac\ud3ec\ud2b8\ub97c \uc0ad\uc81c\ud569\ub2c8\ub2e4. \uc9c0\uc6b0\uc2dc\uaca0\uc2b5\ub2c8\uae4c?');
         if (!confirmed) return;
         try {
-            await axiosInstance.delete(`/api/reports/${reportId}`);
+            await axiosInstance.delete(`/reports/${reportId}`);
             setReports((prev) => prev.filter((item) => item.id !== reportId));
         } catch (err) {
             console.error('리포트 삭제에 실패했습니다.', err);
@@ -376,7 +376,7 @@ const RecipeReport = () => {
         const confirmed = window.confirm('생성된 보고서들도 함께 지워집니다. 지우시겠습니까?');
         if (!confirmed) return;
         try {
-            await axiosInstance.delete(`/api/recipes/${id}`);
+            await axiosInstance.delete(`/recipes/${id}`);
             navigate('/mainboard/user-hub/recipes');
         } catch (err) {
             console.error('레시피 삭제에 실패했습니다.', err);

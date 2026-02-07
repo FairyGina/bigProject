@@ -17,7 +17,7 @@ const FinalSelectionPage = () => {
         const fetchReports = async () => {
             try {
                 setLoading(true);
-                const res = await axiosInstance.get('/api/report/list');
+                const res = await axiosInstance.get('/report/list');
                 setReports(res.data || []);
             } catch (err) {
                 console.error('보고서 목록을 불러오지 못했습니다.', err);
@@ -74,7 +74,7 @@ const FinalSelectionPage = () => {
         }, 450);
         try {
             const reportIds = Array.from(selectedIds);
-            const res = await axiosInstance.post('/api/report/final-evaluation', { reportIds });
+            const res = await axiosInstance.post('/report/final-evaluation', { reportIds });
             setProgress(100);
             clearInterval(timer);
             navigate('/mainboard/final-selection/result', {
@@ -99,7 +99,7 @@ const FinalSelectionPage = () => {
             return;
         }
         try {
-            const res = await axiosInstance.get(`/api/report/${report.reportId}`);
+            const res = await axiosInstance.get(`/report/${report.reportId}`);
             navigate('/mainboard/final-selection/result', {
                 state: {
                     result: res.data,
@@ -129,11 +129,10 @@ const FinalSelectionPage = () => {
                             setSelectMode((prev) => !prev);
                             setSelectedIds(new Set());
                         }}
-                        className={`self-start md:self-auto px-4 py-2 rounded-xl text-sm font-semibold transition shadow-[0_10px_25px_var(--shadow)] ${
-                            selectMode
+                        className={`self-start md:self-auto px-4 py-2 rounded-xl text-sm font-semibold transition shadow-[0_10px_25px_var(--shadow)] ${selectMode
                                 ? 'bg-[color:var(--accent)] text-[color:var(--accent-contrast)]'
                                 : 'bg-[color:var(--surface)] border-2 border-[color:var(--accent)] text-[color:var(--text)] hover:bg-[color:var(--surface-muted)]'
-                        }`}
+                            }`}
                     >
                         보고서 선택하기
                     </button>
@@ -181,57 +180,57 @@ const FinalSelectionPage = () => {
 
                 <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
                     {aiReports.map((report) => {
-                            const key = report.reportId;
-                            const isSelected = selectedIds.has(key);
-                            return (
-                                <div
-                                    key={key}
-                                    className="relative rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[0_12px_30px_var(--shadow)] overflow-hidden text-left cursor-pointer"
-                                    onClick={() => {
-                                        if ((report.reportType || 'AI') !== 'AI') {
-                                            return;
-                                        }
-                                        if (selectMode) {
-                                            setSelectedIds((prev) => {
-                                                const next = new Set(prev);
-                                                if (next.has(key)) {
-                                                    next.delete(key);
-                                                } else {
-                                                    next.add(key);
-                                                }
-                                                return next;
-                                            });
-                                            return;
-                                        }
-                                        navigate(`/mainboard/recipes/${report.recipeId}/report`);
-                                    }}
-                                >
-                                    {selectMode && (
-                                        <div className="absolute top-3 right-3 z-10">
-                                            <input
-                                                type="checkbox"
-                                                checked={isSelected}
-                                                onChange={() => {}}
-                                                className="h-4 w-4 accent-[color:var(--accent)]"
-                                            />
-                                        </div>
+                        const key = report.reportId;
+                        const isSelected = selectedIds.has(key);
+                        return (
+                            <div
+                                key={key}
+                                className="relative rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[0_12px_30px_var(--shadow)] overflow-hidden text-left cursor-pointer"
+                                onClick={() => {
+                                    if ((report.reportType || 'AI') !== 'AI') {
+                                        return;
+                                    }
+                                    if (selectMode) {
+                                        setSelectedIds((prev) => {
+                                            const next = new Set(prev);
+                                            if (next.has(key)) {
+                                                next.delete(key);
+                                            } else {
+                                                next.add(key);
+                                            }
+                                            return next;
+                                        });
+                                        return;
+                                    }
+                                    navigate(`/mainboard/recipes/${report.recipeId}/report`);
+                                }}
+                            >
+                                {selectMode && (
+                                    <div className="absolute top-3 right-3 z-10">
+                                        <input
+                                            type="checkbox"
+                                            checked={isSelected}
+                                            onChange={() => { }}
+                                            className="h-4 w-4 accent-[color:var(--accent)]"
+                                        />
+                                    </div>
+                                )}
+                                <div className="h-32 bg-[color:var(--surface-muted)] flex items-center justify-center text-sm text-[color:var(--text-soft)] overflow-hidden">
+                                    {report.recipeImageBase64 ? (
+                                        <img src={report.recipeImageBase64} alt={report.recipeTitle} className="h-full w-full object-cover" />
+                                    ) : (
+                                        '이미지 영역'
                                     )}
-                                    <div className="h-32 bg-[color:var(--surface-muted)] flex items-center justify-center text-sm text-[color:var(--text-soft)] overflow-hidden">
-                                        {report.recipeImageBase64 ? (
-                                            <img src={report.recipeImageBase64} alt={report.recipeTitle} className="h-full w-full object-cover" />
-                                        ) : (
-                                            '이미지 영역'
-                                        )}
-                                    </div>
-                                    <div className="px-4 py-3">
-                                        <p className="text-sm font-semibold text-[color:var(--text)]">{report.recipeTitle}</p>
-                                        <p className="mt-2 text-xs text-[color:var(--text-muted)] line-clamp-3">
-                                            {report.summary || '요약 정보가 없습니다.'}
-                                        </p>
-                                    </div>
                                 </div>
-                            );
-                        })}
+                                <div className="px-4 py-3">
+                                    <p className="text-sm font-semibold text-[color:var(--text)]">{report.recipeTitle}</p>
+                                    <p className="mt-2 text-xs text-[color:var(--text-muted)] line-clamp-3">
+                                        {report.summary || '요약 정보가 없습니다.'}
+                                    </p>
+                                </div>
+                            </div>
+                        );
+                    })}
                 </div>
 
                 {!loading && aiReportsAll.length === 0 && (
@@ -273,29 +272,29 @@ const FinalSelectionPage = () => {
 
                     <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
                         {finalReports.map((report) => (
-                                <div
-                                    key={`final-${report.reportId}`}
-                                    className="relative rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[0_12px_30px_var(--shadow)] overflow-hidden text-left cursor-pointer"
-                                    onClick={() => openFinalReport(report)}
-                                >
-                                    <div className="absolute top-3 right-3 z-10 text-[10px] px-2 py-1 rounded-full bg-[color:var(--surface-muted)] text-[color:var(--text-soft)]">
-                                        최종
-                                    </div>
-                                    <div className="h-32 bg-[color:var(--surface-muted)] flex items-center justify-center text-sm text-[color:var(--text-soft)] overflow-hidden">
-                                        {report.recipeImageBase64 ? (
-                                            <img src={report.recipeImageBase64} alt={report.recipeTitle} className="h-full w-full object-cover" />
-                                        ) : (
-                                            '이미지 영역'
-                                        )}
-                                    </div>
-                                    <div className="px-4 py-3">
-                                        <p className="text-sm font-semibold text-[color:var(--text)]">{report.recipeTitle}</p>
-                                        <p className="mt-2 text-xs text-[color:var(--text-muted)] line-clamp-3">
-                                            {(report.summary ? report.summary.split('||')[0].trim() : '비교 보고서 정보가 없습니다.') }
-                                        </p>
-                                    </div>
+                            <div
+                                key={`final-${report.reportId}`}
+                                className="relative rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[0_12px_30px_var(--shadow)] overflow-hidden text-left cursor-pointer"
+                                onClick={() => openFinalReport(report)}
+                            >
+                                <div className="absolute top-3 right-3 z-10 text-[10px] px-2 py-1 rounded-full bg-[color:var(--surface-muted)] text-[color:var(--text-soft)]">
+                                    최종
                                 </div>
-                            ))}
+                                <div className="h-32 bg-[color:var(--surface-muted)] flex items-center justify-center text-sm text-[color:var(--text-soft)] overflow-hidden">
+                                    {report.recipeImageBase64 ? (
+                                        <img src={report.recipeImageBase64} alt={report.recipeTitle} className="h-full w-full object-cover" />
+                                    ) : (
+                                        '이미지 영역'
+                                    )}
+                                </div>
+                                <div className="px-4 py-3">
+                                    <p className="text-sm font-semibold text-[color:var(--text)]">{report.recipeTitle}</p>
+                                    <p className="mt-2 text-xs text-[color:var(--text-muted)] line-clamp-3">
+                                        {(report.summary ? report.summary.split('||')[0].trim() : '비교 보고서 정보가 없습니다.')}
+                                    </p>
+                                </div>
+                            </div>
+                        ))}
                     </div>
 
                     {!loading && finalReportsAll.length === 0 && (

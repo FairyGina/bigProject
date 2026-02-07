@@ -8,7 +8,7 @@ export const AuthProvider = ({ children }) => {
 
     useEffect(() => {
         // 초기 로딩 시 CSRF 토큰 발급
-        fetch('/api/csrf', { credentials: 'include' })
+        fetch('/csrf', { credentials: 'include' })
             .then((res) => (res.ok ? res.json() : null))
             .then((data) => {
                 if (data?.token) {

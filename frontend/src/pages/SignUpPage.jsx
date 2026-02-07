@@ -202,7 +202,7 @@ const SignUpPage = () => {
         }
 
         try {
-            const response = await axiosInstance.post('/api/auth/join', formData);
+            const response = await axiosInstance.post('/auth/join', formData);
             if (response.status >= 200 && response.status < 300) {
                 alert('회원가입이 완료되었습니다. 로그인해주세요.');
                 navigate('/login');

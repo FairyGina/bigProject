@@ -127,7 +127,7 @@ const ResetPasswordPage = () => {
             return;
         }
         try {
-            await axiosInstance.post('/api/auth/reset-password', {
+            await axiosInstance.post('/auth/reset-password', {
                 userId: email,
                 userName: name,
                 newPassword,

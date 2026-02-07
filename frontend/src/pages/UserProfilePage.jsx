@@ -147,7 +147,7 @@ const UserProfilePage = () => {
             }));
 
             try {
-                const response = await axiosInstance.get('/api/user/me');
+                const response = await axiosInstance.get('/user/me');
                 const data = response.data || {};
                 if (data.userName) {
                     localStorage.setItem('userName', data.userName);
@@ -212,7 +212,7 @@ const UserProfilePage = () => {
                     payload.confirmNewPassword = formData.confirmNewPassword;
                 }
             }
-            const response = await axiosInstance.put('/api/user/me', payload);
+            const response = await axiosInstance.put('/user/me', payload);
             const data = response.data || {};
             setFormData((prev) => ({
                 ...prev,
