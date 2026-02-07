@@ -186,3 +186,27 @@ ON consumer_feedback (report_id, consumerId);
 -- 리포트별 조회 성능
 CREATE INDEX IF NOT EXISTS ix_consumer_feedback_report
 ON consumer_feedback (report_id);
+
+-- 채팅방 (최종 보고서 1건당 1개 방)
+CREATE TABLE IF NOT EXISTS report_chat_room (
+    room_id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    report_id BIGINT NOT NULL REFERENCES market_report(report_id) ON DELETE CASCADE,
+    company_id BIGINT REFERENCES company(company_id),
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE (report_id)
+);
+
+-- 채팅 메시지
+CREATE TABLE IF NOT EXISTS report_chat_message (
+    message_id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    room_id BIGINT NOT NULL REFERENCES report_chat_room(room_id) ON DELETE CASCADE,
+    user_id VARCHAR(50) NOT NULL REFERENCES userinfo(userId),
+    content TEXT NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_report_chat_message_room
+    ON report_chat_message (room_id);
+
+CREATE INDEX IF NOT EXISTS idx_report_chat_message_created
+    ON report_chat_message (created_at);
