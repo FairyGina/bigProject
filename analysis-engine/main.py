@@ -284,7 +284,7 @@ import threading
 import time
 
 def load_data_background():
-    global df, growth_summary_df, df_consumer
+    global df, growth_summary_df
     global GLOBAL_MEAN_SENTIMENT, GLOBAL_STD_SENTIMENT, GLOBAL_MEAN_RATING
 
     print("🚀 [Background] Starting Data Loading...")
