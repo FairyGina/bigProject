@@ -60,6 +60,7 @@ public class SecurityConfig {
                                                 .sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED))
                                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
                                 .addFilterAfter(new CsrfCookieFilter(), BasicAuthenticationFilter.class)
+                                .headers(headers -> headers.frameOptions(frameOptions -> frameOptions.disable()))
                                 .authorizeHttpRequests(auth -> auth
                                                 .requestMatchers(
                                                                 org.springframework.web.cors.CorsUtils::isPreFlightRequest)
@@ -90,6 +91,7 @@ public class SecurityConfig {
                                 .sessionManagement(session -> session
                                                 .sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
+                                .headers(headers -> headers.frameOptions(frameOptions -> frameOptions.disable()))
                                 .authorizeHttpRequests(auth -> auth
                                                 .requestMatchers(
                                                                 org.springframework.web.cors.CorsUtils::isPreFlightRequest)

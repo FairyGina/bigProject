@@ -280,111 +280,132 @@ def get_diverging_keywords(keywords_analysis: List[Dict], top_n: int = 10, thres
     
     return {"negative": negative, "positive": positive}
 
-@asynccontextmanager
-async def lifespan(app: FastAPI):
+import threading
+import time
+
+def load_data_background():
     global df, growth_summary_df, df_consumer
     global GLOBAL_MEAN_SENTIMENT, GLOBAL_STD_SENTIMENT, GLOBAL_MEAN_RATING
 
-    print("🚀 Starting Analysis Engine with DB Support...")
+    print("🚀 [Background] Starting Data Loading...")
     
-    conn = get_db_connection()
-    if conn:
-        try:
-            # 1. Load Export Trends (Small enough for memory)
-            print("Loading export_trends from DB...")
-            query = "SELECT * FROM export_trends"
-            temp_df = pd.read_sql(query, conn)
-            
-            if not temp_df.empty:
-                # Expand JSONB trend_data if exists
-                if 'trend_data' in temp_df.columns:
-                    print("Expanding trend_data JSONB...")
-                    # Handle potential string vs dict format
-                    def parse_trend(x):
-                        if isinstance(x, dict): return x
-                        if isinstance(x, str):
-                            try: return json.loads(x)
-                            except: return {}
-                        return {}
-                    
-                    trends = pd.json_normalize(temp_df['trend_data'].map(parse_trend))
-                    df = pd.concat([temp_df.drop(columns=['trend_data']), trends], axis=1)
-                else:
-                    df = temp_df
-
-                # Numeric Cleanups
-                numeric_cols = df.select_dtypes(include=[np.number]).columns
-                df[numeric_cols] = df[numeric_cols].fillna(0)
+    # Retry mechanism: Wait for DB migration if needed
+    max_retries = 5
+    for i in range(max_retries):
+        conn = get_db_connection()
+        if conn:
+            try:
+                # 1. Load Export Trends
+                print("Loading export_trends from DB...")
+                query = "SELECT * FROM export_trends"
+                temp_df = pd.read_sql(query, conn)
                 
-                # Growth Matrix Calculation
-                print("Calculating Growth Matrix...")
-                summaries = []
-                group_cols = ['country_code', 'item_name']
-                if 'country_code' not in df.columns:
-                     group_cols = ['country_name', 'item_name']
-                     
-                grouped = df.groupby(group_cols)
-                for name, group in grouped:
-                    if len(group) < 24: continue
-                    group = group.sort_values('period_str')
-                    recent_12 = group.tail(12)
-                    prev_12 = group.iloc[-24:-12]
-                    
-                    weight_col = 'export_weight' if 'export_weight' in group.columns else None
-                    if weight_col:
-                        w_curr = recent_12[weight_col].sum()
-                        w_prev = prev_12[weight_col].sum()
-                    else: 
-                         w_curr = recent_12['export_value'].sum()
-                         w_prev = prev_12['export_value'].sum()
-    
-                    weight_growth = ((w_curr - w_prev) / w_prev * 100) if w_prev > 0 else 0
-                    
-                    p_curr = recent_12['unit_price'].mean()
-                    p_prev = prev_12['unit_price'].mean()
-                    price_growth = ((p_curr - p_prev) / p_prev * 100) if p_prev > 0 else 0
-                    
-                    total_value = recent_12['export_value'].sum()
-                    
-                    summaries.append({
-                        'country': name[0] if 'country_code' in df.columns else COUNTRY_MAPPING.get(name[0], name[0]),
-                        'item_csv_name': name[1],
-                        'weight_growth': round(weight_growth, 1),
-                        'price_growth': round(price_growth, 1),
-                        'total_value': total_value
-                    })
-                growth_summary_df = pd.DataFrame(summaries)
-                print("Export Trends Loaded & Matrix Calculated.")
-            else:
-                print("⚠️ export_trends table is empty.")
-                df = pd.DataFrame()
-                growth_summary_df = pd.DataFrame()
+                if not temp_df.empty:
+                    # Expand JSONB trend_data if exists
+                    if 'trend_data' in temp_df.columns:
+                        print("Expanding trend_data JSONB...")
+                        def parse_trend(x):
+                            if isinstance(x, dict): return x
+                            if isinstance(x, str):
+                                try: return json.loads(x)
+                                except: return {}
+                            return {}
+                        
+                        trends = pd.json_normalize(temp_df['trend_data'].map(parse_trend))
+                        df = pd.concat([temp_df.drop(columns=['trend_data']), trends], axis=1)
+                    else:
+                        df = temp_df
 
-            # 2. Global Consumer Stats (Count/Mean only - no data loading)
-            print("Calculating Global Consumer Stats from DB...")
-            df_consumer = None  # DO NOT LOAD HUGE DATA
-            
-            with conn.cursor() as cur:
-                cur.execute("SELECT AVG(sentiment_score), STDDEV(sentiment_score), AVG(rating) FROM amazon_reviews")
-                row = cur.fetchone()
-                if row and row[0] is not None:
-                     GLOBAL_MEAN_SENTIMENT = float(row[0])
-                     GLOBAL_STD_SENTIMENT = float(row[1]) if row[1] is not None else 0.3
-                     GLOBAL_MEAN_RATING = float(row[2])
-                     print(f"Global Stats: Sent={GLOBAL_MEAN_SENTIMENT:.2f}, Std={GLOBAL_STD_SENTIMENT:.2f}, Rating={GLOBAL_MEAN_RATING:.2f}")
+                    # Numeric Cleanups
+                    numeric_cols = df.select_dtypes(include=[np.number]).columns
+                    df[numeric_cols] = df[numeric_cols].fillna(0)
+                    
+                    # Growth Matrix Calculation
+                    print("Calculating Growth Matrix...")
+                    summaries = []
+                    group_cols = ['country_code', 'item_name']
+                    if 'country_code' not in df.columns:
+                            group_cols = ['country_name', 'item_name']
+                            
+                    grouped = df.groupby(group_cols)
+                    for name, group in grouped:
+                        if len(group) < 24: continue
+                        group = group.sort_values('period_str')
+                        recent_12 = group.tail(12)
+                        prev_12 = group.iloc[-24:-12]
+                        
+                        weight_col = 'export_weight' if 'export_weight' in group.columns else None
+                        if weight_col:
+                            w_curr = recent_12[weight_col].sum()
+                            w_prev = prev_12[weight_col].sum()
+                        else: 
+                                w_curr = recent_12['export_value'].sum()
+                                w_prev = prev_12['export_value'].sum()
+        
+                        weight_growth = ((w_curr - w_prev) / w_prev * 100) if w_prev > 0 else 0
+                        
+                        p_curr = recent_12['unit_price'].mean()
+                        p_prev = prev_12['unit_price'].mean()
+                        price_growth = ((p_curr - p_prev) / p_prev * 100) if p_prev > 0 else 0
+                        
+                        total_value = recent_12['export_value'].sum()
+                        
+                        summaries.append({
+                            'country': name[0] if 'country_code' in df.columns else COUNTRY_MAPPING.get(name[0], name[0]),
+                            'item_csv_name': name[1],
+                            'weight_growth': round(weight_growth, 1),
+                            'price_growth': round(price_growth, 1),
+                            'total_value': total_value
+                        })
+                    growth_summary_df = pd.DataFrame(summaries)
+                    print("Export Trends Loaded & Matrix Calculated.")
                 else:
-                     print("⚠️ amazon_reviews table empty or stats unavailable.")
-            
-        except Exception as e:
-            print(f"DB Initialization Failed: {e}")
-            import traceback
-            traceback.print_exc()
-        finally:
-            conn.close()
-    else:
-        print("❌ DB Connection Failed. Starting with empty state.")
+                    print("⚠️ export_trends table is empty (might be migrating).")
+                    df = pd.DataFrame()
+                    growth_summary_df = pd.DataFrame()
+
+                # 2. Global Consumer Stats
+                print("Calculating Global Consumer Stats from DB...")
+                with conn.cursor() as cur:
+                    cur.execute("SELECT AVG(sentiment_score), STDDEV(sentiment_score), AVG(rating) FROM amazon_reviews")
+                    row = cur.fetchone()
+                    if row and row[0] is not None:
+                            GLOBAL_MEAN_SENTIMENT = float(row[0])
+                            GLOBAL_STD_SENTIMENT = float(row[1]) if row[1] is not None else 0.3
+                            GLOBAL_MEAN_RATING = float(row[2])
+                            print(f"Global Stats: Sent={GLOBAL_MEAN_SENTIMENT:.2f}, Std={GLOBAL_STD_SENTIMENT:.2f}, Rating={GLOBAL_MEAN_RATING:.2f}")
+                    else:
+                            print("⚠️ amazon_reviews table empty or stats unavailable.")
+                
+                conn.close()
+                break # Success, exit retry loop
+
+            except Exception as e:
+                print(f"DB Load Failed (Attempt {i+1}/{max_retries}): {e}")
+                conn.close()
+                time.sleep(5) # Wait before retry
+        else:
+            print(f"DB Connection Failed (Attempt {i+1}/{max_retries}). Retrying in 5s...")
+            time.sleep(5)
+    
+    if df is None: 
+        print("❌ Final: Could not load data. App will run with empty state.")
         df = pd.DataFrame()
         growth_summary_df = pd.DataFrame()
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Initialize empty first to prevent errors if requests come in before load
+    global df, growth_summary_df
+    df = pd.DataFrame()
+    growth_summary_df = pd.DataFrame()
+
+    print("🚀 Server Starting... Triggering Background Data Load.")
+    
+    # Start background thread for data loading
+    # This prevents blocking the startup, so Readiness Probe can pass immediately.
+    loader_thread = threading.Thread(target=load_data_background, daemon=True)
+    loader_thread.start()
 
     yield
     print("Shutting down...")
