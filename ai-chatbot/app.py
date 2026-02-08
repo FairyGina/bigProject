@@ -10,14 +10,12 @@ from typing import List, Dict, Any
 import gradio as gr
 import requests
 from openai import OpenAI
-
-from graph import compiled, make_initial_state, FORECAST_COUNTRIES
-<<<<<<< HEAD
 from fastapi import FastAPI, Request
 from starlette.middleware.base import BaseHTTPMiddleware
 import uvicorn
-=======
->>>>>>> upstream/UI5
+
+import helper_app
+from graph import compiled, make_initial_state, FORECAST_COUNTRIES
 
 CUSTOM_CSS = """
 /* Minimal UI polish */
@@ -47,8 +45,6 @@ button, .primary {
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 MODEL_NAME = "gpt-4.1-mini"
 SERPAPI_API_KEY = os.getenv("SERPAPI_API_KEY")
-<<<<<<< HEAD
-=======
 API_BASE_URL = os.getenv("API_BASE_URL", "http://localhost:8080")
 
 REGEN_OPTION = "레시피 다시 생성"
@@ -56,7 +52,6 @@ SAVE_OPTION = "저장"
 SAVE_DONE_OPTION = "저장(완료)"
 SAVE_PUBLIC_OPTION = "공개 저장"
 SAVE_PRIVATE_OPTION = "비공개 저장"
->>>>>>> upstream/UI5
 
 SYSTEM_PROMPT = (
     "당신은 레시피 생성 도우미입니다. "
@@ -116,17 +111,6 @@ def build_trend_query_prompt(country: str) -> str:
 당신은 식품/외식 트렌드 리서치 전문가입니다.
 국가: {country}
 
-<<<<<<< HEAD
-조건:
-- 2025~2026 트렌드 중심 (가능하면 최신 연도 명시)
-- 요리/레시피/외식 트렌드 모두 포함
-- 신메뉴 개발 아이디어에 바로 활용 가능한 키워드/콘셉트 중심
-- 검색 엔진에서 잘 먹히는 키워드 조합
-- 한국어/영어 혼합 가능(필요 시 현지 언어도 포함)
-
-출력:
-- 쿼리 4개를 JSON 배열로만 반환
-=======
   목표:
   - 2025~2026 트렌드 기반의 실전형 검색 쿼리 4개 생성
 
@@ -144,7 +128,6 @@ def build_trend_query_prompt(country: str) -> str:
   2) 맛/텍스처/형태 트렌드
   3) 카테고리(음료/디저트/스낵) 트렌드
   4) 리포트/전망/산업 트렌드
->>>>>>> upstream/UI5
 """
 
 def apply_user_input(state: Dict[str, Any], user_input: str) -> Dict[str, Any]:
@@ -156,8 +139,6 @@ def apply_user_input(state: Dict[str, Any], user_input: str) -> Dict[str, Any]:
         })
     options = state.get("options")
     if options:
-<<<<<<< HEAD
-=======
         if state.get("await_save_visibility"): #저장 시 공개 비공개 여부
             if user_input == SAVE_PUBLIC_OPTION:
                 state["save_open_yn"] = "Y"
@@ -172,30 +153,21 @@ def apply_user_input(state: Dict[str, Any], user_input: str) -> Dict[str, Any]:
                 state["options"] = None
                 return state
             return state
->>>>>>> upstream/UI5
         if user_input == "트렌드 반영 안 함":
             state["trend_enabled"] = False
             state["country"] = None
         # 재생성 요청: 수정사항 입력 모드로 전환
-<<<<<<< HEAD
-        elif user_input == "레시피 다시 생성":
-            state["regenerate"] = True
-            state["await_revision"] = True
-=======
         elif user_input == REGEN_OPTION:
             state["regenerate"] = True
             state["await_revision"] = True
             state["save_disabled"] = False
             state["saved_recipe_id"] = None
->>>>>>> upstream/UI5
             state["options"] = None
             state.setdefault("messages", []).append({
                 "role": "assistant",
                 "content": "수정하고 싶은 내용을 입력해주세요.",
             })
             return state
-<<<<<<< HEAD
-=======
         elif user_input == SAVE_OPTION or user_input == SAVE_DONE_OPTION: #방금 저장했는데 또 저장하려고 할때
             if state.get("save_disabled"):
                 state.setdefault("messages", []).append({
@@ -210,7 +182,6 @@ def apply_user_input(state: Dict[str, Any], user_input: str) -> Dict[str, Any]:
                 "content": "공개 여부를 선택해주세요.",
             })
             return state
->>>>>>> upstream/UI5
         else:
             state["trend_enabled"] = True
             state["country"] = user_input
@@ -318,8 +289,6 @@ def call_llm_with_system(system_prompt: str, prompt: str) -> str:
     return response.output_text
 
 
-<<<<<<< HEAD
-=======
 def _normalize_list(value: Any) -> List[str]:
     if value is None:
         return []
@@ -449,7 +418,6 @@ def save_recipe_to_backend(state: Dict[str, Any], request: gr.Request | None) ->
     return state
 
 
->>>>>>> upstream/UI5
 def parse_json_array(text: str) -> List[str]:
     # JSON 배열 문자열을 리스트로 파싱
     if not text:
@@ -602,11 +570,8 @@ def try_generate_recipe(state: Dict[str, Any]) -> Dict[str, Any]:
         state["recipe_generated"] = True
         state["regenerate"] = False
         state["revision_request"] = ""
-<<<<<<< HEAD
-        state["options"] = ["레시피 다시 생성", "저장"]
-=======
         state["options"] = [REGEN_OPTION, SAVE_OPTION]
->>>>>>> upstream/UI5
+        state["save_disabled"] = False
         return state
     
     if prompt and not state.get("recipe_generated"):
@@ -623,14 +588,6 @@ def try_generate_recipe(state: Dict[str, Any]) -> Dict[str, Any]:
             query_text = call_llm(build_trend_query_prompt(country))
             print("[trend] query_text:", query_text)
             queries = parse_json_array(query_text)
-<<<<<<< HEAD
-            print("[trend] parsed queries:", queries)
-            if queries:
-                results = serpapi_search(queries[0], country)
-                print("[trend] results count:", len(results))
-                if results:
-                    trend_summary = summarize_trends(TREND_SUMMARY_PROMPT, results)
-=======
             print("[trend] parsed queries count:", len(queries))
             print("[trend] parsed queries:", queries)
             if queries:
@@ -650,7 +607,6 @@ def try_generate_recipe(state: Dict[str, Any]) -> Dict[str, Any]:
                 if results:
                     trend_summary = summarize_trends(TREND_SUMMARY_PROMPT, results)
                     print("[trend] summary size:", len(trend_summary or ""))
->>>>>>> upstream/UI5
                     log_trend(country, queries, results, trend_summary)
         else:
             print("[trend] trend search skipped", {
@@ -703,10 +659,7 @@ def try_generate_recipe(state: Dict[str, Any]) -> Dict[str, Any]:
                 "content": recipe_text
             })
         state["recipe_generated"] = True
-<<<<<<< HEAD
-=======
         state["save_disabled"] = False
->>>>>>> upstream/UI5
     return state
 
 
@@ -722,19 +675,11 @@ def init_chat():
     )
 
 
-<<<<<<< HEAD
-def on_text_submit(user_input: str, state: Dict[str, Any]):
-=======
 def on_text_submit(user_input: str, state: Dict[str, Any], request: gr.Request | None = None):
->>>>>>> upstream/UI5
     # 텍스트 입력 시 다음 단계로 진행
     if user_input is None:
         user_input = ""
     state = apply_user_input(state, user_input)
-<<<<<<< HEAD
-    # 재생성 수정 입력 중에는 그래프 진행을 멈춘다
-    if not state.get("await_revision"):
-=======
     if state.get("do_save"):
         state["do_save"] = False
         state = save_recipe_to_backend(state, request)
@@ -747,7 +692,6 @@ def on_text_submit(user_input: str, state: Dict[str, Any], request: gr.Request |
         )
     # 재생성 수정 입력 중에는 그래프 진행을 멈춘다
     if not state.get("await_revision") and not state.get("await_save_visibility"):
->>>>>>> upstream/UI5
         state = run_graph(state)
     state = try_generate_recipe(state)
     disable_input = should_disable_textbox(state)
@@ -759,11 +703,7 @@ def on_text_submit(user_input: str, state: Dict[str, Any], request: gr.Request |
     )
 
 
-<<<<<<< HEAD
-def on_option_change(choice: str, state: Dict[str, Any]):
-=======
 def on_option_change(choice: str, state: Dict[str, Any], request: gr.Request | None = None):
->>>>>>> upstream/UI5
     # 옵션 선택 시 다음 단계로 진행(빈 선택은 무시)
     if not choice:
         return (
@@ -772,39 +712,25 @@ def on_option_change(choice: str, state: Dict[str, Any], request: gr.Request | N
             gr.update(choices=state.get("options") or [], value=None),
             gr.update(value="", interactive=not should_disable_textbox(state)),
         )
-<<<<<<< HEAD
-    return on_text_submit(choice, state)
-
-
-def on_next_click(state: Dict[str, Any]):
-    # 빈 입력으로 다음 단계만 진행
-    return on_text_submit("", state)
-=======
     return on_text_submit(choice, state, request)
->>>>>>> upstream/UI5
 
 
-with gr.Blocks() as demo:
+with gr.Blocks(css=CUSTOM_CSS) as demo:
     #gr.Markdown("## AI 레시피 생성 챗봇")
     gr.Markdown("원하시는 조건에 맞게, 혹은 랜덤으로 레시피를 생성할 수 있습니다.")
 
     chatbot = gr.Chatbot()
     textbox = gr.Textbox(label="메시지 입력")
-<<<<<<< HEAD
-    next_btn = gr.Button("다음")
-=======
->>>>>>> upstream/UI5
     options = gr.Radio(choices=[], label="옵션 선택")
 
     state = gr.State(make_initial_state())
 
     demo.load(init_chat, None, [state, chatbot, options, textbox])
     textbox.submit(on_text_submit, [textbox, state], [state, chatbot, options, textbox])
-<<<<<<< HEAD
-    next_btn.click(on_next_click, [state], [state, chatbot, options, textbox])
     options.change(on_option_change, [options, state], [state, chatbot, options, textbox])
 
 demo.queue()
+
 # FastAPI 앱 생성 및 Iframe 허용 설정
 app = FastAPI()
 
@@ -822,17 +748,10 @@ class IframeMiddleware(BaseHTTPMiddleware):
 app.add_middleware(IframeMiddleware)
 
 # Gradio 앱을 FastAPI에 마운트
-app = gr.mount_gradio_app(app, demo, path="/")
+# 레시피 챗봇 마운트
+app = gr.mount_gradio_app(app, demo, path="/recipe")
+# 헬퍼 챗봇 마운트
+app = gr.mount_gradio_app(app, helper_app.helper_demo, path="/helper")
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=7860)
-=======
-    options.change(on_option_change, [options, state], [state, chatbot, options, textbox])
-
-demo.queue()
-demo.launch(
-    server_name=os.getenv("GRADIO_SERVER_NAME", "0.0.0.0"),
-    server_port=7860,
-    css=CUSTOM_CSS,
-)
->>>>>>> upstream/UI5

@@ -1,0 +1,241 @@
+# helper_graph.py
+from __future__ import annotations
+
+import os
+import re
+from pathlib import Path
+from typing import Any, Dict, List, Tuple, TypedDict
+
+from langgraph.graph import StateGraph, END
+
+try:
+    from openai import OpenAI
+except Exception:
+    OpenAI = None
+
+
+KB_PATH = Path(__file__).resolve().parent / "kb" / "flow.md"
+
+
+class HelperState(TypedDict, total=False):
+    history: List[Tuple[str | None, str | None]]  # Gradio Chatbot: list of (user, bot)
+    intro_done: bool
+    user_input: str | None
+    kb_text: str
+    kb_sections: List[Dict[str, Any]]
+
+
+def _tokenize(text: str) -> List[str]:
+    # 한글/영문/숫자 토큰만 뽑기
+    return re.findall(r"[A-Za-z0-9가-힣]+", (text or "").lower())
+
+
+def _load_kb_text() -> str:
+    if KB_PATH.exists():
+        return KB_PATH.read_text(encoding="utf-8")
+    return ""
+
+
+def _split_kb_sections(md: str) -> List[Dict[str, Any]]:
+    """
+    ## 헤더 기준으로 섹션 나눔
+    섹션: {title, body, tokens}
+    """
+    md = md or ""
+    lines = md.splitlines()
+
+    sections: List[Dict[str, Any]] = []
+    cur_title = "KB"
+    cur_body: List[str] = []
+
+    def flush():
+        nonlocal cur_title, cur_body
+        body = "\n".join(cur_body).strip()
+        if body:
+            tokens = set(_tokenize(cur_title + "\n" + body))
+            sections.append({"title": cur_title.strip(), "body": body, "tokens": tokens})
+        cur_body = []
+
+    for ln in lines:
+        if ln.strip().startswith("## "):
+            flush()
+            cur_title = ln.strip()[3:].strip()
+        else:
+            cur_body.append(ln)
+    flush()
+    return sections
+
+
+def retrieve_kb(md_sections: List[Dict[str, Any]], question: str, top_k: int = 3) -> List[Dict[str, Any]]:
+    q_tokens = set(_tokenize(question))
+    if not q_tokens:
+        return []
+
+    scored = []
+    for sec in md_sections:
+        overlap = len(q_tokens & sec.get("tokens", set()))
+        if overlap <= 0:
+            continue
+        # 제목 매칭 가중치
+        title_tokens = set(_tokenize(sec.get("title", "")))
+        overlap_title = len(q_tokens & title_tokens)
+        score = overlap + overlap_title * 2
+        scored.append((score, sec))
+
+    scored.sort(key=lambda x: x[0], reverse=True)
+    return [s for _, s in scored[:top_k]]
+
+
+def _build_context(hits: List[Dict[str, Any]]) -> str:
+    blocks = []
+    for h in hits:
+        blocks.append(f"[{h['title']}]\n{h['body']}".strip())
+    return "\n\n---\n\n".join(blocks).strip()
+
+
+def build_kb_only_answer(question: str, hits: List[Dict[str, Any]]) -> str:
+    if not hits:
+        return "KB에서 해당 내용을 찾지 못했어요. 어느 화면에서 보고 계신지 알려주실 수 있나요?"
+
+    sec = hits[0]
+    title = (sec.get("title") or "").strip()
+    body = (sec.get("body") or "").strip()
+    lines = [ln.strip() for ln in body.splitlines() if ln.strip()]
+
+    picked: List[str] = []
+    for prefix in ("메뉴 경로:", "진입 경로:", "상단 제목:", "화면 설명:"):
+        for ln in lines:
+            if ln.startswith(prefix):
+                picked.append(ln)
+                break
+
+    if not picked and lines:
+        picked = lines[:3]
+
+    header = title or "관련 화면"
+    answer = header
+    if picked:
+        answer += "\n" + "\n".join(picked)
+    if title:
+        answer += f"\n(KB: {title})"
+    return answer.strip()
+
+
+def answer_with_llm(question: str, context: str) -> str:
+    api_key = os.getenv("OPENAI_API_KEY", "").strip()
+    if not api_key or OpenAI is None:
+        # 키 없으면 KB 컨텍스트만 반환(최소 동작)
+        if context:
+            return (
+                "현재 OPENAI_API_KEY가 설정되지 않아 KB 기반으로만 안내합니다.\n\n"
+                + context
+            ).strip()
+        return "OPENAI_API_KEY가 없어 답변을 생성할 수 없습니다. (PowerShell에서 OPENAI_API_KEY 설정 후 다시 실행하세요.)"
+
+    client = OpenAI(api_key=api_key)
+    model = os.getenv("OPENAI_MODEL", "gpt-4.1-mini")
+
+    system = (
+        "너는 '홈페이지 FAQ / 사용방법 도우미' 챗봇이다.\n"
+        "- 사용자는 웹사이트를 이용 중이며, 메뉴 경로(좌측 메뉴)를 기준으로 안내한다.\n"
+        "- 답변은 한국어로, 짧고 정확하게, 단계(1,2,3)로 안내한다.\n"
+        "- 제공된 KB 내용 안에서만 근거를 두고, KB에 없는 정보면 추측하지 말고 어떤 화면/메뉴인지 추가 정보를 요청한다.\n"
+    )
+
+    user = f"""
+[질문]
+{question}
+
+[KB 컨텍스트]
+{context if context else "(관련 KB 없음)"}
+
+요구사항:
+- '어디서/어떻게'를 메뉴 경로로 명확히 안내
+- 필요한 경우에만 짧게 추가 질문 1개
+- 마지막 줄에 (KB: 섹션명) 형태로 근거 섹션 제목을 1~2개 표기
+""".strip()
+
+    resp = client.responses.create(
+        model=model,
+        input=[
+            {"role": "system", "content": system},
+            {"role": "user", "content": user},
+        ],
+    )
+    return resp.output_text.strip()
+
+
+def intro_node(state: Dict[str, Any]) -> Dict[str, Any]:
+    if state.get("intro_done"):
+        return state
+
+    kb_text = _load_kb_text()
+    sections = _split_kb_sections(kb_text)
+
+    state["kb_text"] = kb_text
+    state["kb_sections"] = sections
+    state["history"] = state.get("history") or []
+    state["history"].append((None, "안녕하세요! 👋\n홈페이지 FAQ / 사용방법 도우미입니다.\n궁금한 기능을 질문해 주세요."))
+    if not kb_text.strip():
+        state["history"].append((None, "※ 현재 KB(flow.md)가 비어 있어요. kb/flow.md에 화면/메뉴 안내를 추가해 주세요."))
+    state["intro_done"] = True
+    return state
+
+
+def answer_node(state: Dict[str, Any]) -> Dict[str, Any]:
+    q = (state.get("user_input") or "").strip()
+    if not q:
+        return state
+
+    api_key = os.getenv("OPENAI_API_KEY", "").strip()
+    use_llm = bool(api_key) and OpenAI is not None
+
+    sections = state.get("kb_sections") or []
+    hits = retrieve_kb(sections, q, top_k=3 if use_llm else 1)
+    context = _build_context(hits)
+
+    if not context:
+        # KB 매칭 실패 → 안내 요청
+        msg = (
+            "KB에 딱 맞는 안내를 못 찾았어요.\n"
+            "지금 보고 있는 화면 이름(예: 공지사항/레시피 허브/최종 레시피 선정/보고서 화면)이나\n"
+            "좌측 메뉴 경로를 같이 알려주면 정확히 안내할게요."
+        )
+        state["history"].append((q, msg))
+        state["user_input"] = None
+        return state
+
+    if not use_llm:
+        ans = build_kb_only_answer(q, hits)
+    else:
+        ans = answer_with_llm(q, context)
+
+    # 근거 섹션명 최소 표기(LLM이 써주지만 혹시 없으면 강제로)
+    if "(KB:" not in ans:
+        titles = ", ".join([h["title"] for h in hits[:2]])
+        ans = ans.rstrip() + f"\n(KB: {titles})"
+
+    state["history"].append((q, ans))
+    state["user_input"] = None
+    return state
+
+
+graph = StateGraph(dict)
+graph.add_node("intro", intro_node)
+graph.add_node("answer", answer_node)
+
+graph.set_entry_point("intro")
+graph.add_edge("intro", "answer")
+graph.add_edge("answer", END)
+
+compiled = graph.compile()
+
+
+def make_initial_state() -> Dict[str, Any]:
+    return {
+        "history": [],
+        "intro_done": False,
+        "user_input": None,
+        "kb_text": "",
+        "kb_sections": [],
+    }

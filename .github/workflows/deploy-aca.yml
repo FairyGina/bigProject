@@ -115,4 +115,6 @@ jobs:
           az containerapp update \
             --name ${{ env.CHATBOT_APP_NAME }} \
             --resource-group ${{ env.RESOURCE_GROUP }} \
-            --image ${{ env.CHATBOT_ACR }}.azurecr.io/${{ env.CHATBOT_IMAGE_NAME }}:${{ github.sha }}
+            --image ${{ env.CHATBOT_ACR }}.azurecr.io/${{ env.CHATBOT_IMAGE_NAME }}:${{ github.sha }} \
+            --target-port 7860 \
+            --ingress external
