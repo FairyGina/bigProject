@@ -63,6 +63,20 @@ public class RecipeService {
     private static final String SECTION_INFLUENCER_IMAGE = "influencerImage";
     private static final String SECTION_GLOBAL_MAP = "globalMarketMap";
     private static final String SECTION_RECIPE_CASE = "RecipeCase";
+    private static final Map<String, Integer> REPORT_SECTION_WEIGHTS = Map.of(
+            "executiveSummary", 12,
+            "marketSnapshot", 14,
+            "riskAssessment", 10,
+            "swot", 10,
+            "conceptIdeas", 12,
+            "kpis", 12,
+            "nextSteps", 8
+    );
+    private static final int WEIGHT_PREP = 5;
+    private static final int WEIGHT_SUMMARY = 8;
+    private static final int WEIGHT_SAVE = 7;
+    private static final int WEIGHT_ALLERGEN = 6;
+    private static final int WEIGHT_EVALUATION = 10;
 
 
     private final RecipeRepository recipeRepository;
@@ -78,6 +92,7 @@ public class RecipeService {
     private final ConsumerFeedbackRepository consumerFeedbackRepository;
     private final EvaluationService evaluationService;
     private final RecipeCaseService recipeCaseService;
+    private final ReportProgressTracker reportProgressTracker;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     @Transactional
@@ -424,6 +439,7 @@ public class RecipeService {
         if (!recipe.getUserId().equals(requesterId)) {
             throw new IllegalArgumentException("레시피를 찾을 수 없습니다.");
         }
+        String jobId = request == null ? null : request.getJobId();
 
         List<RecipeIngredient> ingredients = recipeIngredientRepository.findByRecipe_IdOrderByIdAsc(recipe.getId());
         List<String> ingredientNames = ingredients.stream()
@@ -442,6 +458,16 @@ public class RecipeService {
             includeEvaluation = false;
         }
 
+        List<String> promptSections = includeReportJson
+                ? filterReportSectionsForPrompt(reportSections)
+                : List.of();
+        if (includeReportJson && promptSections.isEmpty()) {
+            promptSections = REPORT_JSON_SECTION_KEYS;
+        }
+        int totalWeight = computeTotalWeight(promptSections, includeSummary, includeAllergen, includeEvaluation);
+        reportProgressTracker.init(jobId, totalWeight);
+        reportProgressTracker.step(jobId, WEIGHT_PREP, "prepare", "inputs ready");
+
         ReportRequest reportRequest = null;
         String reportJson = null;
         String summary = null;
@@ -452,10 +478,13 @@ public class RecipeService {
                 var report = aiReportService.generateReport(reportRequest);
                 Map<String, Object> filtered = filterReportContent(report, reportSections);
                 reportJson = writeJsonMap(filtered);
+                reportProgressTracker.step(jobId, computeSectionWeight(promptSections), "report", "report generated");
                 if (includeSummary) {
                     summary = aiReportService.generateSummary(reportJson);
+                    reportProgressTracker.step(jobId, WEIGHT_SUMMARY, "summary", "summary generated");
                 }
             } catch (Exception e) {
+                reportProgressTracker.fail(jobId, "failed");
                 throw new IllegalStateException("레시피 보고서 생성에 실패했습니다.", e);
             }
         }
@@ -474,6 +503,7 @@ public class RecipeService {
                     .summary(summary)
                     .openYn(openYn)
                     .build());
+            reportProgressTracker.step(jobId, WEIGHT_SAVE, "save", "report saved");
         }
 
         if (includeAllergen) {
@@ -490,12 +520,14 @@ public class RecipeService {
                         normalizedTargetCountry
                 );
                 saveAllergens(recipe, ingredients, allergenResponse);
+                reportProgressTracker.step(jobId, WEIGHT_ALLERGEN, "allergen", "allergen saved");
             }
         }
 
         if (includeEvaluation && includeReportJson && marketReport != null && reportRequest != null) {
             List<VirtualConsumer> consumers = saveVirtualConsumers(marketReport, reportRequest.getRecipe(), summary, reportJson);
             evaluationService.evaluateAndSave(marketReport, consumers, reportJson);
+            reportProgressTracker.step(jobId, WEIGHT_EVALUATION, "evaluation", "evaluation saved");
         }
 
         if (OPEN_YN_Y.equalsIgnoreCase(openYn) && !OPEN_YN_Y.equalsIgnoreCase(resolveRecipeOpenYn(recipe))) {
@@ -507,6 +539,7 @@ public class RecipeService {
         if (marketReport == null) {
             throw new IllegalStateException("보고서가 생성되지 않았습니다.");
         }
+        reportProgressTracker.complete(jobId);
         return toReportDetailResponse(recipe, marketReport);
     }
 
@@ -1238,6 +1271,36 @@ public class RecipeService {
         return steps.stream()
                 .filter(v -> v != null && !v.isBlank())
                 .collect(Collectors.joining("\n"));
+    }
+
+    private int computeSectionWeight(List<String> sectionKeys) {
+        if (sectionKeys == null || sectionKeys.isEmpty()) {
+            return 0;
+        }
+        int total = 0;
+        for (String key : sectionKeys) {
+            Integer weight = REPORT_SECTION_WEIGHTS.get(key);
+            if (weight != null) {
+                total += weight;
+            }
+        }
+        return total;
+    }
+
+    private int computeTotalWeight(List<String> sectionKeys, boolean includeSummary, boolean includeAllergen, boolean includeEvaluation) {
+        int total = WEIGHT_PREP;
+        total += computeSectionWeight(sectionKeys);
+        if (includeSummary) {
+            total += WEIGHT_SUMMARY;
+        }
+        if (includeAllergen) {
+            total += WEIGHT_ALLERGEN;
+        }
+        if (includeEvaluation) {
+            total += WEIGHT_EVALUATION;
+        }
+        total += WEIGHT_SAVE;
+        return total;
     }
 
     private List<String> splitSteps(String steps) {
