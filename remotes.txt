@@ -1,0 +1,4 @@
+origin	https://github.com/kimchiman123/migration_ACA (fetch)
+origin	https://github.com/kimchiman123/migration_ACA (push)
+upstream	https://github.com/FairyGina/bigProject.git (fetch)
+upstream	https://github.com/FairyGina/bigProject.git (push)

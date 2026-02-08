@@ -3,11 +3,49 @@ import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import ThemeToggle from '../components/common/ThemeToggle';
 import Footer from '../components/common/Footer';
+<<<<<<< HEAD
 
 const LandingPage = () => {
     const navigate = useNavigate();
     const bookRef = useRef(null);
     const [rotation, setRotation] = useState({ x: 0, y: 0 });
+=======
+import { useAuth } from '../context/AuthContext';
+import axiosInstance from '../axiosConfig';
+
+const LandingPage = () => {
+    const navigate = useNavigate();
+    const { login } = useAuth();
+    const bookRef = useRef(null);
+    const [rotation, setRotation] = useState({ x: 0, y: 0 });
+    const [demoLoading, setDemoLoading] = useState(false);
+
+    const handleDemoLogin = async () => {
+        if (demoLoading) {
+            return;
+        }
+        try {
+            setDemoLoading(true);
+            await axiosInstance.get('/api/csrf');
+            const response = await axiosInstance.post('/api/auth/demo-login');
+            const data = response.data || {};
+            if (data.accessToken) {
+                login(data.accessToken, { userName: data.userName });
+                if (data.userName) {
+                    localStorage.setItem('userName', data.userName);
+                }
+                if (data.userId) {
+                    localStorage.setItem('userId', data.userId);
+                }
+            }
+            navigate('/mainboard');
+        } catch (err) {
+            console.error('심사용 로그인에 실패했습니다.', err);
+        } finally {
+            setDemoLoading(false);
+        }
+    };
+>>>>>>> upstream/UI5
 
     useEffect(() => {
         const handleMouseMove = (e) => {
@@ -62,6 +100,16 @@ const LandingPage = () => {
             <nav className="fixed top-0 w-full flex justify-between items-center px-12 py-8 z-50">
                 <div className="text-2xl font-bold tracking-tighter">BEAN RECIPE</div>
                 <div className="flex gap-4 items-center text-sm font-medium text-[color:var(--text-muted)]">
+<<<<<<< HEAD
+=======
+                    <button
+                        onClick={handleDemoLogin}
+                        disabled={demoLoading}
+                        className="px-4 py-2 rounded-full bg-[color:var(--accent-strong)] text-[color:var(--accent-contrast)] font-semibold shadow-[0_10px_25px_var(--shadow)] hover:opacity-90 transition disabled:opacity-60"
+                    >
+                        {demoLoading ? '처리중...' : '심사용'}
+                    </button>
+>>>>>>> upstream/UI5
                     <button onClick={() => navigate('/login')} className="hover:text-[color:var(--text)] transition">
                         Login
                     </button>

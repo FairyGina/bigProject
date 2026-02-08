@@ -26,16 +26,12 @@ public class OAuth2AuthenticationSuccessHandler implements AuthenticationSuccess
     @Value("${app.oauth2.redirect-uri}")
     private String redirectUri;
 
-    @jakarta.annotation.PostConstruct
-    public void init() {
-        log.info("#### [OAuth2SuccessHandler] Initialized with redirectUri: {} ####", redirectUri);
-    }
-
     @Override
     public void onAuthenticationSuccess(
             HttpServletRequest request,
             HttpServletResponse response,
-            Authentication authentication) throws IOException, ServletException {
+            Authentication authentication
+    ) throws IOException, ServletException {
         OAuth2User oauthUser = (OAuth2User) authentication.getPrincipal();
         String userId = String.valueOf(oauthUser.getAttributes().get("userId"));
         String userName = String.valueOf(oauthUser.getAttributes().get("userName"));
@@ -51,11 +47,11 @@ public class OAuth2AuthenticationSuccessHandler implements AuthenticationSuccess
                 .toUriString();
 
         try {
-            log.info("OAuth2 success redirectUri={}, targetUrl={}", redirectUri, targetUrl);
+            log.info("OAuth2 성공 redirectUri={}, targetUrl={}", redirectUri, targetUrl);
             String safeTargetUrl = RedirectValidator.sanitizeAndValidateSameOrigin(redirectUri, targetUrl);
             response.sendRedirect(safeTargetUrl);
         } catch (IllegalArgumentException ex) {
-            log.warn("OAuth2 redirect blocked: {}", ex.getMessage());
+            log.warn("OAuth2 리다이렉트 차단: {}", ex.getMessage());
             response.sendError(HttpServletResponse.SC_BAD_REQUEST);
         }
     }

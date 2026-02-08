@@ -1,4 +1,8 @@
+<<<<<<< HEAD
 import React, { useEffect, useState } from 'react';
+=======
+﻿import React, { useEffect, useState } from 'react';
+>>>>>>> upstream/UI5
 import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import axiosInstance from '../axiosConfig';
@@ -19,7 +23,11 @@ const UserBoard = () => {
         const fetchRecipes = async () => {
             try {
                 setLoading(true);
+<<<<<<< HEAD
                 const res = await axiosInstance.get('/recipes/me');
+=======
+                const res = await axiosInstance.get('/api/recipes/me');
+>>>>>>> upstream/UI5
                 setRecipes(res.data || []);
             } catch (err) {
                 console.error('레시피 목록을 불러오지 못했습니다.', err);
@@ -38,7 +46,11 @@ const UserBoard = () => {
         }
         setPublishLoadingId(recipe.id);
         try {
+<<<<<<< HEAD
             const res = await axiosInstance.put(`/recipes/${recipe.id}/publish`, {});
+=======
+            const res = await axiosInstance.put(`/api/recipes/${recipe.id}/publish`, {});
+>>>>>>> upstream/UI5
             const updated = res.data || recipe;
             setRecipes((prev) =>
                 prev.map((item) => (item.id === recipe.id ? { ...item, ...updated } : item))

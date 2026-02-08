@@ -48,7 +48,10 @@ public class Notice {
     @Column(nullable = false)
     private LocalDateTime updatedAt;
 
+<<<<<<< HEAD
     @Builder.Default
+=======
+>>>>>>> upstream/UI5
     @OneToMany(mappedBy = "notice", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<NoticeComment> comments = new ArrayList<>();
 

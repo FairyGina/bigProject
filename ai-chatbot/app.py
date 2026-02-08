@@ -12,9 +12,12 @@ import requests
 from openai import OpenAI
 
 from graph import compiled, make_initial_state, FORECAST_COUNTRIES
+<<<<<<< HEAD
 from fastapi import FastAPI, Request
 from starlette.middleware.base import BaseHTTPMiddleware
 import uvicorn
+=======
+>>>>>>> upstream/UI5
 
 CUSTOM_CSS = """
 /* Minimal UI polish */
@@ -44,6 +47,16 @@ button, .primary {
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 MODEL_NAME = "gpt-4.1-mini"
 SERPAPI_API_KEY = os.getenv("SERPAPI_API_KEY")
+<<<<<<< HEAD
+=======
+API_BASE_URL = os.getenv("API_BASE_URL", "http://localhost:8080")
+
+REGEN_OPTION = "레시피 다시 생성"
+SAVE_OPTION = "저장"
+SAVE_DONE_OPTION = "저장(완료)"
+SAVE_PUBLIC_OPTION = "공개 저장"
+SAVE_PRIVATE_OPTION = "비공개 저장"
+>>>>>>> upstream/UI5
 
 SYSTEM_PROMPT = (
     "당신은 레시피 생성 도우미입니다. "
@@ -103,6 +116,7 @@ def build_trend_query_prompt(country: str) -> str:
 당신은 식품/외식 트렌드 리서치 전문가입니다.
 국가: {country}
 
+<<<<<<< HEAD
 조건:
 - 2025~2026 트렌드 중심 (가능하면 최신 연도 명시)
 - 요리/레시피/외식 트렌드 모두 포함
@@ -112,6 +126,25 @@ def build_trend_query_prompt(country: str) -> str:
 
 출력:
 - 쿼리 4개를 JSON 배열로만 반환
+=======
+  목표:
+  - 2025~2026 트렌드 기반의 실전형 검색 쿼리 4개 생성
+
+  작성 규칙:
+  - 요리/레시피/외식 트렌드 모두 포함
+  - 검색 엔진에 잘 맞는 짧고 명확한 키워드 조합
+  - 한국어/영어 혼합 가능(필요 시 현지 언어 포함)
+  - 건강/비건 일반론으로 쏠리지 않게 축 분산
+  - AI/데이터/기술 중심 키워드는 제외
+
+  출력:
+- 쿼리 4개를 JSON 배열로만 반환
+- 아래 4가지 축을 반드시 각각 반영해 분산된 쿼리를 만들 것:
+  1) 메뉴 개발/푸드서비스 트렌드
+  2) 맛/텍스처/형태 트렌드
+  3) 카테고리(음료/디저트/스낵) 트렌드
+  4) 리포트/전망/산업 트렌드
+>>>>>>> upstream/UI5
 """
 
 def apply_user_input(state: Dict[str, Any], user_input: str) -> Dict[str, Any]:
@@ -123,19 +156,61 @@ def apply_user_input(state: Dict[str, Any], user_input: str) -> Dict[str, Any]:
         })
     options = state.get("options")
     if options:
+<<<<<<< HEAD
+=======
+        if state.get("await_save_visibility"): #저장 시 공개 비공개 여부
+            if user_input == SAVE_PUBLIC_OPTION:
+                state["save_open_yn"] = "Y"
+                state["do_save"] = True
+                state["await_save_visibility"] = False
+                state["options"] = None
+                return state
+            if user_input == SAVE_PRIVATE_OPTION:
+                state["save_open_yn"] = "N"
+                state["do_save"] = True
+                state["await_save_visibility"] = False
+                state["options"] = None
+                return state
+            return state
+>>>>>>> upstream/UI5
         if user_input == "트렌드 반영 안 함":
             state["trend_enabled"] = False
             state["country"] = None
         # 재생성 요청: 수정사항 입력 모드로 전환
+<<<<<<< HEAD
         elif user_input == "레시피 다시 생성":
             state["regenerate"] = True
             state["await_revision"] = True
+=======
+        elif user_input == REGEN_OPTION:
+            state["regenerate"] = True
+            state["await_revision"] = True
+            state["save_disabled"] = False
+            state["saved_recipe_id"] = None
+>>>>>>> upstream/UI5
             state["options"] = None
             state.setdefault("messages", []).append({
                 "role": "assistant",
                 "content": "수정하고 싶은 내용을 입력해주세요.",
             })
             return state
+<<<<<<< HEAD
+=======
+        elif user_input == SAVE_OPTION or user_input == SAVE_DONE_OPTION: #방금 저장했는데 또 저장하려고 할때
+            if state.get("save_disabled"):
+                state.setdefault("messages", []).append({
+                    "role": "assistant",
+                    "content": "이미 저장된 레시피입니다.",
+                })
+                return state
+            state["await_save_visibility"] = True
+            state["options"] = [SAVE_PUBLIC_OPTION, SAVE_PRIVATE_OPTION]
+            state.setdefault("messages", []).append({
+                "role": "assistant",
+                "content": "공개 여부를 선택해주세요.",
+            })
+            return state
+>>>>>>> upstream/UI5
         else:
             state["trend_enabled"] = True
             state["country"] = user_input
@@ -243,6 +318,138 @@ def call_llm_with_system(system_prompt: str, prompt: str) -> str:
     return response.output_text
 
 
+<<<<<<< HEAD
+=======
+def _normalize_list(value: Any) -> List[str]:
+    if value is None:
+        return []
+    if isinstance(value, list):
+        return [str(x).strip() for x in value if str(x).strip()]
+    if isinstance(value, str):
+        raw = value.strip()
+        if not raw:
+            return []
+        if "\n" in raw:
+            return [v.strip() for v in raw.split("\n") if v.strip()]
+        return [v.strip() for v in raw.split(",") if v.strip()]
+    return [str(value).strip()] if str(value).strip() else []
+
+
+def _extract_recipe_payload(state: Dict[str, Any]) -> Dict[str, Any] | None:
+    recipe_text = state.get("recipe") or ""
+    if not recipe_text:
+        return None
+    recipe_json = extract_json_from_text(recipe_text)
+    if not recipe_json:
+        recipe_json = recipe_text.strip()
+    try:
+        payload = json.loads(recipe_json)
+        return payload if isinstance(payload, dict) else None
+    except Exception:
+        return None
+
+
+def _build_save_payload(payload: Dict[str, Any], open_yn: str) -> Dict[str, Any]:
+    return {
+        "title": (payload.get("title") or "").strip(),
+        "description": (payload.get("description") or "").strip(),
+        "ingredients": _normalize_list(payload.get("ingredients")),
+        "steps": _normalize_list(payload.get("steps")),
+        "imageBase64": payload.get("imageBase64") or "",
+        "targetCountry": (payload.get("targetCountry") or "").strip(),
+        "openYn": open_yn,
+        "draft": bool(payload.get("draft", False)),
+        "regenerateReport": False,
+        "reportSections": [],
+    }
+
+
+def _build_backend_session(request: gr.Request | None) -> requests.Session:
+    session = requests.Session()
+    if request is None:
+        return session
+    headers = {}
+    try:
+        req_headers = request.headers or {}
+        auth = req_headers.get("authorization") or req_headers.get("Authorization")
+        if auth:
+            headers["Authorization"] = auth
+        cookie_header = req_headers.get("cookie") or req_headers.get("Cookie")
+        if cookie_header:
+            headers["Cookie"] = cookie_header
+        if headers:
+            session.headers.update(headers)
+    except Exception:
+        pass
+    try:
+        if getattr(request, "cookies", None):
+            session.cookies.update(request.cookies)
+    except Exception:
+        pass
+    return session
+
+
+def _fetch_csrf(session: requests.Session) -> Dict[str, str] | None:
+    try:
+        resp = session.get(f"{API_BASE_URL}/api/csrf", timeout=10)
+        if not resp.ok:
+            return None
+        data = resp.json()
+        if not isinstance(data, dict):
+            return None
+        if "headerName" in data and "token" in data:
+            return {"headerName": data["headerName"], "token": data["token"]}
+    except Exception:
+        return None
+    return None
+
+
+def save_recipe_to_backend(state: Dict[str, Any], request: gr.Request | None) -> Dict[str, Any]:
+    payload = _extract_recipe_payload(state)
+    if not payload:
+        state.setdefault("messages", []).append({
+            "role": "assistant",
+            "content": "레시피 내용을 JSON으로 파싱하지 못했습니다. 다시 생성 후 저장해주세요.",
+        })
+        state["options"] = [REGEN_OPTION, SAVE_OPTION]
+        return state
+    open_yn = state.get("save_open_yn") or "N"
+    save_payload = _build_save_payload(payload, open_yn)
+    session = _build_backend_session(request)
+    headers = {"Content-Type": "application/json"}
+    csrf = _fetch_csrf(session)
+    if csrf:
+        headers[csrf["headerName"]] = csrf["token"]
+    try:
+        resp = session.post(
+            f"{API_BASE_URL}/api/recipes",
+            json=save_payload,
+            headers=headers,
+            timeout=20,
+        )
+        if resp.ok:
+            data = resp.json() if resp.headers.get("Content-Type", "").startswith("application/json") else {}
+            state["saved_recipe_id"] = data.get("id")
+            state["save_disabled"] = True
+            state.setdefault("messages", []).append({
+                "role": "assistant",
+                "content": "저장이 완료되었습니다.",
+            })
+        else:
+            state.setdefault("messages", []).append({
+                "role": "assistant",
+                "content": f"저장에 실패했습니다. (HTTP {resp.status_code})",
+            })
+    except Exception as e:
+        state.setdefault("messages", []).append({
+            "role": "assistant",
+            "content": f"저장 중 오류가 발생했습니다: {e}",
+        })
+    state["options"] = [REGEN_OPTION, SAVE_DONE_OPTION if state.get("save_disabled") else SAVE_OPTION]
+    return state
+
+
+>>>>>>> upstream/UI5
 def parse_json_array(text: str) -> List[str]:
     # JSON 배열 문자열을 리스트로 파싱
     if not text:
@@ -395,7 +602,11 @@ def try_generate_recipe(state: Dict[str, Any]) -> Dict[str, Any]:
         state["recipe_generated"] = True
         state["regenerate"] = False
         state["revision_request"] = ""
+<<<<<<< HEAD
         state["options"] = ["레시피 다시 생성", "저장"]
+=======
+        state["options"] = [REGEN_OPTION, SAVE_OPTION]
+>>>>>>> upstream/UI5
         return state
     
     if prompt and not state.get("recipe_generated"):
@@ -412,12 +623,34 @@ def try_generate_recipe(state: Dict[str, Any]) -> Dict[str, Any]:
             query_text = call_llm(build_trend_query_prompt(country))
             print("[trend] query_text:", query_text)
             queries = parse_json_array(query_text)
+<<<<<<< HEAD
             print("[trend] parsed queries:", queries)
             if queries:
                 results = serpapi_search(queries[0], country)
                 print("[trend] results count:", len(results))
                 if results:
                     trend_summary = summarize_trends(TREND_SUMMARY_PROMPT, results)
+=======
+            print("[trend] parsed queries count:", len(queries))
+            print("[trend] parsed queries:", queries)
+            if queries:
+                selected_query = queries[0]
+                print("[trend] selected query:", selected_query)
+                results = serpapi_search(selected_query, country)
+                print("[trend] results count:", len(results))
+                for idx, item in enumerate(results, start=1):
+                    print(
+                        f"[trend] result {idx}:",
+                        {
+                            "title": item.get("title"),
+                            "date": item.get("date"),
+                            "link": item.get("link"),
+                        },
+                    )
+                if results:
+                    trend_summary = summarize_trends(TREND_SUMMARY_PROMPT, results)
+                    print("[trend] summary size:", len(trend_summary or ""))
+>>>>>>> upstream/UI5
                     log_trend(country, queries, results, trend_summary)
         else:
             print("[trend] trend search skipped", {
@@ -470,6 +703,10 @@ def try_generate_recipe(state: Dict[str, Any]) -> Dict[str, Any]:
                 "content": recipe_text
             })
         state["recipe_generated"] = True
+<<<<<<< HEAD
+=======
+        state["save_disabled"] = False
+>>>>>>> upstream/UI5
     return state
 
 
@@ -485,13 +722,32 @@ def init_chat():
     )
 
 
+<<<<<<< HEAD
 def on_text_submit(user_input: str, state: Dict[str, Any]):
+=======
+def on_text_submit(user_input: str, state: Dict[str, Any], request: gr.Request | None = None):
+>>>>>>> upstream/UI5
     # 텍스트 입력 시 다음 단계로 진행
     if user_input is None:
         user_input = ""
     state = apply_user_input(state, user_input)
+<<<<<<< HEAD
     # 재생성 수정 입력 중에는 그래프 진행을 멈춘다
     if not state.get("await_revision"):
+=======
+    if state.get("do_save"):
+        state["do_save"] = False
+        state = save_recipe_to_backend(state, request)
+        disable_input = should_disable_textbox(state)
+        return (
+            state,
+            messages_to_chatbot(state.get("messages", [])),
+            gr.update(choices=state.get("options") or [], value=None),
+            gr.update(value="", interactive=not disable_input),
+        )
+    # 재생성 수정 입력 중에는 그래프 진행을 멈춘다
+    if not state.get("await_revision") and not state.get("await_save_visibility"):
+>>>>>>> upstream/UI5
         state = run_graph(state)
     state = try_generate_recipe(state)
     disable_input = should_disable_textbox(state)
@@ -503,7 +759,11 @@ def on_text_submit(user_input: str, state: Dict[str, Any]):
     )
 
 
+<<<<<<< HEAD
 def on_option_change(choice: str, state: Dict[str, Any]):
+=======
+def on_option_change(choice: str, state: Dict[str, Any], request: gr.Request | None = None):
+>>>>>>> upstream/UI5
     # 옵션 선택 시 다음 단계로 진행(빈 선택은 무시)
     if not choice:
         return (
@@ -512,12 +772,16 @@ def on_option_change(choice: str, state: Dict[str, Any]):
             gr.update(choices=state.get("options") or [], value=None),
             gr.update(value="", interactive=not should_disable_textbox(state)),
         )
+<<<<<<< HEAD
     return on_text_submit(choice, state)
 
 
 def on_next_click(state: Dict[str, Any]):
     # 빈 입력으로 다음 단계만 진행
     return on_text_submit("", state)
+=======
+    return on_text_submit(choice, state, request)
+>>>>>>> upstream/UI5
 
 
 with gr.Blocks() as demo:
@@ -526,13 +790,17 @@ with gr.Blocks() as demo:
 
     chatbot = gr.Chatbot()
     textbox = gr.Textbox(label="메시지 입력")
+<<<<<<< HEAD
     next_btn = gr.Button("다음")
+=======
+>>>>>>> upstream/UI5
     options = gr.Radio(choices=[], label="옵션 선택")
 
     state = gr.State(make_initial_state())
 
     demo.load(init_chat, None, [state, chatbot, options, textbox])
     textbox.submit(on_text_submit, [textbox, state], [state, chatbot, options, textbox])
+<<<<<<< HEAD
     next_btn.click(on_next_click, [state], [state, chatbot, options, textbox])
     options.change(on_option_change, [options, state], [state, chatbot, options, textbox])
 
@@ -558,3 +826,13 @@ app = gr.mount_gradio_app(app, demo, path="/")
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=7860)
+=======
+    options.change(on_option_change, [options, state], [state, chatbot, options, textbox])
+
+demo.queue()
+demo.launch(
+    server_name=os.getenv("GRADIO_SERVER_NAME", "0.0.0.0"),
+    server_port=7860,
+    css=CUSTOM_CSS,
+)
+>>>>>>> upstream/UI5

@@ -55,6 +55,16 @@ public class AuthController {
         return ResponseEntity.ok(response);
     }
 
+<<<<<<< HEAD
+=======
+
+    @PostMapping("/auth/demo-login")
+    public ResponseEntity<UserResponse> demoLogin() {
+        UserResponse response = authService.demoLogin();
+        return ResponseEntity.ok(response);
+    }
+
+>>>>>>> upstream/UI5
     @PostMapping("/auth/logout")
     public ResponseEntity<Map<String, String>> logout() {
         authService.logout();

@@ -35,7 +35,8 @@ public class InfluencerImageGenerationService {
     private String imageModel;
 
     public InfluencerImageGenerationService(
-            @Qualifier("openAiImageWebClient") WebClient openAiImageWebClient) {
+            @Qualifier("openAiImageWebClient") WebClient openAiImageWebClient
+    ) {
         this.openAiImageWebClient = openAiImageWebClient;
     }
 
@@ -69,10 +70,7 @@ public class InfluencerImageGenerationService {
         form.add("prompt", buildEditPrompt(req));
 
         form.add("image", new ByteArrayResource(baseImage) {
-            @Override
-            public String getFilename() {
-                return "influencer.png";
-            }
+            @Override public String getFilename() { return "influencer.png"; }
         });
 
         // size: GPT 이미지 모델 지원 크기 1024x1024/1536x1024/1024x1536/auto
@@ -100,7 +98,8 @@ public class InfluencerImageGenerationService {
         String b64 = extractB64(res);
         return new ImageGenerateResponse(
                 b64,
-                "이미지 생성 완료(기본 이미지 사용)");
+                "이미지 생성 완료(기본 이미지 사용)"
+        );
     }
 
     private ImageGenerateResponse generateFromPrompt(ImageGenerateRequest req, String baseImageError) {
@@ -128,11 +127,13 @@ public class InfluencerImageGenerationService {
             String bodyText = e.getResponseBodyAsString();
             return new ImageGenerateResponse(
                     "",
-                    "OpenAI 이미지 생성 요청에 실패했습니다: " + e.getStatusCode() + " body=" + bodyText);
+                    "OpenAI 이미지 생성 요청에 실패했습니다: " + e.getStatusCode() + " body=" + bodyText
+            );
         } catch (RuntimeException e) {
             return new ImageGenerateResponse(
                     "",
-                    "OpenAI 이미지 생성 요청에 실패했습니다: " + e.getMessage());
+                    "OpenAI 이미지 생성 요청에 실패했습니다: " + e.getMessage()
+            );
         }
 
         String b64;
@@ -141,7 +142,8 @@ public class InfluencerImageGenerationService {
         } catch (RuntimeException e) {
             return new ImageGenerateResponse(
                     "",
-                    "OpenAI 응답이 올바르지 않습니다: " + e.getMessage());
+                    "OpenAI 응답이 올바르지 않습니다: " + e.getMessage()
+            );
         }
         String note = baseImageError == null || baseImageError.isBlank()
                 ? "기본 이미지 없이 생성했습니다."
@@ -150,8 +152,7 @@ public class InfluencerImageGenerationService {
     }
 
     private String extractB64(Map<String, Object> res) {
-        if (res == null)
-            throw new RuntimeException("OpenAI 응답이 null입니다.");
+        if (res == null) throw new RuntimeException("OpenAI 응답이 null입니다.");
         Object dataObj = res.get("data");
         if (!(dataObj instanceof List<?> data) || data.isEmpty()) {
             throw new RuntimeException("OpenAI 응답에 data가 없습니다: " + res);
@@ -182,7 +183,8 @@ public class InfluencerImageGenerationService {
                 """.formatted(
                 safe(req.getRecipe()),
                 safe(req.getInfluencerName()),
-                style);
+                style
+        );
     }
 
     private String buildGenerationPrompt(ImageGenerateRequest req) {
@@ -199,7 +201,8 @@ public class InfluencerImageGenerationService {
                 """.formatted(
                 safe(req.getRecipe()),
                 safe(req.getInfluencerName()),
-                style);
+                style
+        );
     }
 
     private String safe(String s) {
@@ -214,7 +217,7 @@ public class InfluencerImageGenerationService {
         }
 
         boolean isJpeg = (bytes[0] & 0xFF) == 0xFF && (bytes[1] & 0xFF) == 0xD8;
-        boolean isPng = (bytes[0] & 0xFF) == 0x89 && bytes[1] == 0x50 && bytes[2] == 0x4E && bytes[3] == 0x47;
+        boolean isPng  = (bytes[0] & 0xFF) == 0x89 && bytes[1] == 0x50 && bytes[2] == 0x4E && bytes[3] == 0x47;
         boolean isWebp = bytes.length > 12 && bytes[0] == 'R' && bytes[1] == 'I' && bytes[2] == 'F' && bytes[3] == 'F'
                 && bytes[8] == 'W' && bytes[9] == 'E' && bytes[10] == 'B' && bytes[11] == 'P';
 
@@ -239,7 +242,8 @@ public class InfluencerImageGenerationService {
                 .clientConnector(new ReactorClientHttpConnector(
                         HttpClient.create()
                                 .followRedirect(true)
-                                .responseTimeout(Duration.ofSeconds(30))))
+                                .responseTimeout(Duration.ofSeconds(30))
+                ))
                 .build();
 
         return dl.get()
@@ -264,3 +268,5 @@ public class InfluencerImageGenerationService {
         return Base64.getDecoder().decode(data);
     }
 }
+
+

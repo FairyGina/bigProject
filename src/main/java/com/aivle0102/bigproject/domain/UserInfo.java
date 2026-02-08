@@ -83,4 +83,15 @@ public class UserInfo {
     public void setProviderId(String providerId) {
         this.providerId = providerId;
     }
+<<<<<<< HEAD
+=======
+
+    public void setUserName(String userName) {
+        this.userName = userName;
+    }
+
+    public void setCompanyId(Long companyId) {
+        this.companyId = companyId;
+    }
+>>>>>>> upstream/UI5
 }

@@ -9,7 +9,10 @@ from langgraph.graph import StateGraph, END
 FORECAST_PATH = Path(__file__).resolve().parent / "forecast_3m_new.csv"
 FORECAST_JSON_PATH = Path(__file__).resolve().parent / "forecast_top_2026_02.json"
 FORECAST_PERIOD = "2026.02"
+<<<<<<< HEAD
 FORECAST_TOPN = 7
+=======
+>>>>>>> upstream/UI5
 FORECAST_TOPN_PREPROCESS = 10
 FORECAST_COUNTRIES = {"미국", "중국", "일본", "베트남", "독일"}
 FORECAST_SELECTED_TOKEN = "__FORECAST_SELECTED__"
@@ -86,8 +89,11 @@ class RecipeState(TypedDict):
     recipe: Optional[str]
     report: Optional[str]
     prompt: Optional[str]
+<<<<<<< HEAD
     trend_query_prompt: Optional[str]
     trend_summary_prompt: Optional[str]
+=======
+>>>>>>> upstream/UI5
     trend_forecast_items: Optional[List[str]]
     trend_forecast_period: Optional[str]
 
@@ -114,7 +120,11 @@ def intro_node(state):
         return state
     state["messages"].append({
         "role": "assistant",
+<<<<<<< HEAD
         "content": "안녕하세요! 👋\n저는 레시피 생성 도우미 AI입니다.\n새로운 레시피 생성을 도와드릴게요 🍳\n\n"
+=======
+        "content": "안녕하세요!👋 저는 레시피 생성 도우미 AI입니다.\n새로운 레시피 생성을 도와드릴게요!\n"
+>>>>>>> upstream/UI5
     })
     state["intro_done"] = True
     return state
@@ -128,8 +138,12 @@ def select_trend_node(state):
         "role": "assistant",
         "content": (
             "국가의 최신 음식 트렌드를 반영할까요?\n"
+<<<<<<< HEAD
             "아래에서 하나를 선택해주세요 👇\n"
             "(원하지 않으면 ‘트렌드 반영 안 함’ 선택)"
+=======
+            "아래 옵션에서 하나를 선택해주세요 👇 (원하지 않으면 ‘트렌드 반영 안 함’ 선택)"
+>>>>>>> upstream/UI5
         )
     })
 
@@ -148,9 +162,15 @@ def load_base_recipe_node(state):
     state["messages"].append({
         "role": "assistant",
         "content": (
+<<<<<<< HEAD
             "기존 레시피를 불러오고 싶으신가요?\n"
             "있다면 레시피 이름이나 내용을 입력해주세요.\n"
             "없다면 Enter, 혹은 '다음' 버튼을 눌러주세요."
+=======
+            "기존 레시피를 기반으로 메뉴를 생성하고 싶으신가요?\n"
+            "그렇다면 레시피 이름이나 내용을 입력해주세요.\n"
+            "없다면 Enter를 눌러주세요."
+>>>>>>> upstream/UI5
         )
     })
     state["options"] = None  # 텍스트 입력 모드
@@ -222,6 +242,7 @@ def generate_recipe_node(state):
     - 한국에서 해외를 대상으로 수출하는 메뉴임을 고려하여 레시피를 생성한다.
     - 한국의 식문화를 참고하면서, 해외 현지 재료 및 트렌드를 고려하여 레시피를 생성한다.
     - 현지 수요/트렌드와 충돌하면 현지 적합성을 우선한다.
+<<<<<<< HEAD
     - 수요예측 결과는 '재료'가 아닌 컨셉에만 반영, '설명/소개'에만 반영한다.
 
     [수출 수요예측 참고]
@@ -238,6 +259,14 @@ def generate_recipe_node(state):
     - 하나의 명확한 요리 문화(한식, 양식, 일식, 중식 등)를 기준으로 한다.
     - 이질적인 재료끼리 섞지 않는다.
     - 최종 검증: 정체성/조합/조리 순서를 점검한다.
+=======
+    - 근거 없는 충돌 조합은 피한다.
+    - 메뉴 정체성을 깨는 조합은 피한다.
+
+    [수출 수요예측 참고]
+    {forecast_block}는 재료가 아닌 컨셉에만 반영한다.
+    생성된 레시피와 어울리지 않는 조합이면 절대 반영하지 않는다.
+>>>>>>> upstream/UI5
 
     [맛의 상호작용 규칙]
     - 기본 맛(단맛, 신맛, 쓴맛, 짠맛, 감칠맛)은 독립적으로 더해지지 않으며,
@@ -330,8 +359,11 @@ def make_initial_state():
         "recipe": None,
         "report": None,
         "prompt": None,
+<<<<<<< HEAD
         "trend_query_prompt": None,
         "trend_summary_prompt": None,
+=======
+>>>>>>> upstream/UI5
         "trend_forecast_items": None,
         "trend_forecast_period": None,
         "feedback": None,

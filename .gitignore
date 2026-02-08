@@ -35,6 +35,9 @@ out/
 
 ### VS Code ###
 .vscode/
+<<<<<<< HEAD
 node_modules/
 frontend/node_modules/
 .env
+=======
+>>>>>>> upstream/UI5

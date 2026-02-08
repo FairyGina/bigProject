@@ -40,13 +40,24 @@ public class AuthService {
     private static final int MAX_LOGIN_FAILURES = 5;
     private static final int SEQUENTIAL_LENGTH = 3;
     private static final int PASSWORD_EXPIRY_MONTHS = 6;
+    private static final String DEMO_USER_ID = "super";
+    private static final String DEMO_PASSWORD = "1234";
+    private static final String DEMO_USER_NAME = "관리자";
+    private static final String DEMO_COMPANY_NAME = "(주)관리자기업";
+    private static final String DEMO_INDUSTRY = "식품가공/조리식품";
+    private static final String DEMO_TARGET_COUNTRY = "US";
+    private static final LocalDate DEMO_BIRTH_DATE = LocalDate.of(1990, 1, 1);
 
     @Transactional
     public UserResponse join(SignUpRequest request) {
         log.debug("join user: {}", request.getUserId());
 
+        
+
         LocalDate birthDate = LocalDate.parse(request.getBirthDate());
         validatePasswordPolicy(request.getPassword(), request.getUserId(), birthDate);
+
+        
 
         if (userInfoRepository.existsByUserId(request.getUserId())) {
             throw new CustomException("이미 존재하는 아이디입니다.", HttpStatus.CONFLICT, "DUPLICATE_USER_ID");
@@ -73,6 +84,51 @@ public class AuthService {
         return toUserResponse(userInfo, null);
     }
 
+    @Transactional
+    public UserResponse demoLogin() {
+        Company company = companyRepository.findFirstByCompanyNameIgnoreCase(DEMO_COMPANY_NAME)
+                .orElseGet(() -> companyRepository.save(
+                        Company.builder()
+                                .companyName(DEMO_COMPANY_NAME)
+                                .industry(DEMO_INDUSTRY)
+                                .targetCountry(DEMO_TARGET_COUNTRY)
+                                .createdAt(LocalDateTime.now())
+                                .updatedAt(LocalDateTime.now())
+                                .build()
+                ));
+        Long companyId = company == null ? null : company.getCompanyId();
+
+        String hashedPassword = passwordEncoder.encode(DEMO_PASSWORD);
+        UserInfo userInfo = userInfoRepository.findByUserId(DEMO_USER_ID).orElse(null);
+        if (userInfo == null) {
+            userInfo = UserInfo.builder()
+                    .userId(DEMO_USER_ID)
+                    .userPw(hashedPassword)
+                    .userName(DEMO_USER_NAME)
+                    .birthDate(DEMO_BIRTH_DATE)
+                    .userState("1")
+                    .joinDate(LocalDateTime.now())
+                    .loginFailCount(0)
+                    .passwordChangedAt(OffsetDateTime.now())
+                    .companyId(companyId)
+                    .build();
+        } else {
+            userInfo.setUserPw(hashedPassword);
+            userInfo.setLoginFailCount(0);
+            userInfo.setPasswordChangedAt(OffsetDateTime.now());
+            userInfo.setUserState("1");
+            userInfo.setUserName(DEMO_USER_NAME);
+            userInfo.setCompanyId(companyId);
+            if (userInfo.getBirthDate() == null) {
+                userInfo.setBirthDate(DEMO_BIRTH_DATE);
+            }
+        }
+
+        userInfoRepository.save(userInfo);
+        String accessToken = jwtTokenProvider.createToken(userInfo.getUserId(), userInfo.getUserName());
+        return toUserResponse(userInfo, accessToken);
+    }
+
     private Company resolveCompany(SignUpRequest request) {
         String companyName = trimToNull(request.getCompanyName());
         if (companyName == null) {
@@ -86,7 +142,8 @@ public class AuthService {
                                 .targetCountry(trimToNull(request.getTargetCountry()))
                                 .createdAt(LocalDateTime.now())
                                 .updatedAt(LocalDateTime.now())
-                                .build()));
+                                .build()
+                ));
     }
 
     private String trimToNull(String value) {
@@ -107,8 +164,7 @@ public class AuthService {
         log.info("Login 시도 userId={} loginFailCount={}", userInfo.getUserId(), userInfo.getLoginFailCount());
 
         if (userInfo.getLoginFailCount() >= MAX_LOGIN_FAILURES) {
-            log.warn("Login 차단 (failCount>=max) userId={} failCount={}", userInfo.getUserId(),
-                    userInfo.getLoginFailCount());
+            log.warn("Login 차단 (failCount>=max) userId={} failCount={}", userInfo.getUserId(), userInfo.getLoginFailCount());
             throw new CustomException("비밀번호 재설정이 필요합니다.", HttpStatus.FORBIDDEN, "PASSWORD_RESET_REQUIRED");
         }
 
@@ -121,12 +177,10 @@ public class AuthService {
                 throw new CustomException("비밀번호 재설정이 필요합니다.", HttpStatus.FORBIDDEN, "PASSWORD_RESET_REQUIRED");
             }
             if (nextFailCount == MAX_LOGIN_FAILURES - 1) {
-                throw new CustomException("로그인 시도 횟수가 얼마 남지 않았습니다.", HttpStatus.UNAUTHORIZED,
-                        "PASSWORD_RESET_WARNING_4");
+                throw new CustomException("로그인 시도 횟수가 얼마 남지 않았습니다.", HttpStatus.UNAUTHORIZED, "PASSWORD_RESET_WARNING_4");
             }
             if (nextFailCount == MAX_LOGIN_FAILURES - 2) {
-                throw new CustomException("로그인 시도 횟수가 얼마 남지 않았습니다.", HttpStatus.UNAUTHORIZED,
-                        "PASSWORD_RESET_WARNING_3");
+                throw new CustomException("로그인 시도 횟수가 얼마 남지 않았습니다.", HttpStatus.UNAUTHORIZED, "PASSWORD_RESET_WARNING_3");
             }
             throw new CustomException("비밀번호를 다시 확인해주세요.", HttpStatus.UNAUTHORIZED, "INVALID_PASSWORD");
         }
@@ -168,6 +222,8 @@ public class AuthService {
             throw new CustomException("비밀번호가 일치하지 않습니다.", HttpStatus.BAD_REQUEST, "PASSWORD_MISMATCH");
         }
 
+        
+
         boolean nameExists = userInfoRepository.existsByUserNameAndUserState(request.getUserName(), "1");
         if (!nameExists) {
             throw new CustomException("이름을 다시 확인해주세요.", HttpStatus.BAD_REQUEST, "USER_NAME_NOT_FOUND");
@@ -176,9 +232,9 @@ public class AuthService {
         UserInfo userInfo = userInfoRepository.findByUserIdAndUserNameAndUserState(
                 request.getUserId(),
                 request.getUserName(),
-                "1")
-                .orElseThrow(() -> new CustomException("아이디와 이름이 일치하지 않습니다.", HttpStatus.BAD_REQUEST,
-                        "USER_EMAIL_MISMATCH"));
+                "1"
+        ).orElseThrow(() -> new CustomException("아이디와 이름이 일치하지 않습니다.", HttpStatus.BAD_REQUEST, "USER_EMAIL_MISMATCH"));
+
 
         validatePasswordPolicy(request.getNewPassword(), userInfo.getUserId(), userInfo.getBirthDate());
         if (passwordEncoder.matches(request.getNewPassword(), userInfo.getUserPw())) {
@@ -228,8 +284,7 @@ public class AuthService {
 
         boolean hasBirthDate = request.getBirthDate() != null && !request.getBirthDate().isBlank();
         boolean hasNewPassword = request.getNewPassword() != null && !request.getNewPassword().isBlank();
-        boolean hasConfirmPassword = request.getConfirmNewPassword() != null
-                && !request.getConfirmNewPassword().isBlank();
+        boolean hasConfirmPassword = request.getConfirmNewPassword() != null && !request.getConfirmNewPassword().isBlank();
 
         if (!hasBirthDate && !hasNewPassword && !hasConfirmPassword) {
             throw new CustomException("변경할 값이 없습니다.", HttpStatus.BAD_REQUEST, "NO_CHANGES");
@@ -253,8 +308,11 @@ public class AuthService {
             if (!hasNewPassword || !hasConfirmPassword) {
                 throw new CustomException("새 비밀번호 확인이 필요합니다.", HttpStatus.BAD_REQUEST, "CONFIRM_PASSWORD_REQUIRED");
             }
+            
 
             validatePasswordPolicy(request.getNewPassword(), userInfo.getUserId(), userInfo.getBirthDate());
+
+            
 
             if (!isSocialAccount && passwordEncoder.matches(request.getNewPassword(), userInfo.getUserPw())) {
                 throw new CustomException("이전 비밀번호와 동일합니다.", HttpStatus.BAD_REQUEST, "PASSWORD_SAME_AS_BEFORE");
@@ -275,14 +333,14 @@ public class AuthService {
         return toUserResponse(userInfo, null);
     }
 
+    
     private void validatePasswordPolicy(String password, String userId, LocalDate birthDate) {
         String passwordPattern = "^(?=.*[A-Za-z])(?=.*\\d)(?=.*[@$!%*#?&])[A-Za-z\\d@$!%*#?&]{8,}$";
         if (!password.matches(passwordPattern)) {
             throw new CustomException("비밀번호 정책을 만족하지 않습니다.", HttpStatus.BAD_REQUEST, "INVALID_PASSWORD_POLICY");
         }
         if (isGuessablePassword(password, userId, birthDate)) {
-            throw new CustomException("연속된 문자열이나 아이디/생년월일 등 추측 가능한 정보는 사용할 수 없습니다.", HttpStatus.BAD_REQUEST,
-                    "INVALID_PASSWORD_POLICY");
+            throw new CustomException("연속된 문자열이나 아이디/생년월일 등 추측 가능한 정보는 사용할 수 없습니다.", HttpStatus.BAD_REQUEST, "INVALID_PASSWORD_POLICY");
         }
     }
 
@@ -403,3 +461,15 @@ public class AuthService {
                 .build();
     }
 }
+
+
+
+
+
+
+
+
+
+
+
+

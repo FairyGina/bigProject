@@ -8,6 +8,10 @@ const PasswordCheckPage = () => {
     const navigate = useNavigate();
     const [password, setPassword] = useState('');
     const [error, setError] = useState('');
+<<<<<<< HEAD
+=======
+    const isDemoAdmin = localStorage.getItem('userId') === 'super';
+>>>>>>> upstream/UI5
 
     const handlePasswordCheck = async () => {
         setError('');
@@ -16,8 +20,13 @@ const PasswordCheckPage = () => {
             return;
         }
         try {
+<<<<<<< HEAD
             await axiosInstance.get('/csrf');
             await axiosInstance.post('/user/verify-password', { password });
+=======
+            await axiosInstance.get('/api/csrf');
+            await axiosInstance.post('/api/user/verify-password', { password });
+>>>>>>> upstream/UI5
             navigate('/mainboard/user-hub/profile');
         } catch (err) {
             console.error(err);
@@ -53,6 +62,14 @@ const PasswordCheckPage = () => {
 
             <div className="w-full max-w-md text-left">
                 <label className="block text-sm font-bold mb-4 ml-1 text-[color:var(--text-muted)]">비밀번호 확인</label>
+<<<<<<< HEAD
+=======
+                {isDemoAdmin && (
+                    <p className="mb-3 text-xs font-semibold text-[color:var(--text-soft)]">
+                        심사용 관리자 비밀번호는 1234입니다.
+                    </p>
+                )}
+>>>>>>> upstream/UI5
                 <input
                     type="password"
                     value={password}

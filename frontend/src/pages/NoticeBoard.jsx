@@ -132,7 +132,11 @@ const NoticeBoard = () => {
 
     const refreshCsrf = React.useCallback(async () => {
         try {
+<<<<<<< HEAD
             await axiosInstance.get('/csrf');
+=======
+            await axiosInstance.get('/api/csrf');
+>>>>>>> upstream/UI5
         } catch (error) {
             // CSRF 갱신 실패는 무시
         }
@@ -158,7 +162,11 @@ const NoticeBoard = () => {
         setLoadingNotices(true);
         setNoticeError('');
         try {
+<<<<<<< HEAD
             const response = await axiosInstance.get('/notices');
+=======
+            const response = await axiosInstance.get('/api/notices');
+>>>>>>> upstream/UI5
             const data = Array.isArray(response.data) ? response.data : response.data?.data ?? [];
             const normalized = data.map(normalizeNotice);
             if (normalized.length) {
@@ -186,7 +194,11 @@ const NoticeBoard = () => {
         setDetailError('');
         setComments([]);
         try {
+<<<<<<< HEAD
             const response = await axiosInstance.get(`/notices/${noticeId}`);
+=======
+            const response = await axiosInstance.get(`/api/notices/${noticeId}`);
+>>>>>>> upstream/UI5
             const detail = normalizeNotice(response.data?.data ?? response.data);
             setSelectedNotice(detail);
         } catch (error) {
@@ -194,7 +206,11 @@ const NoticeBoard = () => {
             setDetailError('공지사항을 불러오지 못했습니다.');
         }
         try {
+<<<<<<< HEAD
             const response = await axiosInstance.get(`/notices/${noticeId}/comments`);
+=======
+            const response = await axiosInstance.get(`/api/notices/${noticeId}/comments`);
+>>>>>>> upstream/UI5
             const data = Array.isArray(response.data) ? response.data : response.data?.data ?? [];
             setComments(data.map(normalizeComment));
         } catch (error) {
@@ -231,7 +247,11 @@ const NoticeBoard = () => {
         setIsSubmittingNotice(true);
         try {
             await refreshCsrf();
+<<<<<<< HEAD
             const response = await axiosInstance.post('/notices', {
+=======
+            const response = await axiosInstance.post('/api/notices', {
+>>>>>>> upstream/UI5
                 title: title.trim(),
                 content: content.trim(),
             });
@@ -278,7 +298,11 @@ const NoticeBoard = () => {
         setIsSavingNotice(true);
         try {
             await refreshCsrf();
+<<<<<<< HEAD
             const response = await axiosInstance.put(`/notices/${selectedNotice.id}`, {
+=======
+            const response = await axiosInstance.put(`/api/notices/${selectedNotice.id}`, {
+>>>>>>> upstream/UI5
                 title: editTitle.trim(),
                 content: editContent.trim(),
             });
@@ -310,7 +334,11 @@ const NoticeBoard = () => {
         setIsSavingNotice(true);
         try {
             await refreshCsrf();
+<<<<<<< HEAD
             await axiosInstance.delete(`/notices/${selectedNotice.id}`);
+=======
+            await axiosInstance.delete(`/api/notices/${selectedNotice.id}`);
+>>>>>>> upstream/UI5
             setNotices((prev) => prev.filter((notice) => notice.id !== selectedNotice.id));
             setShowDetail(false);
             setSelectedNotice(null);
@@ -329,7 +357,11 @@ const NoticeBoard = () => {
         setIsSavingComment(true);
         try {
             await refreshCsrf();
+<<<<<<< HEAD
             const response = await axiosInstance.post(`/notices/${selectedNotice.id}/comments`, {
+=======
+            const response = await axiosInstance.post(`/api/notices/${selectedNotice.id}/comments`, {
+>>>>>>> upstream/UI5
                 content: commentInput.trim(),
             });
             const created = normalizeComment(response.data?.data ?? response.data);
@@ -362,7 +394,11 @@ const NoticeBoard = () => {
         setIsSavingComment(true);
         try {
             await refreshCsrf();
+<<<<<<< HEAD
             const response = await axiosInstance.put(`/notices/${selectedNotice.id}/comments/${comment.id}`, {
+=======
+            const response = await axiosInstance.put(`/api/notices/${selectedNotice.id}/comments/${comment.id}`, {
+>>>>>>> upstream/UI5
                 content: commentEditingText.trim(),
             });
             const updated = normalizeComment(response.data?.data ?? response.data);
@@ -392,7 +428,11 @@ const NoticeBoard = () => {
         setIsSavingComment(true);
         try {
             await refreshCsrf();
+<<<<<<< HEAD
             await axiosInstance.delete(`/notices/${selectedNotice.id}/comments/${comment.id}`);
+=======
+            await axiosInstance.delete(`/api/notices/${selectedNotice.id}/comments/${comment.id}`);
+>>>>>>> upstream/UI5
             setComments((prev) => prev.filter((item) => item.id !== comment.id));
         } catch (error) {
             console.error(error);
@@ -498,11 +538,19 @@ const NoticeBoard = () => {
                     >
                         {showForm ? '작성 닫기' : '글 작성'}
                     </button>
+<<<<<<< HEAD
 
 
 
 
                 </div>
+=======
+                
+
+
+
+                                </div>
+>>>>>>> upstream/UI5
 
                 <div className="mt-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
                     <div className="flex flex-1 items-center gap-3 rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface)] px-4 py-2 shadow-[0_10px_25px_var(--shadow)]">

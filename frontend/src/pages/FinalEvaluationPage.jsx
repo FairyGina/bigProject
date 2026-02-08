@@ -252,7 +252,11 @@ const FinalEvaluationPage = () => {
                 return;
             }
             try {
+<<<<<<< HEAD
                 const res = await axiosInstance.get(`/report/${result.reportId}`);
+=======
+                const res = await axiosInstance.get(`/api/report/${result.reportId}`);
+>>>>>>> upstream/UI5
                 setDetailResult(res.data || null);
             } catch (err) {
                 console.error('최종 보고서 상세를 불러오지 못했습니다.', err);
@@ -317,6 +321,7 @@ const FinalEvaluationPage = () => {
                                 return null;
                             }
                             const res = result.value;
+<<<<<<< HEAD
                             const data = res.data || {};
                             const evaluations = data.report?.evaluationResults || [];
                             const totalCount = evaluations.length || 1;
@@ -352,6 +357,43 @@ const FinalEvaluationPage = () => {
                                     : [],
                             };
                         })
+=======
+                        const data = res.data || {};
+                        const evaluations = data.report?.evaluationResults || [];
+                        const totalCount = evaluations.length || 1;
+                        const sums = evaluations.reduce(
+                            (acc, item) => {
+                                acc.total += Number(item.totalScore || 0);
+                                acc.taste += Number(item.tasteScore || 0);
+                                acc.price += Number(item.priceScore || 0);
+                                acc.health += Number(item.healthScore || 0);
+                                return acc;
+                            },
+                            { total: 0, taste: 0, price: 0, health: 0 }
+                        );
+                        return {
+                            recipeId: data.recipeId || data.id,
+                            title: data.recipeTitle || data.title || selectedReports[index]?.recipeTitle || `레시피 ${index + 1}`,
+                            scores: [
+                                Math.round(sums.total / totalCount),
+                                Math.round(sums.taste / totalCount),
+                                Math.round(sums.price / totalCount),
+                                Math.round(sums.health / totalCount),
+                            ],
+                            countryScores: Array.isArray(data.report?.evaluationResults)
+                                ? data.report.evaluationResults
+                                    .map((item) => ({
+                                        country: item?.country,
+                                        totalScore: Number(item?.totalScore),
+                                        tasteScore: Number(item?.tasteScore),
+                                        priceScore: Number(item?.priceScore),
+                                        healthScore: Number(item?.healthScore),
+                                    }))
+                                    .filter((item) => item.country)
+                                : [],
+                        };
+                    })
+>>>>>>> upstream/UI5
                         .filter(Boolean);
 
                 const hasEvaluation = (scoreItems) =>
@@ -363,19 +405,31 @@ const FinalEvaluationPage = () => {
 
                 if (reportIds.length) {
                     const results = await Promise.allSettled(
+<<<<<<< HEAD
                         reportIds.map((id) => axiosInstance.get(`/report/${id}`))
+=======
+                        reportIds.map((id) => axiosInstance.get(`/api/report/${id}`))
+>>>>>>> upstream/UI5
                     );
                     const mapped = buildScoreData(results);
                     setScoreData(mapped);
                     if (!hasEvaluation(mapped) && recipeIds.length) {
                         const fallback = await Promise.allSettled(
+<<<<<<< HEAD
                             recipeIds.map((id) => axiosInstance.get(`/recipes/${id}`))
+=======
+                            recipeIds.map((id) => axiosInstance.get(`/api/recipes/${id}`))
+>>>>>>> upstream/UI5
                         );
                         setScoreData(buildScoreData(fallback));
                     }
                 } else if (recipeIds.length) {
                     const results = await Promise.allSettled(
+<<<<<<< HEAD
                         recipeIds.map((id) => axiosInstance.get(`/recipes/${id}`))
+=======
+                        recipeIds.map((id) => axiosInstance.get(`/api/recipes/${id}`))
+>>>>>>> upstream/UI5
                     );
                     setScoreData(buildScoreData(results));
                 }
