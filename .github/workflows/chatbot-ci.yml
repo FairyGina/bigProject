@@ -2,11 +2,11 @@ name: AI Chatbot CI
 
 on:
   push:
-    branches: [ "main" ]
+    branches: [ "main", "cloud" ]
     paths:
       - 'ai-chatbot/**'
   pull_request:
-    branches: [ "main" ]
+    branches: [ "main", "cloud" ]
     paths:
       - 'ai-chatbot/**'
 
