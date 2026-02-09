@@ -120,7 +120,10 @@ const RecipeReport = () => {
     const [recipeOpenYn, setRecipeOpenYn] = useState('N');
     const [targetRecommendLoading, setTargetRecommendLoading] = useState(false);
     const [createProgress, setCreateProgress] = useState(0);
+    const [createStageMessage, setCreateStageMessage] = useState('');
     const createTimerRef = useRef(null);
+    const progressSourceRef = useRef(null);
+    const progressModeRef = useRef('client');
     const isCreateDisabled = createLoading;
 
     const selectedGeneration = useMemo(
@@ -205,14 +208,109 @@ const RecipeReport = () => {
         );
     };
 
+    const startClientProgress = () => {
+        setCreateProgress(0);
+        setCreateStageMessage('');
+        setCreateStageMessage('인플루언서 추천/이미지 생성 중…');
+        if (createTimerRef.current) {
+            clearInterval(createTimerRef.current);
+        }
+        createTimerRef.current = setInterval(() => {
+            setCreateProgress((prev) => (prev >= 99 ? prev : prev + 1));
+        }, 450);
+    };
+
+    const startServerProgress = (jobId) => {
+        if (!jobId) {
+            progressModeRef.current = 'client';
+            startClientProgress();
+            return;
+        }
+        setCreateProgress(0);
+        setCreateStageMessage('생성 중…');
+        if (createTimerRef.current) {
+            clearInterval(createTimerRef.current);
+            createTimerRef.current = null;
+        }
+        if (progressSourceRef.current) {
+            progressSourceRef.current.close();
+            progressSourceRef.current = null;
+        }
+        progressModeRef.current = 'server';
+        try {
+            const source = new EventSource(`http://localhost:8080/api/reports/progress/${jobId}`);
+            progressSourceRef.current = source;
+            source.addEventListener('progress', (event) => {
+                try {
+                    const data = JSON.parse(event.data || '{}');
+                    if (typeof data.progress === 'number') {
+                        setCreateProgress((prev) => Math.max(prev, data.progress));
+                    }
+                    if (typeof data.stage === 'string') {
+                        const stageMap = {
+                            start: '생성 준비 중…',
+                            prepare: '입력 준비 중…',
+                            report: 'AI 생성 중…',
+                            summary: '요약 생성 중…',
+                            save: '저장 중…',
+                            allergen: '알레르기 분석 중…',
+                            evaluation: '시장 평가 중…',
+                            done: '완료',
+                            error: '실패',
+                        };
+                        setCreateStageMessage(stageMap[data.stage] || data.stage);
+                    } else if (typeof data.message === 'string') {
+                        setCreateStageMessage(data.message);
+                    }
+                } catch (err) {
+                    // 파싱 오류는 무시
+                }
+            });
+            source.onerror = () => {
+                source.close();
+                progressSourceRef.current = null;
+                progressModeRef.current = 'client';
+                startClientProgress();
+            };
+        } catch (err) {
+            progressModeRef.current = 'client';
+            startClientProgress();
+        }
+    };
+
+    const stopProgress = (success) => {
+        if (createTimerRef.current) {
+            clearInterval(createTimerRef.current);
+            createTimerRef.current = null;
+        }
+        if (progressSourceRef.current) {
+            progressSourceRef.current.close();
+            progressSourceRef.current = null;
+        }
+        if (success) {
+            setCreateProgress(100);
+            setCreateStageMessage('??');
+            setCreateStageMessage('완료');
+            setTimeout(() => setCreateProgress(0), 500);
+            setTimeout(() => setCreateStageMessage(''), 800);
+            return;
+        }
+        setCreateProgress(0);
+        setCreateStageMessage('');
+    };
+
     const handleCreateReport = async () => {
         if (!id || createLoading) return;
         if (!includesReport) {
             setError('리포트 생성 옵션을 먼저 선택해주세요.');
             return;
         }
+        const jobId = window.crypto?.randomUUID
+            ? window.crypto.randomUUID()
+            : `job_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
         setCreateLoading(true);
         setError('');
+        startServerProgress(jobId);
         try {
             const payload = {
                 targetCountry,
@@ -220,6 +318,7 @@ const RecipeReport = () => {
                 priceRange,
                 reportSections,
                 openYn: reportOpenYn,
+                jobId,
             };
             const res = await axiosInstance.post(`/api/recipes/${id}/reports`, payload);
             if (res.data?.reportId) {
@@ -260,39 +359,33 @@ const RecipeReport = () => {
                 }
                 await loadReports();
                 setCreateOpen(false);
+                stopProgress(true);
                 navigate(`/mainboard/reports/${nextReportId}`);
+            } else {
+                stopProgress(false);
+                setError('리포트 생성에 실패했습니다.');
             }
         } catch (err) {
             console.error('보고서 생성에 실패했습니다.', err);
             setError('리포트 생성에 실패했습니다.');
+            stopProgress(false);
         } finally {
             setCreateLoading(false);
         }
     };
 
     useEffect(() => {
-        if (!createLoading) {
-            setCreateProgress(0);
-            if (createTimerRef.current) {
-                clearInterval(createTimerRef.current);
-                createTimerRef.current = null;
-            }
-            return;
-        }
-        setCreateProgress(5);
-        if (createTimerRef.current) {
-            clearInterval(createTimerRef.current);
-        }
-        createTimerRef.current = setInterval(() => {
-            setCreateProgress((prev) => (prev >= 90 ? prev : prev + 1));
-        }, 450);
         return () => {
             if (createTimerRef.current) {
                 clearInterval(createTimerRef.current);
                 createTimerRef.current = null;
             }
+            if (progressSourceRef.current) {
+                progressSourceRef.current.close();
+                progressSourceRef.current = null;
+            }
         };
-    }, [createLoading]);
+    }, []);
 
     const handleRecommendTargets = async () => {
         if (!canRecommendTargets || targetRecommendLoading) return;
@@ -634,7 +727,7 @@ const RecipeReport = () => {
                                     {createLoading ? (
                                         <span className="inline-flex items-center justify-center gap-2">
                                             <span className="h-4 w-4 rounded-full border-2 border-[color:var(--border)] border-t-[color:var(--accent-contrast)] animate-spin" />
-                                            {'생성 중…'}
+                                            {createStageMessage || '?? ??'}
                                             <span className="min-w-[4ch] text-right tabular-nums">
                                                 {createProgress}%
                                             </span>

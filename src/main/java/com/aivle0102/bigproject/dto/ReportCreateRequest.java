@@ -15,4 +15,5 @@ public class ReportCreateRequest {
     private String priceRange;
     private List<String> reportSections;
     private String openYn;
+    private String jobId;
 }

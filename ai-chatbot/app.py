@@ -4,7 +4,9 @@ from __future__ import annotations
 
 import json
 import os
+import sqlite3
 from datetime import datetime
+from pathlib import Path
 from typing import List, Dict, Any
 
 import gradio as gr
@@ -35,9 +37,57 @@ body, .gradio-container {
   line-height: 1.5;
   min-height: 90px;
 }
+label, .gr-form > label, .gr-radio label {
+  font-weight: 700;
+}
+.gr-radio .wrap,
+.gr-radio .option {
+  gap: 8px;
+}
+.gr-radio input[type="radio"] {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+.gr-radio label {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 14px;
+  border: 1px solid #d7dbe3;
+  border-radius: 10px;
+  background: #fff;
+  color: #222;
+  cursor: pointer;
+  transition: background 120ms ease, border-color 120ms ease, box-shadow 120ms ease;
+}
+.gr-radio input[type="radio"]:checked + label {
+  background: #1f6feb;
+  border-color: #1f6feb;
+  color: #fff;
+  box-shadow: 0 2px 8px rgba(31, 111, 235, 0.25);
+}
+.gr-radio label:hover {
+  border-color: #1f6feb;
+}
 button, .primary {
   font-size: 14px !important;
   border-radius: 10px !important;
+}
+.gradio-container .gr-radio,
+.gradio-container .gr-textbox {
+  transition: opacity 220ms ease, transform 220ms ease;
+  will-change: opacity, transform;
+}
+.gradio-container .gr-radio[style*="display: none"],
+.gradio-container .gr-textbox[style*="display: none"] {
+  opacity: 0;
+  transform: translateY(-4px);
+}
+.gradio-container .gr-radio[style*="display: block"],
+.gradio-container .gr-textbox[style*="display: block"] {
+  opacity: 1;
+  transform: translateY(0);
 }
 """
 
@@ -59,6 +109,10 @@ SYSTEM_PROMPT = (
     "한국어로만 답변하세요. "
     "과장/추측은 피하고, 일반적인 조리법 기준으로 작성하세요."
 )
+
+# 대화 상태 저장용 SQLite 경로/버전
+DB_PATH = Path(__file__).resolve().parent / "data" / "chat_state.db"
+STATE_VERSION = 1
 
 TREND_SUMMARY_PROMPT = """
 당신은 검색 결과를 요약해 트렌드 인사이트를 뽑는 분석가입니다.
@@ -104,6 +158,142 @@ def should_disable_textbox(state: Dict[str, Any]) -> bool:
     options = state.get("options") or []
     return bool(options)
 
+def should_show_options(state: Dict[str, Any]) -> bool:
+    # 옵션이 있을 때만 라디오/라벨 표시
+    options = state.get("options") or []
+    return bool(options)
+
+def should_show_textbox(state: Dict[str, Any]) -> bool:
+    # 옵션 선택 단계에서는 텍스트 입력 숨김
+    return not should_disable_textbox(state)
+
+
+## 채팅내역 나갔다 돌아와도 유지되도록 하는 기능 관련 함수들
+def _ensure_db():
+    # 상태 저장용 DB/테이블 보장
+    DB_PATH.parent.mkdir(parents=True, exist_ok=True)
+    with sqlite3.connect(DB_PATH) as conn:
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS chat_state (
+                user_key TEXT PRIMARY KEY,
+                state_json TEXT NOT NULL,
+                updated_at INTEGER NOT NULL
+            )
+            """
+        )
+
+
+def _user_key_from_request(request: gr.Request | None) -> str:
+    # 사용자 구분 키 (helper-chatbot과 동일하게 IP 기반)
+    if request and getattr(request, "client", None):
+        host = getattr(request.client, "host", None)
+        if host:
+            return f"ip:{host}"
+    return "anonymous"
+
+
+def _load_saved_state(user_key: str) -> Dict[str, Any] | None:
+    # 저장된 상태 로드
+    _ensure_db()
+    with sqlite3.connect(DB_PATH) as conn:
+        cur = conn.execute(
+            "SELECT state_json FROM chat_state WHERE user_key = ?",
+            (user_key,),
+        )
+        row = cur.fetchone()
+    if not row:
+        return None
+    try:
+        data = json.loads(row[0])
+        return data if isinstance(data, dict) else None
+    except json.JSONDecodeError:
+        return None
+
+
+def _save_state(user_key: str, state: Dict[str, Any]) -> None:
+    # 상태 저장 (필요 필드만)
+    _ensure_db()
+    payload = json.dumps(_build_persisted_state(state), ensure_ascii=False)
+    with sqlite3.connect(DB_PATH) as conn:
+        conn.execute(
+            """
+            INSERT INTO chat_state (user_key, state_json, updated_at)
+            VALUES (?, ?, strftime('%s','now'))
+            ON CONFLICT(user_key) DO UPDATE SET
+                state_json = excluded.state_json,
+                updated_at = excluded.updated_at
+            """,
+            (user_key, payload),
+        )
+
+
+def _delete_state(user_key: str) -> None:
+    # 저장된 상태 삭제
+    _ensure_db()
+    with sqlite3.connect(DB_PATH) as conn:
+        conn.execute("DELETE FROM chat_state WHERE user_key = ?", (user_key,))
+
+
+def _infer_mode(state: Dict[str, Any]) -> str:
+    # 재생성 흐름 여부에 따라 저장 모드 결정
+    if state.get("regen_mode") or state.get("await_revision") or state.get("regenerate"):
+        return "regenerate"
+    return "progress"
+
+
+def _build_persisted_state(state: Dict[str, Any]) -> Dict[str, Any]:
+    # 저장할 최소 상태 스냅샷 구성
+    mode = _infer_mode(state)
+    if mode == "regenerate":
+        keys = [
+            "messages",
+            "recipe",
+            "recipe_generated",
+            "options",
+            "await_revision",
+            "revision_request",
+            "await_save_visibility",
+            "save_open_yn",
+            "save_disabled",
+            "saved_recipe_id",
+            "regen_mode",
+            "regenerate",
+        ]
+        if state.get("await_revision"):
+            state = {**state, "options": None}
+    else:
+        keys = [
+            "messages",
+            "options",
+            "trend_enabled",
+            "trend_selected",
+            "country",
+            "base_recipe",
+            "constraints",
+            "base_done",
+            "constraints_done",
+            "intro_done",
+            "trend_prompted",
+            "base_prompted",
+            "constraints_prompted",
+            "recipe_done",
+            "prompt",
+            "trend_forecast_items",
+            "trend_forecast_period",
+            "recipe",
+            "recipe_generated",
+            "await_save_visibility",
+            "save_open_yn",
+            "save_disabled",
+            "saved_recipe_id",
+        ]
+    payload = {k: state.get(k) for k in keys}
+    return {
+        "state_version": STATE_VERSION,
+        "mode": mode,
+        "payload": payload,
+    }
 
 def build_trend_query_prompt(country: str) -> str:
     # SerpAPI 검색 쿼리 생성을 위한 트렌드 프롬프트 구성
@@ -159,6 +349,7 @@ def apply_user_input(state: Dict[str, Any], user_input: str) -> Dict[str, Any]:
         # 재생성 요청: 수정사항 입력 모드로 전환
         elif user_input == REGEN_OPTION:
             state["regenerate"] = True
+            state["regen_mode"] = True
             state["await_revision"] = True
             state["save_disabled"] = False
             state["saved_recipe_id"] = None
@@ -191,6 +382,7 @@ def apply_user_input(state: Dict[str, Any], user_input: str) -> Dict[str, Any]:
         if state.get("await_revision"):
             state["revision_request"] = user_input or ""
             state["await_revision"] = False
+            state["regenerate"] = True
             state["recipe_generated"] = False
             return state
         if not state.get("base_done"):
@@ -663,15 +855,42 @@ def try_generate_recipe(state: Dict[str, Any]) -> Dict[str, Any]:
     return state
 
 
-def init_chat():
-    # 최초 진입 시 인트로 + 국가 선택 단계까지 자동 진행
+def init_chat(request: gr.Request | None = None):
+    # 최초 진입 시 저장 상태 복원 → 없으면 초기 그래프 진행
+    saved = _load_saved_state(_user_key_from_request(request))
+    if saved:
+        state = make_initial_state()
+        payload = saved.get("payload") if isinstance(saved, dict) else None
+        if isinstance(payload, dict):
+            state.update(payload)
+        if saved.get("mode") == "regenerate":
+            # 재생성 모드 복원: 옵션/입력 표시 상태 보정
+            state["regen_mode"] = True
+            if state.get("await_revision"):
+                state["regenerate"] = True
+            if state.get("await_revision"):
+                state["options"] = None
+            elif not state.get("options"):
+                if state.get("await_save_visibility"):
+                    state["options"] = [SAVE_PUBLIC_OPTION, SAVE_PRIVATE_OPTION]
+                elif state.get("recipe_generated"):
+                    state["options"] = [
+                        REGEN_OPTION,
+                        SAVE_DONE_OPTION if state.get("save_disabled") else SAVE_OPTION,
+                    ]
+        return (
+            state,
+            messages_to_chatbot(state.get("messages", [])),
+            gr.update(choices=state.get("options") or [], value=None, visible=should_show_options(state)),
+            gr.update(value="", interactive=not should_disable_textbox(state), visible=should_show_textbox(state)),
+        )
     state = make_initial_state()
     state = run_graph(state)
     return (
         state,
         messages_to_chatbot(state.get("messages", [])),
-        gr.update(choices=state.get("options") or [], value=None),
-        gr.update(value="", interactive=not should_disable_textbox(state)),
+        gr.update(choices=state.get("options") or [], value=None, visible=should_show_options(state)),
+        gr.update(value="", interactive=not should_disable_textbox(state), visible=should_show_textbox(state)),
     )
 
 
@@ -684,22 +903,31 @@ def on_text_submit(user_input: str, state: Dict[str, Any], request: gr.Request |
         state["do_save"] = False
         state = save_recipe_to_backend(state, request)
         disable_input = should_disable_textbox(state)
+        # 저장/재생성/옵션 상태까지 함께 저장
+        _save_state(_user_key_from_request(request), state)
         return (
             state,
             messages_to_chatbot(state.get("messages", [])),
-            gr.update(choices=state.get("options") or [], value=None),
-            gr.update(value="", interactive=not disable_input),
+            gr.update(choices=state.get("options") or [], value=None, visible=should_show_options(state)),
+            gr.update(value="", interactive=not disable_input, visible=should_show_textbox(state)),
         )
-    # 재생성 수정 입력 중에는 그래프 진행을 멈춘다
-    if not state.get("await_revision") and not state.get("await_save_visibility"):
+    # 재생성 플로우/수정 입력 중에는 그래프 진행을 멈춘다
+    if (
+        not state.get("await_revision")
+        and not state.get("await_save_visibility")
+        and not state.get("regen_mode")
+        and not state.get("regenerate")
+    ):
         state = run_graph(state)
     state = try_generate_recipe(state)
     disable_input = should_disable_textbox(state)
+    # 진행 중 상태 저장
+    _save_state(_user_key_from_request(request), state)
     return (
         state,
         messages_to_chatbot(state.get("messages", [])),
-        gr.update(choices=state.get("options") or [], value=None),
-        gr.update(value="", interactive=not disable_input),
+        gr.update(choices=state.get("options") or [], value=None, visible=should_show_options(state)),
+        gr.update(value="", interactive=not disable_input, visible=should_show_textbox(state)),
     )
 
 
@@ -709,10 +937,22 @@ def on_option_change(choice: str, state: Dict[str, Any], request: gr.Request | N
         return (
             state,
             messages_to_chatbot(state.get("messages", [])),
-            gr.update(choices=state.get("options") or [], value=None),
-            gr.update(value="", interactive=not should_disable_textbox(state)),
+            gr.update(choices=state.get("options") or [], value=None, visible=should_show_options(state)),
+            gr.update(value="", interactive=not should_disable_textbox(state), visible=should_show_textbox(state)),
         )
     return on_text_submit(choice, state, request)
+
+def on_clear(request: gr.Request | None = None):
+    # 대화 초기화 + 저장 상태 삭제
+    state = make_initial_state()
+    state = run_graph(state)
+    _delete_state(_user_key_from_request(request))
+    return (
+        state,
+        messages_to_chatbot(state.get("messages", [])),
+        gr.update(choices=state.get("options") or [], value=None, visible=should_show_options(state)),
+        gr.update(value="", interactive=not should_disable_textbox(state), visible=should_show_textbox(state)),
+    )
 
 
 with gr.Blocks(css=CUSTOM_CSS) as demo:
@@ -720,14 +960,16 @@ with gr.Blocks(css=CUSTOM_CSS) as demo:
     gr.Markdown("원하시는 조건에 맞게, 혹은 랜덤으로 레시피를 생성할 수 있습니다.")
 
     chatbot = gr.Chatbot()
-    textbox = gr.Textbox(label="메시지 입력")
     options = gr.Radio(choices=[], label="옵션 선택")
+    textbox = gr.Textbox(label="메시지 입력")
+    clear_btn = gr.Button("대화 초기화")
 
     state = gr.State(make_initial_state())
 
     demo.load(init_chat, None, [state, chatbot, options, textbox])
     textbox.submit(on_text_submit, [textbox, state], [state, chatbot, options, textbox])
     options.change(on_option_change, [options, state], [state, chatbot, options, textbox])
+    clear_btn.click(on_clear, None, [state, chatbot, options, textbox])
 
 demo.queue()
 

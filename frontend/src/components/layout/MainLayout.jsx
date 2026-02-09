@@ -89,7 +89,7 @@ const MainLayout = ({ children }) => {
             )}
 
             {showChatbot && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-6">
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-[color:var(--surface)]/80 px-6">
                     <div className="w-full max-w-5xl">
                         <GlassCard className="p-4 md:p-6">
                             <div className="flex items-center justify-between mb-3">
