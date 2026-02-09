@@ -328,6 +328,13 @@ def load_data_background():
 
                     # Numeric Cleanups
                     print("Performing numeric cleanup...", flush=True)
+                    
+                    # Explicit type conversion for critical columns to avoid object dtype issues
+                    numeric_targets = ['export_value', 'export_weight', 'unit_price', 'exchange_rate', 'gdp_level', 'cpi']
+                    for col in numeric_targets:
+                        if col in df.columns:
+                            df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0)
+
                     numeric_cols = df.select_dtypes(include=[np.number]).columns
                     df[numeric_cols] = df[numeric_cols].fillna(0)
                     

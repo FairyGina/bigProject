@@ -11,9 +11,9 @@ const MainLayout = ({ children }) => {
     const [showExpiryModal, setShowExpiryModal] = useState(false);
     const [showChatbot, setShowChatbot] = useState(false);
 
-    // Help chatbot URL definition - 챗봇 컨테이너의 /helper 경로 사용
+    // Help chatbot URL definition - 챗봇 컨테이너의 /helper/ 경로 사용 (Trailing slash 중요)
     const chatbotBaseUrl = import.meta.env.VITE_CHATBOT_URL || 'https://bp-chatbot-app.wittysand-a0f4e87e.centralindia.azurecontainerapps.io';
-    const helperChatUrl = `${chatbotBaseUrl}/helper`;
+    const helperChatUrl = `${chatbotBaseUrl}/helper/`;
 
     useEffect(() => {
         const deferredUntil = localStorage.getItem('passwordChangeDeferredUntil');

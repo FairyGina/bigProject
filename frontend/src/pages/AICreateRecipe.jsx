@@ -7,7 +7,7 @@ const AICreateRecipe = () => {
     const maskedName = rawName.length <= 1 ? '*' : `${rawName.slice(0, -1)}*`;
     // 환경변수로 챗봇 URL 설정, 기본값은 Azure Container Apps 주소
     const chatbotBaseUrl = import.meta.env.VITE_CHATBOT_URL || 'https://bp-chatbot-app.wittysand-a0f4e87e.centralindia.azurecontainerapps.io';
-    const iframeSrc = `${chatbotBaseUrl}/recipe`;
+    const iframeSrc = `${chatbotBaseUrl}/recipe/`;
 
     return (
         <div className="relative">

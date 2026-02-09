@@ -973,8 +973,14 @@ with gr.Blocks(css=CUSTOM_CSS) as demo:
 
 demo.queue()
 
+from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
+
 # FastAPI 앱 생성 및 Iframe 허용 설정
 app = FastAPI()
+
+# HTTPS 리다이렉트 문제 해결을 위한 Proxy Headers 미들웨어 추가
+# (Azure Container Apps 등 프록시 뒤에서 실행될 때 HTTPS->HTTP 리다이렉트 방지)
+app.add_middleware(ProxyHeadersMiddleware, trusted_hosts=["*"])
 
 # Iframe 허용을 위한 미들웨어 (X-Frame-Options 제거 및 CSP 설정)
 class IframeMiddleware(BaseHTTPMiddleware):
