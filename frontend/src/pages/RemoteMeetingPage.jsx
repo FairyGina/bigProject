@@ -44,10 +44,8 @@ const RemoteMeetingPage = () => {
             }
 
             const token = localStorage.getItem('accessToken');
-            // 클라우드 환경에서는 현재 도메인을 기반으로 WebSocket URL 동적 생성
-            const wsBaseUrl = import.meta.env.VITE_API_URL
-                ? import.meta.env.VITE_API_URL.replace(/\/api$/, '')
-                : (window.location.origin);
+            // 항상 현재 도메인 기반으로 WebSocket URL 생성 (Nginx 프록시를 통해 백엔드로 전달됨)
+            const wsBaseUrl = window.location.origin;
             const client = new Client({
                 webSocketFactory: () => new SockJS(`${wsBaseUrl}/ws`, null, { transports: ['websocket'] }),
                 reconnectDelay: 4000,
