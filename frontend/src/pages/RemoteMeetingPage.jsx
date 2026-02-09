@@ -44,7 +44,7 @@ const RemoteMeetingPage = () => {
             }
 
             const token = localStorage.getItem('accessToken');
-            // 항상 현재 도메인 기반으로 WebSocket URL 생성 (Nginx 프록시를 통해 백엔드로 전달됨)
+            // 보안을 위해 프론트엔드 도메인(Nginx 프록시)을 통해 백엔드로 전달됩니다.
             const wsBaseUrl = window.location.origin;
             const client = new Client({
                 webSocketFactory: () => new SockJS(`${wsBaseUrl}/ws`, null, { transports: ['websocket'] }),
