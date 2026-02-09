@@ -365,8 +365,8 @@ const UserCreateRecipe = () => {
             setLoadError('');
             try {
                 const [hubRes, mineRes] = await Promise.all([
-                    axiosInstance.get('/api/recipes'),
-                    axiosInstance.get('/api/recipes/me'),
+                    axiosInstance.get('/recipes'),
+                    axiosInstance.get('/recipes/me'),
                 ]);
                 if (!active) return;
                 setLoadRecipes({
@@ -402,7 +402,7 @@ const UserCreateRecipe = () => {
             }
             try {
                 setInitializing(true);
-                const res = await axiosInstance.get(`/api/recipes/${id}`);
+                const res = await axiosInstance.get(`/recipes/${id}`);
                 const data = res.data || {};
                 applyInitialState(data);
                 applyReportSelectionFromRecipe(data);
@@ -428,7 +428,7 @@ const UserCreateRecipe = () => {
             const fetchReviewRecipe = async () => {
                 try {
                     setInitializing(true);
-                    const res = await axiosInstance.get(`/api/recipes/${reviewRecipeId}`);
+                    const res = await axiosInstance.get(`/recipes/${reviewRecipeId}`);
                     const data = res.data || {};
                     setCreatedRecipe(data);
                     applyReportSelectionFromRecipe(data);
@@ -630,11 +630,11 @@ const UserCreateRecipe = () => {
         setAutoIngredientLoading(true);
         try {
             try {
-                await axiosInstance.get('/api/csrf');
+                await axiosInstance.get('/csrf');
             } catch (err) {
                 // CSRF 갱신 실패는 무시
             }
-            const res = await axiosInstance.post('/api/ingredients/extract', {
+            const res = await axiosInstance.post('/ingredients/extract', {
                 steps: stepInputs,
             });
             applyAutoIngredients(res.data?.ingredients || []);
@@ -829,7 +829,7 @@ const UserCreateRecipe = () => {
                 targetPersona,
                 priceRange,
             };
-            const influencerRes = await axiosInstance.post('/api/influencers/recommend', payload);
+            const influencerRes = await axiosInstance.post('/influencers/recommend', payload);
             const recs = influencerRes.data?.recommendations ?? [];
             if (!recs.length) {
                 setError(labels.influencerError);
@@ -850,7 +850,7 @@ const UserCreateRecipe = () => {
 
             const top = pickInfluencerForImage(recs);
             if (top?.name) {
-                const imageRes = await axiosInstance.post('/api/images/generate', {
+                const imageRes = await axiosInstance.post('/images/generate', {
                     recipe: recipe.title,
                     influencerName: top.name,
                     influencerImageUrl: top.imageUrl || '',
@@ -882,7 +882,7 @@ const UserCreateRecipe = () => {
             return;
         }
         try {
-            await axiosInstance.put(`/api/recipes/${recipeId}/influencers`, {
+            await axiosInstance.put(`/recipes/${recipeId}/influencers`, {
                 influencers: includeInfluencer ? assets?.influencers || [] : [],
                 influencerImageBase64: includeImage ? assets?.imageBase64 || '' : '',
             });
@@ -926,7 +926,7 @@ const UserCreateRecipe = () => {
         let success = false;
         try {
             try {
-                await axiosInstance.get('/api/csrf');
+                await axiosInstance.get('/csrf');
             } catch (err) {
                 // CSRF 갱신 실패는 무시
             }
@@ -936,8 +936,8 @@ const UserCreateRecipe = () => {
                 setCreatedInfluencerImage('');
             }
             const res = isUpdate
-                ? await axiosInstance.put(`/api/recipes/${recipeId}`, payload)
-                : await axiosInstance.post('/api/recipes', payload);
+                ? await axiosInstance.put(`/recipes/${recipeId}`, payload)
+                : await axiosInstance.post('/recipes', payload);
             const created = res.data;
             bumpProgress(isUpdate ? 60 : 55);
             initialSnapshotRef.current = buildSnapshot(created || payload);
@@ -1007,11 +1007,11 @@ const UserCreateRecipe = () => {
         setPublishLoading(true);
         try {
             try {
-                await axiosInstance.get('/api/csrf');
+                await axiosInstance.get('/csrf');
             } catch (err) {
                 // CSRF 갱신 실패는 무시
             }
-            await axiosInstance.put(`/api/recipes/${createdRecipe.id}/publish`, {
+            await axiosInstance.put(`/recipes/${createdRecipe.id}/publish`, {
                 influencers: includesReport ? createdInfluencers : [],
                 influencerImageBase64: includesReport ? createdInfluencerImage : '',
             });
@@ -1049,7 +1049,7 @@ const UserCreateRecipe = () => {
         setError('');
         setTargetRecommendLoading(true);
         try {
-            const res = await axiosInstance.post('/api/recipes/recommend-targets', {
+            const res = await axiosInstance.post('/recipes/recommend-targets', {
                 title,
                 description,
                 ingredients: ingredients.map((i) => i.trim()).filter(Boolean),

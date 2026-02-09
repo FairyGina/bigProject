@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
+import axiosInstance from '../axiosConfig';
 import Plot from 'react-plotly.js';
 import { Search, Globe, ChevronDown, TrendingUp, Activity, BarChart2, AlertCircle, LayoutDashboard } from 'lucide-react';
 
@@ -24,7 +24,7 @@ const ExportAnalysisPage = () => {
     useEffect(() => {
         const fetchItems = async () => {
             try {
-                const response = await axios.get('/api/analysis/items');
+                const response = await axiosInstance.get('/analysis/items');
                 if (response.data && response.data.items && response.data.items.length > 0) {
                     setAvailableItems(response.data.items);
                 }
@@ -48,7 +48,7 @@ const ExportAnalysisPage = () => {
         setLoading(true);
         setError(null);
         try {
-            const response = await axios.get('/api/analysis', {
+            const response = await axiosInstance.get('/analysis', {
                 params: { country: filters.country, item: filters.item }
             });
             setData(response.data);
@@ -64,7 +64,7 @@ const ExportAnalysisPage = () => {
     const fetchDashboard = async () => {
         setLoading(true);
         try {
-            const response = await axios.get('/api/analysis/dashboard');
+            const response = await axiosInstance.get('/analysis/dashboard');
             setDashboardData(response.data);
         } catch (err) {
             console.error("Dashboard Error:", err);

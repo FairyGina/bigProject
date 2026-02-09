@@ -12,7 +12,7 @@ function getCookie(name) {
 const axiosInstance = axios.create({
     // baseURL을 아예 제거하거나 '/'로 설정하여 브라우저가 현재 도메인을 쓰게 합니다.
     // 혹은 .env 파일 값을 그대로 쓰되, 호출할 때 /api를 중복하지 않도록 합니다.
-    baseURL: import.meta.env.VITE_API_URL,
+    baseURL: import.meta.env.VITE_API_URL || '/api',
     headers: {
         'Content-Type': 'application/json',
     },

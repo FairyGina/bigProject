@@ -250,7 +250,7 @@ const FinalEvaluationPage = () => {
                 return;
             }
             try {
-                const res = await axiosInstance.get(`/api/report/${result.reportId}`);
+                const res = await axiosInstance.get(`/report/${result.reportId}`);
                 setDetailResult(res.data || null);
             } catch (err) {
                 console.error('최종 보고서 상세를 불러오지 못했습니다.', err);
@@ -361,19 +361,19 @@ const FinalEvaluationPage = () => {
 
                 if (reportIds.length) {
                     const results = await Promise.allSettled(
-                        reportIds.map((id) => axiosInstance.get(`/api/report/${id}`))
+                        reportIds.map((id) => axiosInstance.get(`/report/${id}`))
                     );
                     const mapped = buildScoreData(results);
                     setScoreData(mapped);
                     if (!hasEvaluation(mapped) && recipeIds.length) {
                         const fallback = await Promise.allSettled(
-                            recipeIds.map((id) => axiosInstance.get(`/api/recipes/${id}`))
+                            recipeIds.map((id) => axiosInstance.get(`/recipes/${id}`))
                         );
                         setScoreData(buildScoreData(fallback));
                     }
                 } else if (recipeIds.length) {
                     const results = await Promise.allSettled(
-                        recipeIds.map((id) => axiosInstance.get(`/api/recipes/${id}`))
+                        recipeIds.map((id) => axiosInstance.get(`/recipes/${id}`))
                     );
                     setScoreData(buildScoreData(results));
                 }

@@ -19,8 +19,8 @@ const LandingPage = () => {
         }
         try {
             setDemoLoading(true);
-            await axiosInstance.get('/api/csrf');
-            const response = await axiosInstance.post('/api/auth/demo-login');
+            await axiosInstance.get('/csrf');
+            const response = await axiosInstance.post('/auth/demo-login');
             const data = response.data || {};
             if (data.accessToken) {
                 login(data.accessToken, { userName: data.userName });

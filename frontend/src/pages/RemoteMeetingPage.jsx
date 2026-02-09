@@ -18,7 +18,7 @@ const RemoteMeetingPage = () => {
         const fetchReports = async () => {
             try {
                 setLoading(true);
-                const res = await axiosInstance.get('/api/report/list');
+                const res = await axiosInstance.get('/report/list');
                 const all = res.data || [];
                 setReports(all.filter((item) => (item.reportType || 'AI') === 'FINAL_EVALUATION'));
             } catch (err) {
@@ -37,7 +37,7 @@ const RemoteMeetingPage = () => {
                 return;
             }
             try {
-                const history = await axiosInstance.get(`/api/chat/report/${activeReport.reportId}/messages`);
+                const history = await axiosInstance.get(`/chat/report/${activeReport.reportId}/messages`);
                 setMessages(history.data || []);
             } catch (err) {
                 console.error('채팅 내역을 불러오지 못했습니다.', err);
@@ -124,11 +124,10 @@ const RemoteMeetingPage = () => {
                                 key={report.reportId}
                                 type="button"
                                 onClick={() => selectReport(report)}
-                                className={`relative rounded-2xl border text-left overflow-hidden shadow-[0_10px_25px_var(--shadow)] transition ${
-                                    selected
+                                className={`relative rounded-2xl border text-left overflow-hidden shadow-[0_10px_25px_var(--shadow)] transition ${selected
                                         ? 'border-[color:var(--accent)] bg-[color:var(--surface-muted)] ring-2 ring-[color:var(--accent)]/40'
                                         : 'border-[color:var(--border)] bg-[color:var(--surface-muted)] hover:border-[color:var(--accent)]/60'
-                                }`}
+                                    }`}
                             >
                                 <div className="absolute top-3 right-3 z-10 text-[10px] px-2 py-1 rounded-full bg-[color:var(--surface)] text-[color:var(--text-soft)]">
                                     최종

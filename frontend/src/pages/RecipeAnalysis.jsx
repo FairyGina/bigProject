@@ -74,7 +74,7 @@ const RecipeAnalysis = () => {
             return;
         }
         try {
-            await axiosInstance.put(`/api/reports/${reportId}/influencers`, {
+            await axiosInstance.put(`/reports/${reportId}/influencers`, {
                 influencers: recs || [],
                 influencerImageBase64: image || '',
             });
@@ -88,7 +88,7 @@ const RecipeAnalysis = () => {
             try {
                 setLoading(true);
                 if (reportId) {
-                    const res = await axiosInstance.get(`/api/reports/${reportId}`);
+                    const res = await axiosInstance.get(`/reports/${reportId}`);
                     const data = res.data || {};
                     setRecipe({
                         id: data.recipeId,
@@ -108,7 +108,7 @@ const RecipeAnalysis = () => {
                     });
                     return;
                 }
-                const res = await axiosInstance.get(`/api/recipes/${id}`);
+                const res = await axiosInstance.get(`/recipes/${id}`);
                 setRecipe(res.data);
             } catch (err) {
                 console.error('레시피를 불러오지 못했습니다.', err);
@@ -285,7 +285,7 @@ const RecipeAnalysis = () => {
                             existingRecs.find((item) => item?.name && item?.imageUrl) ||
                             existingRecs.find((item) => item?.name);
                         if (topExisting?.name) {
-                            const imageRes = await axiosInstance.post('/api/images/generate', {
+                            const imageRes = await axiosInstance.post('/images/generate', {
                                 recipe: recipe.title,
                                 influencerName: topExisting.name,
                                 influencerImageUrl: topExisting.imageUrl || '',
@@ -373,7 +373,7 @@ const RecipeAnalysis = () => {
                     targetPersona: targetMeta.targetPersona || '20~30대 직장인, 간편식 선호',
                     priceRange: targetMeta.priceRange || 'USD 6~9',
                 };
-                const influencerRes = await axiosInstance.post('/api/influencers/recommend', payload);
+                const influencerRes = await axiosInstance.post('/influencers/recommend', payload);
                 const recs = influencerRes.data?.recommendations ?? [];
                 const trimmedRecs = recs.slice(0, 3);
                 let generatedImage = '';
@@ -402,7 +402,7 @@ const RecipeAnalysis = () => {
                     trimmedRecs.find((item) => item?.name && item?.imageUrl) ||
                     trimmedRecs.find((item) => item?.name);
                 if (allowInfluencerImage && top?.name) {
-                    const imageRes = await axiosInstance.post('/api/images/generate', {
+                    const imageRes = await axiosInstance.post('/images/generate', {
                         recipe: recipe.title,
                         influencerName: top.name,
                         influencerImageUrl: top.imageUrl || '',
@@ -657,17 +657,17 @@ const RecipeAnalysis = () => {
                 const countries = Object.keys(countryCoords)
                     .filter((c) => /[가-힣]/.test(c))
                     .slice(0, 10);
-                const ageRes = await axiosInstance.post('/api/persona/age-group', {
+                const ageRes = await axiosInstance.post('/persona/age-group', {
                     recipe: `${recipe.title || ''} ${recipe.description || ''}`.trim(),
                     countries,
                 });
                 const targets = ageRes.data || [];
-                const personaRes = await axiosInstance.post('/api/persona/batch', {
+                const personaRes = await axiosInstance.post('/persona/batch', {
                     recipeSummary: recipe.summary || JSON.stringify(report || {}),
                     targets,
                 });
                 const personas = personaRes.data || [];
-                const evalRes = await axiosInstance.post('/api/evaluation', {
+                const evalRes = await axiosInstance.post('/evaluation', {
                     personas,
                     report: JSON.stringify(report || {}),
                 });
@@ -696,7 +696,7 @@ const RecipeAnalysis = () => {
         }
         setPublishLoading(true);
         try {
-            const res = await axiosInstance.put(`/api/recipes/${recipe.id}/publish`, {
+            const res = await axiosInstance.put(`/recipes/${recipe.id}/publish`, {
                 influencers,
                 influencerImageBase64: imageBase64,
             });

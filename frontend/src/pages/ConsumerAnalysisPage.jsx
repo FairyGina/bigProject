@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
+import axiosInstance from '../axiosConfig';
 import Plot from 'react-plotly.js';
 import { Search, BarChart2, MessageSquare, AlertCircle, RefreshCw, ThumbsUp, Target } from 'lucide-react';
 
@@ -23,7 +23,7 @@ const ConsumerAnalysisPage = () => {
         setError(null);
         try {
             // Using item_name query param for keyword search
-            const response = await axios.get('/api/analysis/consumer', {
+            const response = await axiosInstance.get('/analysis/consumer', {
                 params: { item_name: searchTerm }
             });
 

@@ -17,7 +17,7 @@ const FinalSelectionPage = () => {
         const fetchReports = async () => {
             try {
                 setLoading(true);
-                const res = await axiosInstance.get('/api/report/list');
+                const res = await axiosInstance.get('/report/list');
                 setReports(res.data || []);
             } catch (err) {
                 console.error('보고서 목록을 불러오지 못했습니다.', err);
@@ -74,7 +74,7 @@ const FinalSelectionPage = () => {
         }, 450);
         try {
             const reportIds = Array.from(selectedIds);
-            const res = await axiosInstance.post('/api/report/final-evaluation', { reportIds });
+            const res = await axiosInstance.post('/report/final-evaluation', { reportIds });
             setProgress(100);
             clearInterval(timer);
             navigate('/mainboard/final-selection/result', {
@@ -99,7 +99,7 @@ const FinalSelectionPage = () => {
             return;
         }
         try {
-            const res = await axiosInstance.get(`/api/report/${report.reportId}`);
+            const res = await axiosInstance.get(`/report/${report.reportId}`);
             navigate('/mainboard/final-selection/result', {
                 state: {
                     result: res.data,
