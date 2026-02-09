@@ -9,6 +9,7 @@ const labels = {
     guest: '게스트',
     loadError: '레시피 정보를 불러오지 못했습니다.',
     imageTypeError: '이미지 파일은 JPG, PNG, WEBP 형식만 업로드할 수 있습니다.',
+    imageSizeError: '사진의 용량이 5MB를 초과합니다.',
     imageReadError: '이미지 미리보기를 불러오지 못했습니다.',
     imageProcessing: '이미지를 처리하는 중입니다. 잠시만 기다려주세요.',
     titleRequired: '레시피 제목을 입력해주세요.',
@@ -655,6 +656,11 @@ const UserCreateRecipe = () => {
         const allowedTypes = ['image/jpeg', 'image/png', 'image/webp'];
         if (!allowedTypes.includes(file.type)) {
             setError(labels.imageTypeError);
+            event.target.value = '';
+            return;
+        }
+        if (file.size > 5 * 1024 * 1024) {
+            setError(labels.imageSizeError);
             event.target.value = '';
             return;
         }

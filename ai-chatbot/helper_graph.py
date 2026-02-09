@@ -155,14 +155,19 @@ def answer_with_llm(question: str, context: str) -> str:
 - 마지막 줄에 (KB: 섹션명) 형태로 근거 섹션 제목을 1~2개 표기
 """.strip()
 
-    resp = client.responses.create(
-        model=model,
-        input=[
-            {"role": "system", "content": system},
-            {"role": "user", "content": user},
-        ],
-    )
-    return resp.output_text.strip()
+    try:
+        # 표준 OpenAI Chat Completion API 호출
+        resp = client.chat.completions.create(
+            model=model,
+            messages=[
+                {"role": "system", "content": system},
+                {"role": "user", "content": user},
+            ],
+        )
+        return resp.choices[0].message.content.strip()
+    except Exception as e:
+        print(f"[HelperBot Error] OpenAI API Call Failed: {e}")
+        return "죄송합니다. 답변을 생성하는 도중 오류가 발생했습니다."
 
 
 def intro_node(state: Dict[str, Any]) -> Dict[str, Any]:

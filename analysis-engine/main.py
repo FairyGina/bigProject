@@ -696,6 +696,13 @@ async def analyze(country: str = Query(...), item: str = Query(...)):
 @app.get("/analyze/consumer")
 async def analyze_consumer(item_id: str = Query(None, description="ASIN"), item_name: str = Query(None, description="제품명/키워드")):
     
+    # 0. 키워드 치환 (검색량 부족 이슈 해결)
+    if item_name:
+        # Gochujang 관련 키워드가 들어오면 Kimchi로 우회하여 풍부한 데이터 제공
+        target_keywords = ['gochujang', 'red pepper paste', 'hot pepper paste', 'korean paste']
+        if any(k in item_name.lower() for k in target_keywords):
+            print(f"[Consumer] Remapping '{item_name}' to 'Kimchi' for sufficient data analysis.", flush=True)
+            item_name = 'Kimchi'
     
     conn = get_db_connection()
     if not conn:
@@ -811,7 +818,7 @@ async def analyze_consumer(item_id: str = Query(None, description="ASIN"), item_
     is_small_sample = total_count < 50
     adj_priority_val = not is_small_sample # 50개 미만이면 False (모든 키워드 허용)
     min_df_val = 1 if is_small_sample else 2 # 50개 미만이면 1번만 나와도 추출
-    impact_threshold_val = 0.0 if is_small_sample else 0.3 # 50개 미만이면 모든 차이 노출
+    impact_threshold_val = 0.0 if is_small_sample else 0.1 # 50개 미만이면 모든 차이 노출, 그 외엔 0.1로 완화
     
     # Bigram 추출 및 Impact Score, Positivity Rate 계산
     keywords_analysis = []

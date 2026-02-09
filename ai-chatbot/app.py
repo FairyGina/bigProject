@@ -402,14 +402,18 @@ def run_graph(state: Dict[str, Any]) -> Dict[str, Any]:
 
 def call_llm(prompt: str) -> str:
     # 기본 시스템 프롬프트로 LLM 호출
-    response = client.responses.create(
-        model=MODEL_NAME,
-        input=[
-            {"role": "system", "content": SYSTEM_PROMPT},
-            {"role": "user", "content": prompt},
-        ],
-    )
-    return response.output_text
+    try:
+        response = client.chat.completions.create(
+            model=MODEL_NAME,
+            messages=[
+                {"role": "system", "content": SYSTEM_PROMPT},
+                {"role": "user", "content": prompt},
+            ],
+        )
+        return response.choices[0].message.content
+    except Exception as e:
+        print(f"[RecipeBot Error] call_llm failed: {e}")
+        return "{}"
 
 
 def build_revision_prompt(recipe_json: str, revision_request: str) -> str:
@@ -471,14 +475,18 @@ def render_recipe_text(payload: Dict[str, Any]) -> str:
 
 def call_llm_with_system(system_prompt: str, prompt: str) -> str:
     # 시스템 프롬프트를 외부에서 지정해 LLM 호출
-    response = client.responses.create(
-        model=MODEL_NAME,
-        input=[
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": prompt},
-        ],
-    )
-    return response.output_text
+    try:
+        response = client.chat.completions.create(
+            model=MODEL_NAME,
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": prompt},
+            ],
+        )
+        return response.choices[0].message.content
+    except Exception as e:
+        print(f"[RecipeBot Error] call_llm_with_system failed: {e}")
+        return "[]"
 
 
 def _normalize_list(value: Any) -> List[str]:
@@ -703,14 +711,18 @@ def summarize_trends(prompt_template: str, search_results: List[Dict[str, Any]])
     payload = json.dumps(search_results, ensure_ascii=False, indent=2)
     prompt = prompt_template.replace("{search_results}", payload)
     print("[trend] summarize_trends input size:", len(payload))
-    response = client.responses.create(
-        model=MODEL_NAME,
-        input=[
-            {"role": "system", "content": "당신은 검색 결과를 요약하는 분석가입니다."},
-            {"role": "user", "content": prompt},
-        ],
-    )
-    return response.output_text
+    try:
+        response = client.chat.completions.create(
+            model=MODEL_NAME,
+            messages=[
+                {"role": "system", "content": "당신은 검색 결과를 요약하는 분석가입니다."},
+                {"role": "user", "content": prompt},
+            ],
+        )
+        return response.choices[0].message.content
+    except Exception as e:
+        print(f"[RecipeBot Error] summarize_trends failed: {e}")
+        return ""
 
 
 def log_trend(country: str, queries: List[str], results: List[Dict[str, Any]], summary: str) -> None:
