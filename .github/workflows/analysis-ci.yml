@@ -6,10 +6,6 @@ on:
     paths:
       - 'analysis-engine/**'
       - '.github/workflows/analysis-ci.yml'
-  pull_request:
-    branches: [ "main", "cloud" ]
-    paths:
-      - 'analysis-engine/**'
 
 jobs:
   build:

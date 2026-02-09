@@ -56,9 +56,13 @@ services:
       NAVER_CLIENT_SECRET: ${NAVER_CLIENT_SECRET}
       KAKAO_CLIENT_ID: ${KAKAO_CLIENT_ID}
       KAKAO_CLIENT_SECRET: ${KAKAO_CLIENT_SECRET}
+      COOKIE_SAME_SITE: ${COOKIE_SAME_SITE:-lax}
+      COOKIE_SECURE: ${COOKIE_SECURE:-false}
+      OAUTH2_REDIRECT_URI: ${OAUTH2_REDIRECT_URI:-http://localhost:80/oauth/callback}
+      NAVER_REDIRECT_URI: ${NAVER_REDIRECT_URI:-http://localhost:8080/login/oauth2/code/naver}
+      KAKAO_REDIRECT_URI: ${KAKAO_REDIRECT_URI:-http://localhost:8080/login/oauth2/code/kakao}
       ANALYSIS_ENGINE_URL: http://analysis-engine:8000
       CHATBOT_URL: http://ai-chatbot:7860
-      OAUTH2_REDIRECT_URI: http://localhost:80/oauth/callback
     ports:
       - "${BACKEND_PORT:-8080}:8080"
     networks:
@@ -117,6 +121,7 @@ services:
       - POSTGRES_PASSWORD=${DB_PASSWORD:-postgres}
       - DB_HOST=db
       - DB_PORT=5432
+      - DB_SSLMODE=${DB_SSLMODE:-prefer}
     ports:
       - "8000:8000"
     networks:
