@@ -74,11 +74,7 @@ const RecipeAnalysis = () => {
             return;
         }
         try {
-<<<<<<< HEAD
-            await axiosInstance.put(`/reports/${reportId}/influencers`, {
-=======
             await axiosInstance.put(`/api/reports/${reportId}/influencers`, {
->>>>>>> upstream/UI5
                 influencers: recs || [],
                 influencerImageBase64: image || '',
             });
@@ -92,11 +88,7 @@ const RecipeAnalysis = () => {
             try {
                 setLoading(true);
                 if (reportId) {
-<<<<<<< HEAD
-                    const res = await axiosInstance.get(`/reports/${reportId}`);
-=======
                     const res = await axiosInstance.get(`/api/reports/${reportId}`);
->>>>>>> upstream/UI5
                     const data = res.data || {};
                     setRecipe({
                         id: data.recipeId,
@@ -116,11 +108,7 @@ const RecipeAnalysis = () => {
                     });
                     return;
                 }
-<<<<<<< HEAD
-                const res = await axiosInstance.get(`/recipes/${id}`);
-=======
                 const res = await axiosInstance.get(`/api/recipes/${id}`);
->>>>>>> upstream/UI5
                 setRecipe(res.data);
             } catch (err) {
                 console.error('레시피를 불러오지 못했습니다.', err);
@@ -297,11 +285,7 @@ const RecipeAnalysis = () => {
                             existingRecs.find((item) => item?.name && item?.imageUrl) ||
                             existingRecs.find((item) => item?.name);
                         if (topExisting?.name) {
-<<<<<<< HEAD
-                            const imageRes = await axiosInstance.post('/images/generate', {
-=======
                             const imageRes = await axiosInstance.post('/api/images/generate', {
->>>>>>> upstream/UI5
                                 recipe: recipe.title,
                                 influencerName: topExisting.name,
                                 influencerImageUrl: topExisting.imageUrl || '',
@@ -389,11 +373,7 @@ const RecipeAnalysis = () => {
                     targetPersona: targetMeta.targetPersona || '20~30대 직장인, 간편식 선호',
                     priceRange: targetMeta.priceRange || 'USD 6~9',
                 };
-<<<<<<< HEAD
-                const influencerRes = await axiosInstance.post('/influencers/recommend', payload);
-=======
                 const influencerRes = await axiosInstance.post('/api/influencers/recommend', payload);
->>>>>>> upstream/UI5
                 const recs = influencerRes.data?.recommendations ?? [];
                 const trimmedRecs = recs.slice(0, 3);
                 let generatedImage = '';
@@ -422,11 +402,7 @@ const RecipeAnalysis = () => {
                     trimmedRecs.find((item) => item?.name && item?.imageUrl) ||
                     trimmedRecs.find((item) => item?.name);
                 if (allowInfluencerImage && top?.name) {
-<<<<<<< HEAD
-                    const imageRes = await axiosInstance.post('/images/generate', {
-=======
                     const imageRes = await axiosInstance.post('/api/images/generate', {
->>>>>>> upstream/UI5
                         recipe: recipe.title,
                         influencerName: top.name,
                         influencerImageUrl: top.imageUrl || '',
@@ -657,10 +633,7 @@ const RecipeAnalysis = () => {
             mapMarkersRef.current.push(marker);
         });
     };
-<<<<<<< HEAD
 
-=======
->>>>>>> upstream/UI5
     useEffect(() => {
         if (!mapReady || evaluationResults.length === 0) {
             return;
@@ -684,29 +657,17 @@ const RecipeAnalysis = () => {
                 const countries = Object.keys(countryCoords)
                     .filter((c) => /[가-힣]/.test(c))
                     .slice(0, 10);
-<<<<<<< HEAD
-                const ageRes = await axiosInstance.post('/persona/age-group', {
-=======
                 const ageRes = await axiosInstance.post('/api/persona/age-group', {
->>>>>>> upstream/UI5
                     recipe: `${recipe.title || ''} ${recipe.description || ''}`.trim(),
                     countries,
                 });
                 const targets = ageRes.data || [];
-<<<<<<< HEAD
-                const personaRes = await axiosInstance.post('/persona/batch', {
-=======
                 const personaRes = await axiosInstance.post('/api/persona/batch', {
->>>>>>> upstream/UI5
                     recipeSummary: recipe.summary || JSON.stringify(report || {}),
                     targets,
                 });
                 const personas = personaRes.data || [];
-<<<<<<< HEAD
-                const evalRes = await axiosInstance.post('/evaluation', {
-=======
                 const evalRes = await axiosInstance.post('/api/evaluation', {
->>>>>>> upstream/UI5
                     personas,
                     report: JSON.stringify(report || {}),
                 });
@@ -735,11 +696,7 @@ const RecipeAnalysis = () => {
         }
         setPublishLoading(true);
         try {
-<<<<<<< HEAD
-            const res = await axiosInstance.put(`/recipes/${recipe.id}/publish`, {
-=======
             const res = await axiosInstance.put(`/api/recipes/${recipe.id}/publish`, {
->>>>>>> upstream/UI5
                 influencers,
                 influencerImageBase64: imageBase64,
             });
@@ -794,11 +751,7 @@ const RecipeAnalysis = () => {
             .replace(/"/g, '&quot;')
             .replace(/'/g, '&#39;');
 
-<<<<<<< HEAD
     const listHtml = (items) => {
-=======
-        const listHtml = (items) => {
->>>>>>> upstream/UI5
         if (!items || items.length === 0) {
             return '<p class="muted">내용이 없습니다.</p>';
         }
@@ -826,25 +779,15 @@ const RecipeAnalysis = () => {
       </thead>
       <tbody>
         ${marketMapRows
-<<<<<<< HEAD
                 .map(
                     (row) => `
-=======
-                    .map(
-                        (row) => `
->>>>>>> upstream/UI5
         <tr>
           <td>${escapeHtml(row?.country || '-')}</td>
           <td>${escapeHtml(row?.totalScore ?? '-')}</td>
         </tr>
       `
-<<<<<<< HEAD
                 )
                 .join('')}
-=======
-                    )
-                    .join('')}
->>>>>>> upstream/UI5
       </tbody>
     </table>
   </div>
@@ -1012,20 +955,11 @@ const RecipeAnalysis = () => {
                 ? `
   <div class="section">
     <h2>인플루언서 추천</h2>
-<<<<<<< HEAD
     ${influencers.length
                     ? influencers
                         .slice(0, 5)
                         .map(
                             (inf) => `
-=======
-    ${
-                    influencers.length
-                        ? influencers
-                            .slice(0, 5)
-                            .map(
-                                (inf) => `
->>>>>>> upstream/UI5
         <div>
           <p><strong>${escapeHtml(inf.name || '')}</strong> (${escapeHtml(inf.platform || '-')})</p>
           <p class="muted">${escapeHtml(inf.profileUrl || '')}</p>
@@ -1033,15 +967,9 @@ const RecipeAnalysis = () => {
           ${inf.riskNotes ? `<p class="muted">주의: ${escapeHtml(inf.riskNotes)}</p>` : ''}
         </div>
       `
-<<<<<<< HEAD
                         )
                         .join('')
                     : '<p class="muted">추천 결과가 없습니다.</p>'
-=======
-                            )
-                            .join('')
-                        : '<p class="muted">추천 결과가 없습니다.</p>'
->>>>>>> upstream/UI5
                 }
   </div>
 `
@@ -1050,16 +978,9 @@ const RecipeAnalysis = () => {
                 ? `
   <div class="section">
     <h2>인플루언서 이미지</h2>
-<<<<<<< HEAD
     ${imageBase64
                     ? `<img src="data:image/png;base64,${imageBase64}" alt="influencer" style="max-width:100%; border-radius:12px;"/>`
                     : '<p class="muted">이미지 생성 결과가 없습니다.</p>'
-=======
-    ${
-                    imageBase64
-                        ? `<img src="data:image/png;base64,${imageBase64}" alt="influencer" style="max-width:100%; border-radius:12px;"/>`
-                        : '<p class="muted">이미지 생성 결과가 없습니다.</p>'
->>>>>>> upstream/UI5
                 }
   </div>
 `
@@ -1187,11 +1108,7 @@ const RecipeAnalysis = () => {
             <ul className="space-y-2 text-sm text-[color:var(--text)]">
                 {items.map((item, idx) => (
                     <li key={`${idx}-${item}`} className="flex gap-2">
-<<<<<<< HEAD
-                        <span className="text-[color:var(--accent)]">?</span>
-=======
                         <span className="text-[color:var(--accent)]">•</span>
->>>>>>> upstream/UI5
                         <span>{item}</span>
                     </li>
                 ))}
@@ -1296,17 +1213,6 @@ const RecipeAnalysis = () => {
                                     </h3>
                                 </div>
                                 <div className="mt-4 space-y-3 text-sm text-[color:var(--text)]">
-<<<<<<< HEAD
-                                    <p><strong>결론:</strong> {exec.decision || '-'}</p>
-                                    <p><strong>시장 적합도:</strong> {exec.marketFitScore || '-'}점</p>
-                                    <p><strong>성공 가능성:</strong> {exec.successProbability || '-'}</p>
-                                    <p><strong>추천 전략:</strong> {exec.recommendation || '-'}</p>
-                                    <div>
-                                        <p className="font-semibold text-[color:var(--text)] mb-2">핵심 강점</p>
-                                        {renderList(exec.keyPros)}
-                                    </div>
-                                    <div>
-=======
                                     <div className="rounded-xl border border-[color:var(--border)] bg-[color:var(--surface-muted)] p-3 space-y-2">
                                         <p><strong>결론:</strong> {exec.decision || '-'}</p>
                                         <p><strong>시장 적합도:</strong> {exec.marketFitScore || '-'}점</p>
@@ -1318,7 +1224,6 @@ const RecipeAnalysis = () => {
                                         {renderList(exec.keyPros)}
                                     </div>
                                     <div className="rounded-xl border border-[color:var(--border)] bg-[color:var(--surface-muted)] p-3">
->>>>>>> upstream/UI5
                                         <p className="font-semibold text-[color:var(--text)] mb-2">주요 리스크</p>
                                         {renderList(exec.topRisks)}
                                     </div>
@@ -1335,31 +1240,19 @@ const RecipeAnalysis = () => {
                                     />
                                 </h3>
                                 <div className="space-y-4 text-sm text-[color:var(--text)]">
-<<<<<<< HEAD
-                                    <div>
-=======
                                     <div className="rounded-xl border border-[color:var(--border)] bg-[color:var(--surface-muted)] p-3">
->>>>>>> upstream/UI5
                                         <p className="font-semibold text-[color:var(--text)]">타깃 페르소나 니즈</p>
                                         <p className="text-[color:var(--text-muted)]">{personaNeeds.needs || '-'}</p>
                                         <p className="mt-2">구매 요인: {personaNeeds.purchaseDrivers || '-'}</p>
                                         <p>장벽: {personaNeeds.barriers || '-'}</p>
                                     </div>
-<<<<<<< HEAD
-                                    <div>
-=======
                                     <div className="rounded-xl border border-[color:var(--border)] bg-[color:var(--surface-muted)] p-3">
->>>>>>> upstream/UI5
                                         <p className="font-semibold text-[color:var(--text)]">트렌드 시그널</p>
                                         {renderList(trendSignals.trendNotes)}
                                         <p className="mt-2">가격대: {trendSignals.priceRangeNotes || '-'}</p>
                                         <p>채널: {trendSignals.channelSignals || '-'}</p>
                                     </div>
-<<<<<<< HEAD
-                                    <div>
-=======
                                     <div className="rounded-xl border border-[color:var(--border)] bg-[color:var(--surface-muted)] p-3">
->>>>>>> upstream/UI5
                                         <p className="font-semibold text-[color:var(--text)]">경쟁 구도</p>
                                         <p className="text-[color:var(--text-muted)]">{competition.localCompetitors || '-'}</p>
                                         <p className="mt-2">차별화: {competition.differentiation || '-'}</p>
@@ -1378,12 +1271,6 @@ const RecipeAnalysis = () => {
                                                 help="제품 출시 및 시장 적용 과정에서 예상되는 주요 리스크와, 이를 완화하기 위한 대응 전략을 정리한 항목입니다."
                                             />
                                         </h3>
-<<<<<<< HEAD
-                                        <p className="text-sm font-semibold text-[color:var(--text)] mb-2">리스크</p>
-                                        {renderList(risk.riskList)}
-                                        <p className="mt-4 text-sm font-semibold text-[color:var(--text)] mb-2">완화 전략</p>
-                                        {renderList(risk.mitigations)}
-=======
                                         <div className="rounded-xl border border-[color:var(--border)] bg-[color:var(--surface-muted)] p-3">
                                             <p className="text-sm font-semibold text-[color:var(--text)] mb-2">리스크</p>
                                             {renderList(risk.riskList)}
@@ -1392,7 +1279,6 @@ const RecipeAnalysis = () => {
                                             <p className="text-sm font-semibold text-[color:var(--text)] mb-2">완화 전략</p>
                                             {renderList(risk.mitigations)}
                                         </div>
->>>>>>> upstream/UI5
                                     </div>
                                 )}
                                 {showSwot && (
@@ -1403,16 +1289,6 @@ const RecipeAnalysis = () => {
                                                 help="제품을 분석해서 강점 Strength, 약점 Weakenesses, 기회 Opportunities, 위협 Threats을 보여주는 단어입니다."
                                             />
                                         </h3>
-<<<<<<< HEAD
-                                        <p className="text-sm font-semibold text-[color:var(--text)] mb-2">Strengths</p>
-                                        {renderList(swot.strengths)}
-                                        <p className="mt-3 text-sm font-semibold text-[color:var(--text)] mb-2">Weaknesses</p>
-                                        {renderList(swot.weaknesses)}
-                                        <p className="mt-3 text-sm font-semibold text-[color:var(--text)] mb-2">Opportunities</p>
-                                        {renderList(swot.opportunities)}
-                                        <p className="mt-3 text-sm font-semibold text-[color:var(--text)] mb-2">Threats</p>
-                                        {renderList(swot.threats)}
-=======
                                         <div className="rounded-xl border border-[color:var(--border)] bg-[color:var(--surface-muted)] p-3">
                                             <p className="text-sm font-semibold text-[color:var(--text)] mb-2">Strengths</p>
                                             {renderList(swot.strengths)}
@@ -1429,7 +1305,6 @@ const RecipeAnalysis = () => {
                                             <p className="text-sm font-semibold text-[color:var(--text)] mb-2">Threats</p>
                                             {renderList(swot.threats)}
                                         </div>
->>>>>>> upstream/UI5
                                     </div>
                                 )}
                             </div>
@@ -1486,13 +1361,9 @@ const RecipeAnalysis = () => {
                                         help="제품 기획/개발을 추진할 때 추천하는 다음 단계입니다."
                                     />
                                 </h3>
-<<<<<<< HEAD
-                                {renderList(nextSteps)}
-=======
                                 <div className="rounded-xl border border-[color:var(--border)] bg-[color:var(--surface-muted)] p-3">
                                     {renderList(nextSteps)}
                                 </div>
->>>>>>> upstream/UI5
                             </div>
                         )}
                     </div>
@@ -1550,17 +1421,11 @@ const RecipeAnalysis = () => {
                                     help="해당 레시피 대로 제품을 생산 시, 목표 국가에 대해 표기해야 하는 알레르기 정보입니다."
                                 />
 
-<<<<<<< HEAD
-                                <p className="text-sm font-medium text-[color:var(--text)] whitespace-pre-line">
-                                    {allergenNoteText}
-                                </p>
-=======
                                 <div className="rounded-xl border border-[color:var(--border)] bg-[color:var(--surface-muted)] p-3">
                                     <p className="text-sm font-medium text-[color:var(--text)] whitespace-pre-line">
                                         {allergenNoteText}
                                     </p>
                                 </div>
->>>>>>> upstream/UI5
                             </div>
                         )}
 
@@ -1575,11 +1440,7 @@ const RecipeAnalysis = () => {
                                 </h3>
 
                                 {/* 완제품 */}
-<<<<<<< HEAD
-                                <div className="mb-5">
-=======
                                 <div className="mb-5 rounded-xl border border-[color:var(--border)] bg-[color:var(--surface-muted)] p-3">
->>>>>>> upstream/UI5
                                     <p className="font-semibold">제품명: {recipe.title}</p>
 
                                     {productCases.length === 0 ? (
@@ -1604,11 +1465,7 @@ const RecipeAnalysis = () => {
                                     </p>
                                 ) : (
                                     ingredientCases.map((ing, idx) => (
-<<<<<<< HEAD
-                                        <div key={idx} className="mb-4">
-=======
                                         <div key={idx} className="mb-4 rounded-xl border border-[color:var(--border)] bg-[color:var(--surface-muted)] p-3">
->>>>>>> upstream/UI5
                                             <p className="font-medium">[재료: {ing.ingredient}]</p>
 
                                             {ing.cases.length === 0 ? (
@@ -1638,17 +1495,11 @@ const RecipeAnalysis = () => {
                                     help="현재까지 보고된 내용을 종합해, 최종 보고서를 요약한 정보입니다."
                                 />
 
-<<<<<<< HEAD
-                                <p className="mt-4 text-sm font-medium text-[color:var(--text)] whitespace-pre-line">
-                                    {recipe.summary}
-                                </p>
-=======
                                 <div className="rounded-xl border border-[color:var(--border)] bg-[color:var(--surface-muted)] p-3 mt-4">
                                     <p className="text-sm font-medium text-[color:var(--text)] whitespace-pre-line">
                                         {recipe.summary}
                                     </p>
                                 </div>
->>>>>>> upstream/UI5
                             </div>
                         )}
 
@@ -1680,11 +1531,7 @@ const RecipeAnalysis = () => {
                                 }
                             >
                                 {(allowInfluencer && influencers.length === 0) ||
-<<<<<<< HEAD
                                     (allowInfluencerImage && !imageBase64)
-=======
-                                (allowInfluencerImage && !imageBase64)
->>>>>>> upstream/UI5
                                     ? allowInfluencerImage
                                         ? '이미지 생성 중...'
                                         : '인플루언서 준비 중...'

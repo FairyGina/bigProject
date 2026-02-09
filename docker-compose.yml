@@ -134,7 +134,7 @@ services:
     environment:
       - OPENAI_API_KEY=${OPENAI_API_KEY}
       - SERPAPI_API_KEY=${SERPAPI_API_KEY}
-      - GRADIO_ROOT_PATH=/ai/recipe
+
     networks:
       - bigproject-network
 

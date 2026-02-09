@@ -1,9 +1,4 @@
-<<<<<<< HEAD
 import React, { useEffect, useRef, useState } from 'react';
-
-=======
-﻿import React, { useEffect, useRef, useState } from 'react';
->>>>>>> upstream/UI5
 import { useLocation, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import GlassCard from '../components/common/GlassCard';

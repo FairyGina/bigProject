@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+﻿import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Plus, Trash2 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
@@ -300,10 +300,8 @@ const UserCreateRecipe = () => {
     };
 
     const targetMetaKey = (recipeId) => `recipeTargetMeta:${recipeId}`;
-<<<<<<< HEAD
 
-=======
->>>>>>> upstream/UI5
+
     const readTargetMeta = (recipeId) => {
         const cached =
             sessionStorage.getItem(targetMetaKey(recipeId)) ||
@@ -367,13 +365,8 @@ const UserCreateRecipe = () => {
             setLoadError('');
             try {
                 const [hubRes, mineRes] = await Promise.all([
-<<<<<<< HEAD
-                    axiosInstance.get('/recipes'),
-                    axiosInstance.get('/recipes/me'),
-=======
                     axiosInstance.get('/api/recipes'),
                     axiosInstance.get('/api/recipes/me'),
->>>>>>> upstream/UI5
                 ]);
                 if (!active) return;
                 setLoadRecipes({
@@ -409,11 +402,7 @@ const UserCreateRecipe = () => {
             }
             try {
                 setInitializing(true);
-<<<<<<< HEAD
-                const res = await axiosInstance.get(`/recipes/${id}`);
-=======
                 const res = await axiosInstance.get(`/api/recipes/${id}`);
->>>>>>> upstream/UI5
                 const data = res.data || {};
                 applyInitialState(data);
                 applyReportSelectionFromRecipe(data);
@@ -439,11 +428,7 @@ const UserCreateRecipe = () => {
             const fetchReviewRecipe = async () => {
                 try {
                     setInitializing(true);
-<<<<<<< HEAD
-                    const res = await axiosInstance.get(`/recipes/${reviewRecipeId}`);
-=======
                     const res = await axiosInstance.get(`/api/recipes/${reviewRecipeId}`);
->>>>>>> upstream/UI5
                     const data = res.data || {};
                     setCreatedRecipe(data);
                     applyReportSelectionFromRecipe(data);
@@ -645,19 +630,11 @@ const UserCreateRecipe = () => {
         setAutoIngredientLoading(true);
         try {
             try {
-<<<<<<< HEAD
-                await axiosInstance.get('/csrf');
-            } catch (err) {
-                // CSRF 갱신 실패는 무시
-            }
-            const res = await axiosInstance.post('/ingredients/extract', {
-=======
                 await axiosInstance.get('/api/csrf');
             } catch (err) {
                 // CSRF 갱신 실패는 무시
             }
             const res = await axiosInstance.post('/api/ingredients/extract', {
->>>>>>> upstream/UI5
                 steps: stepInputs,
             });
             applyAutoIngredients(res.data?.ingredients || []);
@@ -668,6 +645,7 @@ const UserCreateRecipe = () => {
             setAutoIngredientLoading(false);
         }
     };
+
 
     const handleImageChange = (event) => {
         const file = event.target.files?.[0];
@@ -740,7 +718,6 @@ const UserCreateRecipe = () => {
         }
     };
 
-<<<<<<< HEAD
     const safeCacheRemove = (key) => {
         try {
             localStorage.removeItem(key);
@@ -749,8 +726,6 @@ const UserCreateRecipe = () => {
         }
     };
 
-=======
->>>>>>> upstream/UI5
     const safeSessionRemove = (key) => {
         try {
             sessionStorage.removeItem(key);
@@ -759,16 +734,7 @@ const UserCreateRecipe = () => {
         }
     };
 
-<<<<<<< HEAD
-=======
-    const safeCacheRemove = (key) => {
-        try {
-            localStorage.removeItem(key);
-        } catch (err) {
-            // 삭제 오류는 무시
-        }
-    };
->>>>>>> upstream/UI5
+
 
     const influencerMetaKey = (recipeId) => `recipeInfluencerMeta:${recipeId}`;
 
@@ -863,11 +829,7 @@ const UserCreateRecipe = () => {
                 targetPersona,
                 priceRange,
             };
-<<<<<<< HEAD
-            const influencerRes = await axiosInstance.post('/influencers/recommend', payload);
-=======
             const influencerRes = await axiosInstance.post('/api/influencers/recommend', payload);
->>>>>>> upstream/UI5
             const recs = influencerRes.data?.recommendations ?? [];
             if (!recs.length) {
                 setError(labels.influencerError);
@@ -888,11 +850,7 @@ const UserCreateRecipe = () => {
 
             const top = pickInfluencerForImage(recs);
             if (top?.name) {
-<<<<<<< HEAD
-                const imageRes = await axiosInstance.post('/images/generate', {
-=======
                 const imageRes = await axiosInstance.post('/api/images/generate', {
->>>>>>> upstream/UI5
                     recipe: recipe.title,
                     influencerName: top.name,
                     influencerImageUrl: top.imageUrl || '',
@@ -924,11 +882,7 @@ const UserCreateRecipe = () => {
             return;
         }
         try {
-<<<<<<< HEAD
-            await axiosInstance.put(`/recipes/${recipeId}/influencers`, {
-=======
             await axiosInstance.put(`/api/recipes/${recipeId}/influencers`, {
->>>>>>> upstream/UI5
                 influencers: includeInfluencer ? assets?.influencers || [] : [],
                 influencerImageBase64: includeImage ? assets?.imageBase64 || '' : '',
             });
@@ -972,11 +926,7 @@ const UserCreateRecipe = () => {
         let success = false;
         try {
             try {
-<<<<<<< HEAD
-                await axiosInstance.get('/csrf');
-=======
                 await axiosInstance.get('/api/csrf');
->>>>>>> upstream/UI5
             } catch (err) {
                 // CSRF 갱신 실패는 무시
             }
@@ -986,13 +936,8 @@ const UserCreateRecipe = () => {
                 setCreatedInfluencerImage('');
             }
             const res = isUpdate
-<<<<<<< HEAD
-                ? await axiosInstance.put(`/recipes/${recipeId}`, payload)
-                : await axiosInstance.post('/recipes', payload);
-=======
                 ? await axiosInstance.put(`/api/recipes/${recipeId}`, payload)
                 : await axiosInstance.post('/api/recipes', payload);
->>>>>>> upstream/UI5
             const created = res.data;
             bumpProgress(isUpdate ? 60 : 55);
             initialSnapshotRef.current = buildSnapshot(created || payload);
@@ -1062,19 +1007,11 @@ const UserCreateRecipe = () => {
         setPublishLoading(true);
         try {
             try {
-<<<<<<< HEAD
-                await axiosInstance.get('/csrf');
-            } catch (err) {
-                // CSRF 갱신 실패는 무시
-            }
-            await axiosInstance.put(`/recipes/${createdRecipe.id}/publish`, {
-=======
                 await axiosInstance.get('/api/csrf');
             } catch (err) {
                 // CSRF 갱신 실패는 무시
             }
             await axiosInstance.put(`/api/recipes/${createdRecipe.id}/publish`, {
->>>>>>> upstream/UI5
                 influencers: includesReport ? createdInfluencers : [],
                 influencerImageBase64: includesReport ? createdInfluencerImage : '',
             });
@@ -1086,6 +1023,7 @@ const UserCreateRecipe = () => {
             setPublishLoading(false);
         }
     };
+
 
     const isReviewMode = showReview && createdRecipe;
     const isEditingMode = Boolean(id || createdRecipe?.id);
@@ -1111,11 +1049,7 @@ const UserCreateRecipe = () => {
         setError('');
         setTargetRecommendLoading(true);
         try {
-<<<<<<< HEAD
-            const res = await axiosInstance.post('/recipes/recommend-targets', {
-=======
             const res = await axiosInstance.post('/api/recipes/recommend-targets', {
->>>>>>> upstream/UI5
                 title,
                 description,
                 ingredients: ingredients.map((i) => i.trim()).filter(Boolean),
@@ -1181,19 +1115,11 @@ const UserCreateRecipe = () => {
                                 </div>
 
                                 <div className="space-y-4 text-sm text-[color:var(--text)]">
-<<<<<<< HEAD
-                                    <div>
-                                        <p className="font-semibold text-[color:var(--text)]">설명</p>
-                                        <p className="text-[color:var(--text-muted)] mt-1">{createdRecipe?.description || '설명이 없습니다.'}</p>
-                                    </div>
-                                    <div>
-=======
                                     <div className="rounded-xl border border-[color:var(--border)] bg-[color:var(--surface-muted)] p-4">
                                         <p className="font-semibold text-[color:var(--text)]">설명</p>
                                         <p className="text-[color:var(--text-muted)] mt-1">{createdRecipe?.description || '설명이 없습니다.'}</p>
                                     </div>
                                     <div className="rounded-xl border border-[color:var(--border)] bg-[color:var(--surface-muted)] p-4">
->>>>>>> upstream/UI5
                                         <p className="font-semibold text-[color:var(--text)]">재료</p>
                                         {createdRecipe?.ingredients?.length ? (
                                             <ul className="mt-2 space-y-2 text-sm text-[color:var(--text)]">
@@ -1208,11 +1134,7 @@ const UserCreateRecipe = () => {
                                             <p className="text-[color:var(--text-muted)] mt-1">등록된 재료가 없습니다.</p>
                                         )}
                                     </div>
-<<<<<<< HEAD
-                                    <div>
-=======
                                     <div className="rounded-xl border border-[color:var(--border)] bg-[color:var(--surface-muted)] p-4">
->>>>>>> upstream/UI5
                                         <p className="font-semibold text-[color:var(--text)]">조리 단계</p>
                                         {createdRecipe?.steps?.length ? (
                                             <ol className="mt-2 space-y-2 list-decimal list-inside text-[color:var(--text)]">
@@ -1305,7 +1227,6 @@ const UserCreateRecipe = () => {
                                     <div className="space-y-3">
                                         <input
                                             type="text"
-<<<<<<< HEAD
                                             placeholder={labels.titlePlaceholder}
                                             value={title}
                                             onChange={(e) => {
@@ -1324,26 +1245,6 @@ const UserCreateRecipe = () => {
                                             }}
                                             className="w-full p-3 rounded-xl bg-[color:var(--surface-muted)] border border-[color:var(--border)] text-[color:var(--text)] placeholder:text-[color:var(--text-soft)] focus:outline-none focus:ring-2 focus:ring-[color:var(--accent)]"
                                         />
-=======
-                                    placeholder={labels.titlePlaceholder}
-                                    value={title}
-                                    onChange={(e) => {
-                                        setHasUserEdits(true);
-                                        setTitle(e.target.value);
-                                    }}
-                                    className="w-full p-3 rounded-xl bg-[color:var(--surface-muted)] border border-[color:var(--border)] text-[color:var(--text)] placeholder:text-[color:var(--text-soft)] focus:outline-none focus:ring-2 focus:ring-[color:var(--accent)]"
-                                />
-                                <textarea
-                                    rows="4"
-                                    placeholder={labels.descriptionPlaceholder}
-                                    value={description}
-                                    onChange={(e) => {
-                                        setHasUserEdits(true);
-                                        setDescription(e.target.value);
-                                    }}
-                                    className="w-full p-3 rounded-xl bg-[color:var(--surface-muted)] border border-[color:var(--border)] text-[color:var(--text)] placeholder:text-[color:var(--text-soft)] focus:outline-none focus:ring-2 focus:ring-[color:var(--accent)]"
-                                />
->>>>>>> upstream/UI5
                                     </div>
                                 </div>
 
@@ -1585,14 +1486,8 @@ const UserCreateRecipe = () => {
                                                             return (
                                                                 <label
                                                                     key={key}
-<<<<<<< HEAD
                                                                     className={`flex items-center gap-2 text-sm ${isDisabled ? 'text-[color:var(--text-soft)]' : 'text-[color:var(--text)]'
                                                                         }`}
-=======
-                                                                    className={`flex items-center gap-2 text-sm ${
-                                                                        isDisabled ? 'text-[color:var(--text-soft)]' : 'text-[color:var(--text)]'
-                                                                    }`}
->>>>>>> upstream/UI5
                                                                 >
                                                                     <input
                                                                         type="checkbox"
@@ -1665,7 +1560,6 @@ const UserCreateRecipe = () => {
                         </>
                     )}
                 </div>
-<<<<<<< HEAD
                 {loadModalOpen && (
                     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
                         <div className="w-full max-w-3xl rounded-3xl border border-[color:var(--border)] bg-[color:var(--surface)] p-6 shadow-[0_20px_60px_var(--shadow)]">
@@ -1745,89 +1639,8 @@ const UserCreateRecipe = () => {
                         </div>
                     </div>
                 )}
-=======
-            {loadModalOpen && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-                    <div className="w-full max-w-3xl rounded-3xl border border-[color:var(--border)] bg-[color:var(--surface)] p-6 shadow-[0_20px_60px_var(--shadow)]">
-                        <div className="flex items-center justify-between">
-                            <h3 className="text-lg font-semibold text-[color:var(--text)]">{labels.loadModalTitle}</h3>
-                            <button
-                                type="button"
-                                onClick={() => setLoadModalOpen(false)}
-                                className="text-sm text-[color:var(--text-soft)]"
-                            >
-                                X
-                            </button>
-                        </div>
-
-                        <div className="mt-4 flex items-center gap-2">
-                            <button
-                                type="button"
-                                onClick={() => setLoadTab('hub')}
-                                className="px-3 py-1.5 rounded-full text-xs font-semibold border border-[color:var(--border)] transition"
-                                style={{
-                                    background: loadTab === 'hub' ? 'var(--accent)' : 'var(--surface-muted)',
-                                    color: loadTab === 'hub' ? 'var(--accent-contrast)' : 'var(--text)',
-                                }}
-                            >
-                                {'레시피 허브'}
-                            </button>
-                            <button
-                                type="button"
-                                onClick={() => setLoadTab('mine')}
-                                className="px-3 py-1.5 rounded-full text-xs font-semibold border border-[color:var(--border)] transition"
-                                style={{
-                                    background: loadTab === 'mine' ? 'var(--accent)' : 'var(--surface-muted)',
-                                    color: loadTab === 'mine' ? 'var(--accent-contrast)' : 'var(--text)',
-                                }}
-                            >
-                                {'내 레시피'}
-                            </button>
-                            <div className="ml-auto">
-                                <input
-                                    type="text"
-                                    value={loadSearch}
-                                    onChange={(e) => setLoadSearch(e.target.value)}
-                                    placeholder="검색"
-                                    className="w-56 rounded-xl border border-[color:var(--border)] bg-[color:var(--surface-muted)] px-3 py-2 text-xs text-[color:var(--text)] placeholder:text-[color:var(--text-soft)]"
-                                />
-                            </div>
-                        </div>
-
-                        <div className="mt-4 max-h-[420px] overflow-y-auto rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface-muted)] p-4">
-                            {loadLoading && (
-                                <p className="text-sm text-[color:var(--text-muted)]">불러오는 중...</p>
-                            )}
-                            {!loadLoading && loadError && (
-                                <p className="text-sm text-[color:var(--danger)]">{loadError}</p>
-                            )}
-                            {!loadLoading && !loadError && filteredLoadList.length === 0 && (
-                                <p className="text-sm text-[color:var(--text-muted)]">{labels.loadEmpty}</p>
-                            )}
-                            <div className="space-y-3">
-                                {filteredLoadList.map((item) => (
-                                    <div key={`load-${loadTab}-${item.id}`} className="rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] p-4 flex items-start justify-between gap-4">
-                                        <div className="min-w-0">
-                                            <p className="text-sm font-semibold text-[color:var(--text)]">{item.title || '제목 없음'}</p>
-                                            <p className="text-xs text-[color:var(--text-muted)] line-clamp-2">{item.description || '설명 없음'}</p>
-                                        </div>
-                                        <button
-                                            type="button"
-                                            onClick={() => applyLoadedRecipe(item)}
-                                            className="px-3 py-1.5 rounded-lg bg-[color:var(--accent)] text-[color:var(--accent-contrast)] text-xs font-semibold"
-                                        >
-                                            {'불러오기'}
-                                        </button>
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            )}
->>>>>>> upstream/UI5
-            </div>
-        </div>
+            </div >
+        </div >
     );
 };
 

@@ -3,13 +3,6 @@ import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import ThemeToggle from '../components/common/ThemeToggle';
 import Footer from '../components/common/Footer';
-<<<<<<< HEAD
-
-const LandingPage = () => {
-    const navigate = useNavigate();
-    const bookRef = useRef(null);
-    const [rotation, setRotation] = useState({ x: 0, y: 0 });
-=======
 import { useAuth } from '../context/AuthContext';
 import axiosInstance from '../axiosConfig';
 
@@ -45,7 +38,6 @@ const LandingPage = () => {
             setDemoLoading(false);
         }
     };
->>>>>>> upstream/UI5
 
     useEffect(() => {
         const handleMouseMove = (e) => {
@@ -100,8 +92,6 @@ const LandingPage = () => {
             <nav className="fixed top-0 w-full flex justify-between items-center px-12 py-8 z-50">
                 <div className="text-2xl font-bold tracking-tighter">BEAN RECIPE</div>
                 <div className="flex gap-4 items-center text-sm font-medium text-[color:var(--text-muted)]">
-<<<<<<< HEAD
-=======
                     <button
                         onClick={handleDemoLogin}
                         disabled={demoLoading}
@@ -109,7 +99,6 @@ const LandingPage = () => {
                     >
                         {demoLoading ? '처리중...' : '심사용'}
                     </button>
->>>>>>> upstream/UI5
                     <button onClick={() => navigate('/login')} className="hover:text-[color:var(--text)] transition">
                         Login
                     </button>

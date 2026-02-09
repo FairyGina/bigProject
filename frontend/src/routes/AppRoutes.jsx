@@ -20,16 +20,12 @@ import NotFound from '../pages/NotFound';
 import MainLayout from '../components/layout/MainLayout';
 import PasswordCheckPage from '../pages/PasswordCheckPage';
 import UserProfilePage from '../pages/UserProfilePage';
-<<<<<<< HEAD
 import ExportAnalysisPage from '../pages/ExportAnalysisPage';
 import ConsumerAnalysisPage from '../pages/ConsumerAnalysisPage';
 import FinalSelectionPage from '../pages/FinalSelectionPage';
 import FinalEvaluationPage from '../pages/FinalEvaluationPage';
-=======
-import FinalSelectionPage from '../pages/FinalSelectionPage';
-import FinalEvaluationPage from '../pages/FinalEvaluationPage';
 import RemoteMeetingPage from '../pages/RemoteMeetingPage';
->>>>>>> upstream/UI5
+
 
 // 인증이 필요한 라우트 보호 컴포넌트
 const ProtectedRoute = ({ children }) => {
@@ -85,10 +81,7 @@ const AppRoutes = () => {
                                 <Route path="/" element={<MainBoard />} />
                                 <Route path="notice" element={<NoticeBoard />} />
                                 <Route path="final-selection" element={<FinalSelectionPage />} />
-<<<<<<< HEAD
-=======
                                 <Route path="final-selection/meeting" element={<RemoteMeetingPage />} />
->>>>>>> upstream/UI5
                                 <Route path="final-selection/result" element={<FinalEvaluationPage />} />
                                 <Route path="user-hub" element={<Navigate to="user-hub/recipes" replace />} />
                                 <Route path="user-hub/recipes" element={<UserBoard />} />
@@ -100,22 +93,19 @@ const AppRoutes = () => {
                                 <Route path="reports/:reportId" element={<RecipeAnalysis />} />
                                 <Route path="create/ai" element={<AICreateRecipe />} />
                                 <Route path="create/manual" element={<UserCreateRecipe />} />
-<<<<<<< HEAD
                                 <Route path="visual/export-analysis" element={<ExportAnalysisPage />} />
                                 <Route path="visual/consumer-analysis" element={<ConsumerAnalysisPage />} />
-=======
->>>>>>> upstream/UI5
                                 <Route path="settings/password-check" element={<PasswordCheckPage />} />
                                 <Route path="settings/profile" element={<UserProfilePage />} />
-                            </Routes>
-                        </MainLayout>
-                    </ProtectedRoute>
+                            </Routes >
+                        </MainLayout >
+                    </ProtectedRoute >
                 }
             />
 
             {/* 404 라우트 */}
             <Route path="*" element={<NotFound />} />
-        </Routes>
+        </Routes >
     );
 };
 

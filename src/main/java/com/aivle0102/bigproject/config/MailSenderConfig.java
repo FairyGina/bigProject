@@ -1,10 +1,7 @@
 package com.aivle0102.bigproject.config;
 
 import java.util.Properties;
-<<<<<<< HEAD
-=======
 
->>>>>>> upstream/UI5
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
@@ -12,10 +9,6 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.JavaMailSenderImpl;
 
-<<<<<<< HEAD
-import java.util.Properties;
-=======
->>>>>>> upstream/UI5
 @Configuration
 public class MailSenderConfig {
 
@@ -29,8 +22,7 @@ public class MailSenderConfig {
             @Value("${mail.gmail.smtp.auth:true}") boolean auth,
             @Value("${mail.gmail.smtp.starttls.enable:true}") boolean startTls,
             @Value("${mail.gmail.smtp.starttls.required:true}") boolean startTlsRequired,
-            @Value("${mail.gmail.default-encoding:UTF-8}") String encoding
-    ) {
+            @Value("${mail.gmail.default-encoding:UTF-8}") String encoding) {
         JavaMailSenderImpl sender = new JavaMailSenderImpl();
         sender.setHost(host);
         sender.setPort(port);
@@ -55,8 +47,7 @@ public class MailSenderConfig {
             @Value("${mail.naver.smtp.auth:true}") boolean auth,
             @Value("${mail.naver.smtp.starttls.enable:true}") boolean startTls,
             @Value("${mail.naver.smtp.starttls.required:true}") boolean startTlsRequired,
-            @Value("${mail.naver.default-encoding:UTF-8}") String encoding
-    ) {
+            @Value("${mail.naver.default-encoding:UTF-8}") String encoding) {
         JavaMailSenderImpl sender = new JavaMailSenderImpl();
         sender.setHost(host);
         sender.setPort(port);
@@ -70,9 +61,4 @@ public class MailSenderConfig {
         props.put("mail.smtp.starttls.required", String.valueOf(startTlsRequired));
         return sender;
     }
-<<<<<<< HEAD
-
-    // Kakao/Daum/Hanmail recipients can be served by Gmail sender as well.
-=======
->>>>>>> upstream/UI5
 }

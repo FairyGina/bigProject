@@ -1,9 +1,6 @@
-﻿import React from 'react';
-<<<<<<< HEAD
-import { ChevronDown, ChevronRight, LogOut } from 'lucide-react';
-=======
+﻿
+import React from 'react';
 import { ChevronDown, ChevronRight, LogOut, MessageCircle } from 'lucide-react';
->>>>>>> upstream/UI5
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 
@@ -22,12 +19,9 @@ const labels = {
     logout: '로그아웃',
     confirmNavigation: '작성 중인 내용이 사라집니다. 이동할까요?',
     confirmLogout: '로그아웃 하시겠습니까?',
-<<<<<<< HEAD
     testVisual: '데이터 시각화',
     exportAnalysis: '수출 분석',
     consumerAnalysis: '소비자 분석',
-=======
->>>>>>> upstream/UI5
 };
 
 const menuItems = [
@@ -35,8 +29,7 @@ const menuItems = [
     { title: labels.hub, path: '/mainboard' },
 ];
 
-<<<<<<< HEAD
-const Sidebar = () => {
+const Sidebar = ({ onOpenChatbot }) => {
     const navigate = useNavigate();
     const location = useLocation();
     const { logout } = useAuth();
@@ -47,20 +40,10 @@ const Sidebar = () => {
     const finalSelectionActive = location.pathname.startsWith('/mainboard/final-selection');
     const visualActive = location.pathname.startsWith('/mainboard/visual');
 
-=======
-const Sidebar = ({ onOpenChatbot }) => {
-    const navigate = useNavigate();
-    const location = useLocation();
-    const { logout } = useAuth();
-    const userHubActive = location.pathname.startsWith('/mainboard/user-hub');
-    const createActive = location.pathname.startsWith('/mainboard/create');
-    const finalSelectionActive = location.pathname.startsWith('/mainboard/final-selection');
->>>>>>> upstream/UI5
     const isExactPath = (path) => location.pathname === path || location.pathname === `${path}/`;
     const userHubSelected = isExactPath('/mainboard/user-hub');
     const createSelected = isExactPath('/mainboard/create');
     const finalSelectionSelected = isExactPath('/mainboard/final-selection');
-<<<<<<< HEAD
 
     // Open state management
     const [userHubOpen, setUserHubOpen] = React.useState(userHubActive);
@@ -74,23 +57,6 @@ const Sidebar = ({ onOpenChatbot }) => {
         if (finalSelectionActive) setFinalSelectionOpen(true);
         if (visualActive) setVisualOpen(true);
     }, [userHubActive, createActive, finalSelectionActive, visualActive]);
-=======
-    const [userHubOpen, setUserHubOpen] = React.useState(userHubActive);
-    const [createOpen, setCreateOpen] = React.useState(createActive);
-    const [finalSelectionOpen, setFinalSelectionOpen] = React.useState(finalSelectionActive);
-
-    React.useEffect(() => {
-        if (userHubActive) {
-            setUserHubOpen(true);
-        }
-        if (createActive) {
-            setCreateOpen(true);
-        }
-        if (finalSelectionActive) {
-            setFinalSelectionOpen(true);
-        }
-    }, [userHubActive, createActive, finalSelectionActive]);
->>>>>>> upstream/UI5
 
     const isActive = (path) => {
         if (!path) {
@@ -154,7 +120,6 @@ const Sidebar = ({ onOpenChatbot }) => {
                             </button>
                         );
                     })}
-<<<<<<< HEAD
 
                     <button
                         type="button"
@@ -204,8 +169,6 @@ const Sidebar = ({ onOpenChatbot }) => {
                         </div>
                     )}
 
-=======
->>>>>>> upstream/UI5
                     <button
                         type="button"
                         onClick={() => setUserHubOpen((prev) => !prev)}
@@ -330,10 +293,6 @@ const Sidebar = ({ onOpenChatbot }) => {
                             >
                                 {labels.finalSelection}
                             </button>
-<<<<<<< HEAD
-                            {/*
-=======
->>>>>>> upstream/UI5
                             <button
                                 type="button"
                                 onClick={() => {
@@ -349,18 +308,12 @@ const Sidebar = ({ onOpenChatbot }) => {
                             >
                                 {labels.remoteMeeting}
                             </button>
-<<<<<<< HEAD
-                            */}
-=======
->>>>>>> upstream/UI5
                         </div>
                     )}
                 </nav>
 
                 <div className="mt-auto">
                     <button
-<<<<<<< HEAD
-=======
                         type="button"
                         onClick={onOpenChatbot}
                         className="flex items-center gap-3 w-full px-4 py-3 text-[color:var(--text)] hover:bg-[color:var(--surface-muted)] rounded-xl transition"
@@ -369,7 +322,7 @@ const Sidebar = ({ onOpenChatbot }) => {
                         <span className="text-sm font-semibold">도움말 챗봇</span>
                     </button>
                     <button
->>>>>>> upstream/UI5
+                        type="button"
                         onClick={handleLogout}
                         className="flex items-center gap-3 w-full px-4 py-3 text-[color:var(--danger)] hover:bg-[color:var(--danger-bg)] rounded-xl transition"
                     >

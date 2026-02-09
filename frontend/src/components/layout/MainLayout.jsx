@@ -9,11 +9,10 @@ import GlassCard from '../common/GlassCard';
 const MainLayout = ({ children }) => {
     const navigate = useNavigate();
     const [showExpiryModal, setShowExpiryModal] = useState(false);
-<<<<<<< HEAD
-=======
     const [showChatbot, setShowChatbot] = useState(false);
-    const helperChatUrl = import.meta.env.VITE_HELPER_CHAT_URL || 'http://localhost:7861';
->>>>>>> upstream/UI5
+
+    // Help chatbot URL definition
+    const helperChatUrl = import.meta.env.VITE_HELPER_CHAT_URL || 'http://localhost:7860/helper/';
 
     useEffect(() => {
         const deferredUntil = localStorage.getItem('passwordChangeDeferredUntil');
@@ -33,13 +32,8 @@ const MainLayout = ({ children }) => {
             className="min-h-screen text-[color:var(--text)] flex flex-col md:flex-row"
             style={{ background: 'linear-gradient(135deg, var(--bg-1), var(--bg-2), var(--bg-3))' }}
         >
-<<<<<<< HEAD
-            {/* 怨좎젙 ?ъ씠?쒕컮 */}
-            <Sidebar />
-=======
             {/* 고정 사이드바 */}
             <Sidebar onOpenChatbot={() => setShowChatbot(true)} />
->>>>>>> upstream/UI5
 
             {/* 메인 콘텐츠 영역 */}
             <div className="flex-1 p-6 md:p-10 flex flex-col">
@@ -93,8 +87,6 @@ const MainLayout = ({ children }) => {
                     </motion.div>
                 </div>
             )}
-<<<<<<< HEAD
-=======
 
             {showChatbot && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-6">
@@ -120,7 +112,6 @@ const MainLayout = ({ children }) => {
                     </div>
                 </div>
             )}
->>>>>>> upstream/UI5
         </div>
     );
 };

@@ -13,23 +13,12 @@ import com.aivle0102.bigproject.service.AiReportService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
-import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 import java.security.Principal;
 import java.util.HashMap;
-<<<<<<< HEAD
 import java.util.List;
 import java.util.Map;
-=======
-import java.util.Map;
-import java.util.List;
->>>>>>> upstream/UI5
 
 @RestController
 @RequiredArgsConstructor
@@ -98,28 +87,29 @@ public class ReportController {
     @PostMapping("/final-evaluation")
     public ResponseEntity<FinalEvaluationResponse> finalEvaluation(
             @RequestBody FinalEvaluationRequest request,
-            Principal principal
-    ) {
-        if (request == null || request.getReportIds() == null || request.getReportIds().isEmpty()) {
+            Principal principal) {
+        if (principal == null) {
+            return ResponseEntity.status(401).build();
+        }
+
+        String userId = principal.getName();
+        log.info("Final evaluation requested by user: {}, reportIds: {}", userId, request.getReportIds());
+
+        if (request.getReportIds() == null || request.getReportIds().isEmpty()) {
             return ResponseEntity.badRequest().build();
         }
-        String userId = principal == null ? null : principal.getName();
-        Long companyId = userId == null ? null
-                : userInfoRepository.findByUserId(userId).map(UserInfo::getCompanyId).orElse(null);
 
-        List<MarketReport> reports = marketReportRepository.findAllById(request.getReportIds());
-        if (companyId != null) {
-            reports = reports.stream()
-                    .filter(report -> report.getRecipe() != null && companyId.equals(report.getRecipe().getCompanyId()))
-                    .toList();
-        }
-        if (reports.isEmpty()) {
-            return ResponseEntity.status(403).build();
+        // 1. 보고서 목록 조회
+        List<MarketReport> selectedReports = marketReportRepository.findAllById(request.getReportIds());
+        if (selectedReports.isEmpty()) {
+            return ResponseEntity.notFound().build();
         }
 
-        recipeService.ensureEvaluationForReports(reports);
+        // 2. 각 보고서의 evaluation 필드가 비어있다면 새로 생성
+        recipeService.ensureEvaluationForReports(selectedReports);
 
-        List<Map<String, Object>> reportInputs = reports.stream()
+        // Prepare report inputs for LLM
+        List<Map<String, Object>> reportInputs = selectedReports.stream()
                 .map(report -> {
                     Map<String, Object> item = new HashMap<>();
                     item.put("reportId", report.getId());
@@ -132,8 +122,9 @@ public class ReportController {
                 .toList();
 
         String content = aiReportService.generateFinalEvaluation(reportInputs);
-        String summary = buildFinalSummary(reports);
-        MarketReport targetReport = selectFinalReportTarget(reports, content);
+        String summary = buildFinalSummary(selectedReports);
+
+        MarketReport targetReport = selectFinalReportTarget(selectedReports, content);
         if (targetReport != null && targetReport.getRecipe() != null) {
             marketReportRepository.save(MarketReport.builder()
                     .recipe(targetReport.getRecipe())
@@ -223,8 +214,7 @@ public class ReportController {
                 .toList();
         String meta = String.format("||reports=%s;recipes=%s",
                 joinIds(reportIds),
-                joinIds(recipeIds)
-        );
+                joinIds(recipeIds));
         return "비교 보고서: " + String.join(" · ", titles) + " " + meta;
     }
 
@@ -310,8 +300,3 @@ public class ReportController {
         }
     }
 }
-
-
-
-
-

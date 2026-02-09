@@ -5,11 +5,7 @@ const AICreateRecipe = () => {
     const { user } = useAuth();
     const rawName = user?.userName || localStorage.getItem('userName') || '사용자';
     const maskedName = rawName.length <= 1 ? '*' : `${rawName.slice(0, -1)}*`;
-<<<<<<< HEAD
     const iframeSrc = 'https://bp-chatbot-app.wittysand-a0f4e87e.centralindia.azurecontainerapps.io/';
-=======
-    const iframeSrc = '/ai/recipe/';
->>>>>>> upstream/UI5
 
     return (
         <div className="relative">
@@ -54,8 +50,5 @@ const AICreateRecipe = () => {
     );
 };
 
-<<<<<<< HEAD
 export default AICreateRecipe;
-=======
-export default AICreateRecipe;
->>>>>>> upstream/UI5
+

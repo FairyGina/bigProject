@@ -16,11 +16,8 @@ const UserProfilePage = () => {
     });
     const [loading, setLoading] = useState(false);
     const [isSocialAccount, setIsSocialAccount] = useState(false);
-<<<<<<< HEAD
-=======
     const isDemoAdmin = localStorage.getItem('userId') === 'super';
     const canEditPassword = !isSocialAccount && !isDemoAdmin;
->>>>>>> upstream/UI5
 
     const hasSequentialDigits = (value, length = 3) => {
         if (!value) return false;
@@ -152,11 +149,7 @@ const UserProfilePage = () => {
             }));
 
             try {
-<<<<<<< HEAD
-                const response = await axiosInstance.get('/user/me');
-=======
                 const response = await axiosInstance.get('/api/user/me');
->>>>>>> upstream/UI5
                 const data = response.data || {};
                 if (data.userName) {
                     localStorage.setItem('userName', data.userName);
@@ -192,11 +185,7 @@ const UserProfilePage = () => {
             alert('변경할 값을 입력해주세요.');
             return;
         }
-<<<<<<< HEAD
-        if (!isSocialAccount) {
-=======
         if (canEditPassword) {
->>>>>>> upstream/UI5
             if (formData.newPassword || formData.confirmNewPassword) {
                 if (!formData.currentPassword) {
                     alert('현재 비밀번호를 입력해주세요.');
@@ -218,22 +207,14 @@ const UserProfilePage = () => {
             const payload = {
                 birthDate: formData.birthDate || '',
             };
-<<<<<<< HEAD
-            if (!isSocialAccount) {
-=======
             if (canEditPassword) {
->>>>>>> upstream/UI5
                 payload.currentPassword = formData.currentPassword || '';
                 if (formData.newPassword) {
                     payload.newPassword = formData.newPassword;
                     payload.confirmNewPassword = formData.confirmNewPassword;
                 }
             }
-<<<<<<< HEAD
-            const response = await axiosInstance.put('/user/me', payload);
-=======
             const response = await axiosInstance.put('/api/user/me', payload);
->>>>>>> upstream/UI5
             const data = response.data || {};
             setFormData((prev) => ({
                 ...prev,
@@ -323,10 +304,6 @@ const UserProfilePage = () => {
                                 value={formData.currentPassword}
                                 onChange={handleChange}
                                 onKeyDown={handleKeyDown}
-<<<<<<< HEAD
-                                placeholder={isSocialAccount ? 'SNS 계정은 변경할 수 없습니다.' : '정보 수정을 위해 입력해주세요'}
-                                disabled={isSocialAccount}
-=======
                                 placeholder={
                                     isDemoAdmin
                                         ? '심사용 비밀번호는 변경 불가'
@@ -335,7 +312,6 @@ const UserProfilePage = () => {
                                             : '정보 수정을 위해 입력해주세요'
                                 }
                                 disabled={!canEditPassword}
->>>>>>> upstream/UI5
                                 className="w-full p-4 rounded-xl bg-[color:var(--surface-muted)] border border-[color:var(--border)] text-[color:var(--text)] placeholder:text-[color:var(--text-soft)] focus:outline-none focus:ring-2 focus:ring-[color:var(--accent)] disabled:opacity-60"
                             />
                         </div>
@@ -348,10 +324,6 @@ const UserProfilePage = () => {
                                 value={formData.newPassword}
                                 onChange={handleChange}
                                 onKeyDown={handleKeyDown}
-<<<<<<< HEAD
-                                placeholder={isSocialAccount ? 'SNS 계정은 변경할 수 없습니다.' : '변경할 경우에만 입력'}
-                                disabled={isSocialAccount}
-=======
                                 placeholder={
                                     isDemoAdmin
                                         ? '심사용 비밀번호는 변경 불가'
@@ -360,7 +332,6 @@ const UserProfilePage = () => {
                                             : '변경할 경우에만 입력'
                                 }
                                 disabled={!canEditPassword}
->>>>>>> upstream/UI5
                                 className="w-full p-4 rounded-xl bg-[color:var(--surface-muted)] border border-[color:var(--border)] text-[color:var(--text)] placeholder:text-[color:var(--text-soft)] focus:outline-none focus:ring-2 focus:ring-[color:var(--accent)] disabled:opacity-60"
                             />
                         </div>
@@ -373,10 +344,6 @@ const UserProfilePage = () => {
                                 value={formData.confirmNewPassword}
                                 onChange={handleChange}
                                 onKeyDown={handleKeyDown}
-<<<<<<< HEAD
-                                placeholder={isSocialAccount ? 'SNS 계정은 변경할 수 없습니다.' : '변경할 경우에만 입력'}
-                                disabled={isSocialAccount}
-=======
                                 placeholder={
                                     isDemoAdmin
                                         ? '심사용 비밀번호는 변경 불가'
@@ -385,7 +352,6 @@ const UserProfilePage = () => {
                                             : '변경할 경우에만 입력'
                                 }
                                 disabled={!canEditPassword}
->>>>>>> upstream/UI5
                                 className={`w-full p-4 rounded-xl bg-[color:var(--surface-muted)] border ${formData.newPassword && formData.confirmNewPassword && formData.newPassword !== formData.confirmNewPassword ? 'border-red-500' : 'border-[color:var(--border)]'} text-[color:var(--text)] placeholder:text-[color:var(--text-soft)] focus:outline-none focus:ring-2 focus:ring-[color:var(--accent)] disabled:opacity-60`}
                             />
                         </div>

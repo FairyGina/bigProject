@@ -21,11 +21,7 @@ const LoginPage = () => {
     const handleSocialLogin = (provider) => {
         sessionStorage.setItem('oauthFlow', 'login');
         localStorage.setItem('oauthFlow', 'login');
-<<<<<<< HEAD
         window.location.href = `/oauth2/authorization/${provider}`;
-=======
-        window.location.href = `http://localhost:8080/oauth2/authorization/${provider}`;
->>>>>>> upstream/UI5
     };
 
     const handleLogin = async () => {
@@ -47,13 +43,8 @@ const LoginPage = () => {
             return;
         }
         try {
-<<<<<<< HEAD
-            await axiosInstance.get('/csrf');
-            const response = await axiosInstance.post('/auth/login', { userId, password });
-=======
             await axiosInstance.get('/api/csrf');
             const response = await axiosInstance.post('/api/auth/login', { userId, password });
->>>>>>> upstream/UI5
             const data = response.data;
 
             if (data.accessToken) {

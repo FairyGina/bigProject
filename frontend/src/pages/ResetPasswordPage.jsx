@@ -1,9 +1,4 @@
-<<<<<<< HEAD
 import React, { useState } from 'react';
-
-=======
-﻿import React, { useState } from 'react';
->>>>>>> upstream/UI5
 import { motion } from 'framer-motion';
 import { KeyRound, Mail, User, X } from 'lucide-react';
 import { useLocation, useNavigate } from 'react-router-dom';
@@ -131,11 +126,7 @@ const ResetPasswordPage = () => {
             return;
         }
         try {
-<<<<<<< HEAD
-            await axiosInstance.post('/auth/reset-password', {
-=======
             await axiosInstance.post('/api/auth/reset-password', {
->>>>>>> upstream/UI5
                 userId: email,
                 userName: name,
                 newPassword,

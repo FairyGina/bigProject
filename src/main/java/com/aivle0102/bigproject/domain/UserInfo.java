@@ -63,7 +63,6 @@ public class UserInfo {
         this.userPw = userPw;
     }
 
-
     public void setLoginFailCount(int loginFailCount) {
         this.loginFailCount = loginFailCount;
     }
@@ -83,8 +82,6 @@ public class UserInfo {
     public void setProviderId(String providerId) {
         this.providerId = providerId;
     }
-<<<<<<< HEAD
-=======
 
     public void setUserName(String userName) {
         this.userName = userName;
@@ -93,5 +90,4 @@ public class UserInfo {
     public void setCompanyId(Long companyId) {
         this.companyId = companyId;
     }
->>>>>>> upstream/UI5
 }

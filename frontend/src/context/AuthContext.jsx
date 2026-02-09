@@ -8,22 +8,14 @@ export const AuthProvider = ({ children }) => {
 
     useEffect(() => {
         // 초기 로딩 시 CSRF 토큰 발급
-<<<<<<< HEAD
-        fetch('/csrf', { credentials: 'include' })
-=======
-        fetch('http://localhost:8080/api/csrf', { credentials: 'include' })
->>>>>>> upstream/UI5
+        fetch('/api/csrf', { credentials: 'include' })
             .then((res) => (res.ok ? res.json() : null))
             .then((data) => {
                 if (data?.token) {
                     localStorage.setItem('csrfToken', data.token);
                 }
             })
-<<<<<<< HEAD
             .catch(() => { });
-=======
-            .catch(() => {});
->>>>>>> upstream/UI5
 
         const token = localStorage.getItem('accessToken');
         if (token) {

@@ -132,11 +132,7 @@ const NoticeBoard = () => {
 
     const refreshCsrf = React.useCallback(async () => {
         try {
-<<<<<<< HEAD
-            await axiosInstance.get('/csrf');
-=======
             await axiosInstance.get('/api/csrf');
->>>>>>> upstream/UI5
         } catch (error) {
             // CSRF 갱신 실패는 무시
         }
@@ -162,11 +158,7 @@ const NoticeBoard = () => {
         setLoadingNotices(true);
         setNoticeError('');
         try {
-<<<<<<< HEAD
-            const response = await axiosInstance.get('/notices');
-=======
             const response = await axiosInstance.get('/api/notices');
->>>>>>> upstream/UI5
             const data = Array.isArray(response.data) ? response.data : response.data?.data ?? [];
             const normalized = data.map(normalizeNotice);
             if (normalized.length) {
@@ -194,11 +186,7 @@ const NoticeBoard = () => {
         setDetailError('');
         setComments([]);
         try {
-<<<<<<< HEAD
-            const response = await axiosInstance.get(`/notices/${noticeId}`);
-=======
             const response = await axiosInstance.get(`/api/notices/${noticeId}`);
->>>>>>> upstream/UI5
             const detail = normalizeNotice(response.data?.data ?? response.data);
             setSelectedNotice(detail);
         } catch (error) {
@@ -206,11 +194,7 @@ const NoticeBoard = () => {
             setDetailError('공지사항을 불러오지 못했습니다.');
         }
         try {
-<<<<<<< HEAD
-            const response = await axiosInstance.get(`/notices/${noticeId}/comments`);
-=======
             const response = await axiosInstance.get(`/api/notices/${noticeId}/comments`);
->>>>>>> upstream/UI5
             const data = Array.isArray(response.data) ? response.data : response.data?.data ?? [];
             setComments(data.map(normalizeComment));
         } catch (error) {
@@ -247,11 +231,7 @@ const NoticeBoard = () => {
         setIsSubmittingNotice(true);
         try {
             await refreshCsrf();
-<<<<<<< HEAD
-            const response = await axiosInstance.post('/notices', {
-=======
             const response = await axiosInstance.post('/api/notices', {
->>>>>>> upstream/UI5
                 title: title.trim(),
                 content: content.trim(),
             });
@@ -298,11 +278,7 @@ const NoticeBoard = () => {
         setIsSavingNotice(true);
         try {
             await refreshCsrf();
-<<<<<<< HEAD
-            const response = await axiosInstance.put(`/notices/${selectedNotice.id}`, {
-=======
             const response = await axiosInstance.put(`/api/notices/${selectedNotice.id}`, {
->>>>>>> upstream/UI5
                 title: editTitle.trim(),
                 content: editContent.trim(),
             });
@@ -334,11 +310,7 @@ const NoticeBoard = () => {
         setIsSavingNotice(true);
         try {
             await refreshCsrf();
-<<<<<<< HEAD
-            await axiosInstance.delete(`/notices/${selectedNotice.id}`);
-=======
             await axiosInstance.delete(`/api/notices/${selectedNotice.id}`);
->>>>>>> upstream/UI5
             setNotices((prev) => prev.filter((notice) => notice.id !== selectedNotice.id));
             setShowDetail(false);
             setSelectedNotice(null);
@@ -357,11 +329,7 @@ const NoticeBoard = () => {
         setIsSavingComment(true);
         try {
             await refreshCsrf();
-<<<<<<< HEAD
-            const response = await axiosInstance.post(`/notices/${selectedNotice.id}/comments`, {
-=======
             const response = await axiosInstance.post(`/api/notices/${selectedNotice.id}/comments`, {
->>>>>>> upstream/UI5
                 content: commentInput.trim(),
             });
             const created = normalizeComment(response.data?.data ?? response.data);
@@ -394,11 +362,7 @@ const NoticeBoard = () => {
         setIsSavingComment(true);
         try {
             await refreshCsrf();
-<<<<<<< HEAD
-            const response = await axiosInstance.put(`/notices/${selectedNotice.id}/comments/${comment.id}`, {
-=======
             const response = await axiosInstance.put(`/api/notices/${selectedNotice.id}/comments/${comment.id}`, {
->>>>>>> upstream/UI5
                 content: commentEditingText.trim(),
             });
             const updated = normalizeComment(response.data?.data ?? response.data);
@@ -428,11 +392,7 @@ const NoticeBoard = () => {
         setIsSavingComment(true);
         try {
             await refreshCsrf();
-<<<<<<< HEAD
-            await axiosInstance.delete(`/notices/${selectedNotice.id}/comments/${comment.id}`);
-=======
             await axiosInstance.delete(`/api/notices/${selectedNotice.id}/comments/${comment.id}`);
->>>>>>> upstream/UI5
             setComments((prev) => prev.filter((item) => item.id !== comment.id));
         } catch (error) {
             console.error(error);
@@ -538,19 +498,7 @@ const NoticeBoard = () => {
                     >
                         {showForm ? '작성 닫기' : '글 작성'}
                     </button>
-<<<<<<< HEAD
-
-
-
-
                 </div>
-=======
-                
-
-
-
-                                </div>
->>>>>>> upstream/UI5
 
                 <div className="mt-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
                     <div className="flex flex-1 items-center gap-3 rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface)] px-4 py-2 shadow-[0_10px_25px_var(--shadow)]">
@@ -573,221 +521,225 @@ const NoticeBoard = () => {
                     </div>
                 </div>
 
-                {showForm && (
-                    <div className="mt-6 rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface)] p-6 shadow-[0_12px_30px_var(--shadow)]">
-                        <h3 className="text-lg font-semibold text-[color:var(--text)] mb-4">공지사항 작성</h3>
-                        <div className="space-y-3">
-                            <input
-                                type="text"
-                                placeholder="제목"
-                                value={title}
-                                onChange={(event) => setTitle(event.target.value)}
-                                className="w-full p-3 rounded-xl bg-[color:var(--surface-muted)] border border-[color:var(--border)] text-[color:var(--text)] placeholder:text-[color:var(--text-soft)] focus:outline-none focus:ring-2 focus:ring-[color:var(--accent)]"
-                            />
-                            <textarea
-                                rows="4"
-                                placeholder="내용"
-                                value={content}
-                                onChange={(event) => setContent(event.target.value)}
-                                className="w-full p-3 rounded-xl bg-[color:var(--surface-muted)] border border-[color:var(--border)] text-[color:var(--text)] placeholder:text-[color:var(--text-soft)] focus:outline-none focus:ring-2 focus:ring-[color:var(--accent)]"
-                            />
-                            {!isLoggedIn && (
-                                <p className="text-xs text-[color:var(--danger)]">로그인 후 작성할 수 있습니다.</p>
-                            )}
-                            <div className="flex justify-end">
-                                <button
-                                    type="button"
-                                    onClick={handleSubmit}
-                                    disabled={!isLoggedIn || isSubmittingNotice}
-                                    className="px-4 py-2 rounded-xl bg-[color:var(--accent)] text-[color:var(--accent-contrast)] text-sm font-semibold hover:bg-[color:var(--accent-strong)] transition disabled:opacity-50"
-                                >
-                                    {isSubmittingNotice ? '등록 중...' : '등록'}
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                )}
-
-                {showDetail && selectedNotice && (
-                    <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/40 px-6 py-0">
-                        <div className="w-full max-w-2xl rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[0_20px_60px_var(--shadow)] h-full max-h-none overflow-hidden flex flex-col">
-                            <div className="flex items-start justify-between gap-4 px-6 py-5 bg-[color:var(--surface)] border-b border-[color:var(--border)] sticky top-0 z-10">
-                                <div className="flex-1">
-                                    <p className="text-xs uppercase tracking-[0.3em] text-[color:var(--text-soft)]">공지사항 상세</p>
-                                    {editMode ? (
-                                        <div className="mt-3 space-y-3">
-                                            <input
-                                                type="text"
-                                                value={editTitle}
-                                                onChange={(event) => setEditTitle(event.target.value)}
-                                                className="w-full p-3 rounded-xl bg-[color:var(--surface-muted)] border border-[color:var(--border)] text-[color:var(--text)] focus:outline-none focus:ring-2 focus:ring-[color:var(--accent)]"
-                                            />
-                                            <textarea
-                                                rows="4"
-                                                value={editContent}
-                                                onChange={(event) => setEditContent(event.target.value)}
-                                                className="w-full p-3 rounded-xl bg-[color:var(--surface-muted)] border border-[color:var(--border)] text-[color:var(--text)] focus:outline-none focus:ring-2 focus:ring-[color:var(--accent)]"
-                                            />
-                                        </div>
-                                    ) : (
-                                        <>
-                                            <h3 className="text-xl font-semibold text-[color:var(--text)]">{selectedNotice.title}</h3>
-                                            <p className="text-sm text-[color:var(--text-muted)] mt-2">
-                                                {maskName(selectedNotice.authorName)} | {formatDetailDateTime(selectedNotice.createdAt)}
-                                            </p>
-                                        </>
-                                    )}
-                                </div>
-                                <div className="flex flex-wrap gap-2 items-center justify-end">
-                                    {!isEditingComment && isOwner(selectedNotice.authorId, selectedNotice.authorName) && !editMode && (
-                                        <button
-                                            type="button"
-                                            onClick={handleStartEditNotice}
-                                            className="px-3 py-1 rounded-lg bg-[color:var(--surface-muted)] border border-[color:var(--border)] text-sm text-[color:var(--text)] hover:bg-[color:var(--surface)] transition"
-                                        >
-                                            수정
-                                        </button>
-                                    )}
-                                    {!isEditingComment && isOwner(selectedNotice.authorId, selectedNotice.authorName) && editMode && (
-                                        <button
-                                            type="button"
-                                            onClick={handleSaveNotice}
-                                            disabled={isSavingNotice}
-                                            className="px-3 py-1 rounded-lg bg-[color:var(--accent)] text-[color:var(--accent-contrast)] text-sm hover:bg-[color:var(--accent-strong)] transition disabled:opacity-50"
-                                        >
-                                            {isSavingNotice ? '저장 중...' : '저장'}
-                                        </button>
-                                    )}
-                                    {!isEditingComment && isOwner(selectedNotice.authorId, selectedNotice.authorName) && (
-                                        <button
-                                            type="button"
-                                            onClick={handleDeleteNotice}
-                                            disabled={isSavingNotice}
-                                            className="px-3 py-1 rounded-lg bg-[color:var(--danger-bg)] text-[color:var(--danger)] border border-[color:var(--danger)] text-sm hover:bg-[color:var(--danger)] hover:text-white transition disabled:opacity-50"
-                                        >
-                                            삭제
-                                        </button>
-                                    )}
-                                    {!isEditingComment && editMode && (
-                                        <button
-                                            type="button"
-                                            onClick={() => setEditMode(false)}
-                                            className="px-3 py-1 rounded-lg bg-[color:var(--surface-muted)] border border-[color:var(--border)] text-sm text-[color:var(--text)] hover:bg-[color:var(--surface)] transition"
-                                        >
-                                            취소
-                                        </button>
-                                    )}
+                {
+                    showForm && (
+                        <div className="mt-6 rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface)] p-6 shadow-[0_12px_30px_var(--shadow)]">
+                            <h3 className="text-lg font-semibold text-[color:var(--text)] mb-4">공지사항 작성</h3>
+                            <div className="space-y-3">
+                                <input
+                                    type="text"
+                                    placeholder="제목"
+                                    value={title}
+                                    onChange={(event) => setTitle(event.target.value)}
+                                    className="w-full p-3 rounded-xl bg-[color:var(--surface-muted)] border border-[color:var(--border)] text-[color:var(--text)] placeholder:text-[color:var(--text-soft)] focus:outline-none focus:ring-2 focus:ring-[color:var(--accent)]"
+                                />
+                                <textarea
+                                    rows="4"
+                                    placeholder="내용"
+                                    value={content}
+                                    onChange={(event) => setContent(event.target.value)}
+                                    className="w-full p-3 rounded-xl bg-[color:var(--surface-muted)] border border-[color:var(--border)] text-[color:var(--text)] placeholder:text-[color:var(--text-soft)] focus:outline-none focus:ring-2 focus:ring-[color:var(--accent)]"
+                                />
+                                {!isLoggedIn && (
+                                    <p className="text-xs text-[color:var(--danger)]">로그인 후 작성할 수 있습니다.</p>
+                                )}
+                                <div className="flex justify-end">
                                     <button
                                         type="button"
-                                        onClick={() => setShowDetail(false)}
-                                        className="px-3 py-1 rounded-lg bg-[color:var(--surface-muted)] border border-[color:var(--border)] text-sm text-[color:var(--text)] hover:bg-[color:var(--surface)] transition"
+                                        onClick={handleSubmit}
+                                        disabled={!isLoggedIn || isSubmittingNotice}
+                                        className="px-4 py-2 rounded-xl bg-[color:var(--accent)] text-[color:var(--accent-contrast)] text-sm font-semibold hover:bg-[color:var(--accent-strong)] transition disabled:opacity-50"
                                     >
-                                        닫기
+                                        {isSubmittingNotice ? '등록 중...' : '등록'}
                                     </button>
                                 </div>
                             </div>
-                            <div className="flex-1 overflow-hidden px-6 py-5 flex flex-col">
-                                {detailLoading && (
-                                    <div className="text-sm text-[color:var(--text-muted)]">상세 정보를 불러오는 중입니다.</div>
-                                )}
-                                {detailError && (
-                                    <div className="mt-4 text-sm text-[color:var(--danger)]">{detailError}</div>
-                                )}
-                                {!editMode && !isEditingComment && (
-                                    <div className="mt-6 rounded-xl border border-[color:var(--border)] bg-[color:var(--surface-muted)] p-4 text-sm text-[color:var(--text)]">
-                                        {selectedNotice.content}
-                                    </div>
-                                )}
+                        </div>
+                    )
+                }
 
-                                {!editMode && (
-                                    <div className="mt-6 border-t border-[color:var(--border)] pt-5 flex flex-col flex-1 min-h-0">
-                                        <h4 className="text-sm font-semibold text-[color:var(--text)] mb-3">댓글</h4>
-                                        <div className="space-y-3 flex-1 overflow-y-auto pr-2 min-h-0">
-                                            {comments.length === 0 && (
-                                                <p className="text-sm text-[color:var(--text-muted)]">아직 댓글이 없습니다.</p>
-                                            )}
-                                            {comments.map((comment) => (
-                                                <div key={comment.id} className="rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] p-3">
-                                                    <div className="flex items-center justify-between">
-                                                        <div className="text-sm font-semibold text-[color:var(--text)]">
-                                                            {maskName(comment.authorName)}
-                                                            <span className="ml-2 text-xs text-[color:var(--text-muted)]">{formatDetailDateTime(comment.createdAt)}</span>
-                                                        </div>
-                                                        {isOwner(comment.authorId, comment.authorName) && (
-                                                            <div className="flex items-center gap-2 text-xs">
-                                                                {commentEditingId !== comment.id ? (
-                                                                    <button
-                                                                        type="button"
-                                                                        onClick={() => handleStartEditComment(comment)}
-                                                                        className="text-[color:var(--text-soft)] hover:text-[color:var(--text)] transition"
-                                                                    >
-                                                                        수정
-                                                                    </button>
-                                                                ) : (
-                                                                    <button
-                                                                        type="button"
-                                                                        onClick={() => handleSaveComment(comment)}
-                                                                        disabled={isSavingComment}
-                                                                        className="text-[color:var(--accent)] hover:text-[color:var(--accent-strong)] transition disabled:opacity-50"
-                                                                    >
-                                                                        저장
-                                                                    </button>
-                                                                )}
-                                                                <button
-                                                                    type="button"
-                                                                    onClick={() => handleDeleteComment(comment)}
-                                                                    disabled={isSavingComment}
-                                                                    className="text-[color:var(--danger)] hover:text-[color:var(--danger)] transition disabled:opacity-50"
-                                                                >
-                                                                    삭제
-                                                                </button>
-                                                            </div>
-                                                        )}
-                                                    </div>
-                                                    {commentEditingId === comment.id ? (
-                                                        <textarea
-                                                            rows="3"
-                                                            value={commentEditingText}
-                                                            onChange={(event) => setCommentEditingText(event.target.value)}
-                                                            className="mt-3 w-full p-3 rounded-lg bg-[color:var(--surface-muted)] border border-[color:var(--border)] text-sm text-[color:var(--text)] focus:outline-none focus:ring-2 focus:ring-[color:var(--accent)]"
-                                                        />
-                                                    ) : (
-                                                        <p className="mt-2 text-sm text-[color:var(--text)]">{comment.content}</p>
-                                                    )}
-                                                </div>
-                                            ))}
-                                        </div>
-
-                                        {!isEditingComment && (
-                                            <div className="mt-4">
-                                                <textarea
-                                                    rows="3"
-                                                    value={commentInput}
-                                                    onChange={(event) => setCommentInput(event.target.value)}
-                                                    placeholder={isLoggedIn ? '댓글을 입력해주세요.' : '로그인 후 댓글을 작성할 수 있습니다.'}
-                                                    disabled={!isLoggedIn}
-                                                    className="w-full p-3 rounded-xl bg-[color:var(--surface-muted)] border border-[color:var(--border)] text-sm text-[color:var(--text)] placeholder:text-[color:var(--text-soft)] focus:outline-none focus:ring-2 focus:ring-[color:var(--accent)] disabled:opacity-60"
+                {
+                    showDetail && selectedNotice && (
+                        <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/40 px-6 py-0">
+                            <div className="w-full max-w-2xl rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[0_20px_60px_var(--shadow)] h-full max-h-none overflow-hidden flex flex-col">
+                                <div className="flex items-start justify-between gap-4 px-6 py-5 bg-[color:var(--surface)] border-b border-[color:var(--border)] sticky top-0 z-10">
+                                    <div className="flex-1">
+                                        <p className="text-xs uppercase tracking-[0.3em] text-[color:var(--text-soft)]">공지사항 상세</p>
+                                        {editMode ? (
+                                            <div className="mt-3 space-y-3">
+                                                <input
+                                                    type="text"
+                                                    value={editTitle}
+                                                    onChange={(event) => setEditTitle(event.target.value)}
+                                                    className="w-full p-3 rounded-xl bg-[color:var(--surface-muted)] border border-[color:var(--border)] text-[color:var(--text)] focus:outline-none focus:ring-2 focus:ring-[color:var(--accent)]"
                                                 />
-                                                <div className="mt-3 flex justify-end">
-                                                    <button
-                                                        type="button"
-                                                        onClick={handleAddComment}
-                                                        disabled={!isLoggedIn || isSavingComment}
-                                                        className="px-4 py-2 rounded-xl bg-[color:var(--accent)] text-[color:var(--accent-contrast)] text-sm font-semibold hover:bg-[color:var(--accent-strong)] transition disabled:opacity-50"
-                                                    >
-                                                        {isSavingComment ? '등록 중...' : '댓글 등록'}
-                                                    </button>
-                                                </div>
+                                                <textarea
+                                                    rows="4"
+                                                    value={editContent}
+                                                    onChange={(event) => setEditContent(event.target.value)}
+                                                    className="w-full p-3 rounded-xl bg-[color:var(--surface-muted)] border border-[color:var(--border)] text-[color:var(--text)] focus:outline-none focus:ring-2 focus:ring-[color:var(--accent)]"
+                                                />
                                             </div>
+                                        ) : (
+                                            <>
+                                                <h3 className="text-xl font-semibold text-[color:var(--text)]">{selectedNotice.title}</h3>
+                                                <p className="text-sm text-[color:var(--text-muted)] mt-2">
+                                                    {maskName(selectedNotice.authorName)} | {formatDetailDateTime(selectedNotice.createdAt)}
+                                                </p>
+                                            </>
                                         )}
                                     </div>
-                                )}
+                                    <div className="flex flex-wrap gap-2 items-center justify-end">
+                                        {!isEditingComment && isOwner(selectedNotice.authorId, selectedNotice.authorName) && !editMode && (
+                                            <button
+                                                type="button"
+                                                onClick={handleStartEditNotice}
+                                                className="px-3 py-1 rounded-lg bg-[color:var(--surface-muted)] border border-[color:var(--border)] text-sm text-[color:var(--text)] hover:bg-[color:var(--surface)] transition"
+                                            >
+                                                수정
+                                            </button>
+                                        )}
+                                        {!isEditingComment && isOwner(selectedNotice.authorId, selectedNotice.authorName) && editMode && (
+                                            <button
+                                                type="button"
+                                                onClick={handleSaveNotice}
+                                                disabled={isSavingNotice}
+                                                className="px-3 py-1 rounded-lg bg-[color:var(--accent)] text-[color:var(--accent-contrast)] text-sm hover:bg-[color:var(--accent-strong)] transition disabled:opacity-50"
+                                            >
+                                                {isSavingNotice ? '저장 중...' : '저장'}
+                                            </button>
+                                        )}
+                                        {!isEditingComment && isOwner(selectedNotice.authorId, selectedNotice.authorName) && (
+                                            <button
+                                                type="button"
+                                                onClick={handleDeleteNotice}
+                                                disabled={isSavingNotice}
+                                                className="px-3 py-1 rounded-lg bg-[color:var(--danger-bg)] text-[color:var(--danger)] border border-[color:var(--danger)] text-sm hover:bg-[color:var(--danger)] hover:text-white transition disabled:opacity-50"
+                                            >
+                                                삭제
+                                            </button>
+                                        )}
+                                        {!isEditingComment && editMode && (
+                                            <button
+                                                type="button"
+                                                onClick={() => setEditMode(false)}
+                                                className="px-3 py-1 rounded-lg bg-[color:var(--surface-muted)] border border-[color:var(--border)] text-sm text-[color:var(--text)] hover:bg-[color:var(--surface)] transition"
+                                            >
+                                                취소
+                                            </button>
+                                        )}
+                                        <button
+                                            type="button"
+                                            onClick={() => setShowDetail(false)}
+                                            className="px-3 py-1 rounded-lg bg-[color:var(--surface-muted)] border border-[color:var(--border)] text-sm text-[color:var(--text)] hover:bg-[color:var(--surface)] transition"
+                                        >
+                                            닫기
+                                        </button>
+                                    </div>
+                                </div>
+                                <div className="flex-1 overflow-hidden px-6 py-5 flex flex-col">
+                                    {detailLoading && (
+                                        <div className="text-sm text-[color:var(--text-muted)]">상세 정보를 불러오는 중입니다.</div>
+                                    )}
+                                    {detailError && (
+                                        <div className="mt-4 text-sm text-[color:var(--danger)]">{detailError}</div>
+                                    )}
+                                    {!editMode && !isEditingComment && (
+                                        <div className="mt-6 rounded-xl border border-[color:var(--border)] bg-[color:var(--surface-muted)] p-4 text-sm text-[color:var(--text)]">
+                                            {selectedNotice.content}
+                                        </div>
+                                    )}
+
+                                    {!editMode && (
+                                        <div className="mt-6 border-t border-[color:var(--border)] pt-5 flex flex-col flex-1 min-h-0">
+                                            <h4 className="text-sm font-semibold text-[color:var(--text)] mb-3">댓글</h4>
+                                            <div className="space-y-3 flex-1 overflow-y-auto pr-2 min-h-0">
+                                                {comments.length === 0 && (
+                                                    <p className="text-sm text-[color:var(--text-muted)]">아직 댓글이 없습니다.</p>
+                                                )}
+                                                {comments.map((comment) => (
+                                                    <div key={comment.id} className="rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] p-3">
+                                                        <div className="flex items-center justify-between">
+                                                            <div className="text-sm font-semibold text-[color:var(--text)]">
+                                                                {maskName(comment.authorName)}
+                                                                <span className="ml-2 text-xs text-[color:var(--text-muted)]">{formatDetailDateTime(comment.createdAt)}</span>
+                                                            </div>
+                                                            {isOwner(comment.authorId, comment.authorName) && (
+                                                                <div className="flex items-center gap-2 text-xs">
+                                                                    {commentEditingId !== comment.id ? (
+                                                                        <button
+                                                                            type="button"
+                                                                            onClick={() => handleStartEditComment(comment)}
+                                                                            className="text-[color:var(--text-soft)] hover:text-[color:var(--text)] transition"
+                                                                        >
+                                                                            수정
+                                                                        </button>
+                                                                    ) : (
+                                                                        <button
+                                                                            type="button"
+                                                                            onClick={() => handleSaveComment(comment)}
+                                                                            disabled={isSavingComment}
+                                                                            className="text-[color:var(--accent)] hover:text-[color:var(--accent-strong)] transition disabled:opacity-50"
+                                                                        >
+                                                                            저장
+                                                                        </button>
+                                                                    )}
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={() => handleDeleteComment(comment)}
+                                                                        disabled={isSavingComment}
+                                                                        className="text-[color:var(--danger)] hover:text-[color:var(--danger)] transition disabled:opacity-50"
+                                                                    >
+                                                                        삭제
+                                                                    </button>
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                        {commentEditingId === comment.id ? (
+                                                            <textarea
+                                                                rows="3"
+                                                                value={commentEditingText}
+                                                                onChange={(event) => setCommentEditingText(event.target.value)}
+                                                                className="mt-3 w-full p-3 rounded-lg bg-[color:var(--surface-muted)] border border-[color:var(--border)] text-sm text-[color:var(--text)] focus:outline-none focus:ring-2 focus:ring-[color:var(--accent)]"
+                                                            />
+                                                        ) : (
+                                                            <p className="mt-2 text-sm text-[color:var(--text)]">{comment.content}</p>
+                                                        )}
+                                                    </div>
+                                                ))}
+                                            </div>
+
+                                            {!isEditingComment && (
+                                                <div className="mt-4">
+                                                    <textarea
+                                                        rows="3"
+                                                        value={commentInput}
+                                                        onChange={(event) => setCommentInput(event.target.value)}
+                                                        placeholder={isLoggedIn ? '댓글을 입력해주세요.' : '로그인 후 댓글을 작성할 수 있습니다.'}
+                                                        disabled={!isLoggedIn}
+                                                        className="w-full p-3 rounded-xl bg-[color:var(--surface-muted)] border border-[color:var(--border)] text-sm text-[color:var(--text)] placeholder:text-[color:var(--text-soft)] focus:outline-none focus:ring-2 focus:ring-[color:var(--accent)] disabled:opacity-60"
+                                                    />
+                                                    <div className="mt-3 flex justify-end">
+                                                        <button
+                                                            type="button"
+                                                            onClick={handleAddComment}
+                                                            disabled={!isLoggedIn || isSavingComment}
+                                                            className="px-4 py-2 rounded-xl bg-[color:var(--accent)] text-[color:var(--accent-contrast)] text-sm font-semibold hover:bg-[color:var(--accent-strong)] transition disabled:opacity-50"
+                                                        >
+                                                            {isSavingComment ? '등록 중...' : '댓글 등록'}
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
+                                </div>
                             </div>
                         </div>
-                    </div>
-                )}
-            </div>
-        </div>
+                    )
+                }
+            </div >
+        </div >
     );
 };
 

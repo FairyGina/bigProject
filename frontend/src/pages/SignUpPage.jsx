@@ -202,11 +202,7 @@ const SignUpPage = () => {
         }
 
         try {
-<<<<<<< HEAD
-            const response = await axiosInstance.post('/auth/join', formData);
-=======
             const response = await axiosInstance.post('/api/auth/join', formData);
->>>>>>> upstream/UI5
             if (response.status >= 200 && response.status < 300) {
                 alert('회원가입이 완료되었습니다. 로그인해주세요.');
                 navigate('/login');
@@ -239,8 +235,7 @@ const SignUpPage = () => {
         } catch (storageError) {
             console.warn('oauthFlow 스토리지 사용 불가:', storageError);
         }
-        const baseUrl = (import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080').replace(/\/$/, '');
-        window.location.assign(`${baseUrl}/oauth2/authorization/${provider}`);
+        window.location.assign(`/oauth2/authorization/${provider}`);
     };
 
     return (

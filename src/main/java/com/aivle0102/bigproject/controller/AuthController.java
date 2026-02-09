@@ -50,13 +50,9 @@ public class AuthController {
                 response.getUserId(),
                 response.getPasswordChangedAt(),
                 response.isPasswordExpired(),
-                response.getPasswordExpiryAt()
-        );
+                response.getPasswordExpiryAt());
         return ResponseEntity.ok(response);
     }
-
-<<<<<<< HEAD
-=======
 
     @PostMapping("/auth/demo-login")
     public ResponseEntity<UserResponse> demoLogin() {
@@ -64,7 +60,6 @@ public class AuthController {
         return ResponseEntity.ok(response);
     }
 
->>>>>>> upstream/UI5
     @PostMapping("/auth/logout")
     public ResponseEntity<Map<String, String>> logout() {
         authService.logout();
@@ -84,7 +79,8 @@ public class AuthController {
     }
 
     @PostMapping("/auth/password-reset/verify")
-    public ResponseEntity<Map<String, String>> verifyPasswordResetCode(@Valid @RequestBody PasswordResetVerifyRequest request) {
+    public ResponseEntity<Map<String, String>> verifyPasswordResetCode(
+            @Valid @RequestBody PasswordResetVerifyRequest request) {
         authService.verifyPasswordResetCode(request);
         return ResponseEntity.ok(Map.of("message", "인증 코드가 확인되었습니다."));
     }
@@ -93,7 +89,7 @@ public class AuthController {
     public ResponseEntity<Map<String, String>> withdraw(Principal principal) {
         if (principal == null) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
-            .body(Map.of("error", "로그인이 필요합니다."));
+                    .body(Map.of("error", "로그인이 필요합니다."));
         }
         authService.withdraw(principal.getName());
         return ResponseEntity.ok(Map.of("message", "회원 탈퇴가 완료되었습니다."));
@@ -103,7 +99,7 @@ public class AuthController {
     public ResponseEntity<?> getCurrentUser(Principal principal) {
         if (principal == null) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
-            .body(Map.of("error", "로그인이 필요합니다."));
+                    .body(Map.of("error", "로그인이 필요합니다."));
         }
         UserResponse response = authService.getCurrentUser(principal.getName());
         return ResponseEntity.ok(response);
@@ -112,11 +108,10 @@ public class AuthController {
     @PutMapping("/user/me")
     public ResponseEntity<?> updateProfile(
             Principal principal,
-            @RequestBody UpdateProfileRequest request
-    ) {
+            @RequestBody UpdateProfileRequest request) {
         if (principal == null) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
-            .body(Map.of("error", "로그인이 필요합니다."));
+                    .body(Map.of("error", "로그인이 필요합니다."));
         }
         UserResponse response = authService.updateProfile(principal.getName(), request);
         return ResponseEntity.ok(response);
@@ -125,14 +120,12 @@ public class AuthController {
     @PostMapping("/user/verify-password")
     public ResponseEntity<Map<String, String>> verifyPassword(
             Principal principal,
-            @Valid @RequestBody VerifyPasswordRequest request
-    ) {
+            @Valid @RequestBody VerifyPasswordRequest request) {
         if (principal == null) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
-            .body(Map.of("error", "인증이 필요합니다."));
+                    .body(Map.of("error", "인증이 필요합니다."));
         }
         authService.verifyPassword(principal.getName(), request.getPassword());
         return ResponseEntity.ok(Map.of("message", "비밀번호가 확인되었습니다."));
     }
- 
 }
