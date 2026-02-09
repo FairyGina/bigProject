@@ -238,7 +238,9 @@ const RecipeReport = () => {
         }
         progressModeRef.current = 'server';
         try {
-            const source = new EventSource(`http://localhost:8080/api/reports/progress/${jobId}`);
+            // 클라우드 환경에서는 현재 도메인을 기반으로 EventSource URL 동적 생성
+            const eventSourceBaseUrl = import.meta.env.VITE_API_URL || '/api';
+            const source = new EventSource(`${eventSourceBaseUrl}/reports/progress/${jobId}`);
             progressSourceRef.current = source;
             source.addEventListener('progress', (event) => {
                 try {

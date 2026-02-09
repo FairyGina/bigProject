@@ -73,6 +73,13 @@ const ExportAnalysisPage = () => {
         }
     };
 
+    // Fetch dashboard data when switching to dashboard tab or on initial load
+    useEffect(() => {
+        if (activeTab === 'dashboard' && !dashboardData) {
+            fetchDashboard();
+        }
+    }, [activeTab]);
+
     const handleFilterChange = (key, value) => {
         setFilters(prev => ({ ...prev, [key]: value }));
     };

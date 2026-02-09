@@ -44,8 +44,12 @@ const RemoteMeetingPage = () => {
             }
 
             const token = localStorage.getItem('accessToken');
+            // 클라우드 환경에서는 현재 도메인을 기반으로 WebSocket URL 동적 생성
+            const wsBaseUrl = import.meta.env.VITE_API_URL
+                ? import.meta.env.VITE_API_URL.replace(/\/api$/, '')
+                : (window.location.origin);
             const client = new Client({
-                webSocketFactory: () => new SockJS('http://localhost:8080/ws'),
+                webSocketFactory: () => new SockJS(`${wsBaseUrl}/ws`),
                 reconnectDelay: 4000,
                 connectHeaders: token ? { Authorization: `Bearer ${token}` } : {},
                 onConnect: () => {
@@ -125,8 +129,8 @@ const RemoteMeetingPage = () => {
                                 type="button"
                                 onClick={() => selectReport(report)}
                                 className={`relative rounded-2xl border text-left overflow-hidden shadow-[0_10px_25px_var(--shadow)] transition ${selected
-                                        ? 'border-[color:var(--accent)] bg-[color:var(--surface-muted)] ring-2 ring-[color:var(--accent)]/40'
-                                        : 'border-[color:var(--border)] bg-[color:var(--surface-muted)] hover:border-[color:var(--accent)]/60'
+                                    ? 'border-[color:var(--accent)] bg-[color:var(--surface-muted)] ring-2 ring-[color:var(--accent)]/40'
+                                    : 'border-[color:var(--border)] bg-[color:var(--surface-muted)] hover:border-[color:var(--accent)]/60'
                                     }`}
                             >
                                 <div className="absolute top-3 right-3 z-10 text-[10px] px-2 py-1 rounded-full bg-[color:var(--surface)] text-[color:var(--text-soft)]">

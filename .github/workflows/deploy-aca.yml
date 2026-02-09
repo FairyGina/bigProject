@@ -64,6 +64,7 @@ jobs:
         run: |
           docker build \
             --build-arg VITE_API_URL=/api \
+            --build-arg VITE_CHATBOT_URL=https://bp-chatbot-app.wittysand-a0f4e87e.centralindia.azurecontainerapps.io \
             -t ${{ env.FRONTEND_ACR }}.azurecr.io/${{ env.FRONTEND_IMAGE_NAME }}:${{ github.sha }} \
             ./frontend
           docker push ${{ env.FRONTEND_ACR }}.azurecr.io/${{ env.FRONTEND_IMAGE_NAME }}:${{ github.sha }}
