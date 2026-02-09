@@ -27,8 +27,11 @@ RUN npm run build
 # Production stage
 FROM nginx:alpine
 
-# Copy our config as a template for envsubst
-COPY nginx.conf /etc/nginx/templates/default.conf.template
+# Install gettext for envsubst (already included in nginx:alpine but ensure it's available)
+RUN apk add --no-cache gettext
+
+# Copy nginx config as template
+COPY nginx.conf /etc/nginx/nginx.conf.template
 
 # Copy built assets from builder
 COPY --from=builder /app/dist /usr/share/nginx/html
@@ -39,4 +42,5 @@ ENV BACKEND_URL=http://bp-backend-app:8080
 
 EXPOSE 80
 
-CMD ["nginx", "-g", "daemon off;"]
+# Use envsubst with explicit variable list to prevent Nginx variables from being substituted
+CMD ["/bin/sh", "-c", "envsubst '${BACKEND_URL}' < /etc/nginx/nginx.conf.template > /etc/nginx/conf.d/default.conf && nginx -g 'daemon off;'"]

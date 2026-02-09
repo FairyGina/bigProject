@@ -68,6 +68,7 @@ public class SecurityConfig {
                                                 .permitAll()
                                                 .requestMatchers("/api/auth/**").permitAll()
                                                 .requestMatchers("/api/csrf").permitAll()
+                                                .requestMatchers("/ws/**").permitAll()
                                                 .requestMatchers("/oauth2/**", "/login/oauth2/**").permitAll()
                                                 .requestMatchers("/error").permitAll()
                                                 .anyRequest().permitAll())
@@ -98,6 +99,7 @@ public class SecurityConfig {
                                                                 org.springframework.web.cors.CorsUtils::isPreFlightRequest)
                                                 .permitAll()
                                                 .requestMatchers("/api/auth/**").permitAll()
+                                                .requestMatchers("/ws/**").permitAll()
                                                 .requestMatchers("/error").permitAll()
                                                 .anyRequest().permitAll());
 
