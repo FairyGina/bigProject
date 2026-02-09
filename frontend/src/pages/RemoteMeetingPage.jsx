@@ -49,7 +49,7 @@ const RemoteMeetingPage = () => {
                 ? import.meta.env.VITE_API_URL.replace(/\/api$/, '')
                 : (window.location.origin);
             const client = new Client({
-                webSocketFactory: () => new SockJS(`${wsBaseUrl}/ws`),
+                webSocketFactory: () => new SockJS(`${wsBaseUrl}/ws`, null, { transports: ['websocket'] }),
                 reconnectDelay: 4000,
                 connectHeaders: token ? { Authorization: `Bearer ${token}` } : {},
                 onConnect: () => {
