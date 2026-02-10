@@ -600,7 +600,7 @@ async def analyze(country: str = Query(...), item: str = Query(...)):
     titles = [f"📊 {country_name} {item} 수출액 추이", f"💱 {country_name} 환율 증감률 (%)"]
     if 'gdp_level' in filtered.columns:
         rows = 3
-        titles.append(f"📈 {country_name} GDP 증감률 (%)")
+        titles.append(f"📈 {country_name} GDP 증감률 (YoY %)")
         
     fig_stack = make_subplots(rows=rows, cols=1, shared_xaxes=True, 
                               vertical_spacing=0.12, subplot_titles=titles)
@@ -680,37 +680,52 @@ async def analyze(country: str = Query(...), item: str = Query(...)):
     except:
         pass
     
-    # Row 3: GDP 증감률 (if exists)
+    # Row 3: GDP 증감률 — YoY (전년 동월 대비) (if exists)
     if rows == 3:
-        gdp_pct = filtered['gdp_level'].pct_change().fillna(0) * 100
-        
-        # Detect stale/projected GDP data (consecutive identical values)
         gdp_vals = filtered['gdp_level'].values
-        last_real_idx = len(gdp_vals) - 1
-        for i in range(len(gdp_vals) - 1, 0, -1):
+        n = len(gdp_vals)
+        
+        # ── YoY 증감률 계산 (12개월 전 대비) ──
+        # MoM pct_change was too small within quarters (~0.05%), making chart look quarterly.
+        # YoY gives meaningful, visible values for every month.
+        gdp_yoy = pd.Series([None] * n, dtype='float64')
+        for i in range(n):
+            if i >= 12 and gdp_vals[i - 12] != 0:
+                gdp_yoy.iloc[i] = ((gdp_vals[i] - gdp_vals[i - 12]) / gdp_vals[i - 12]) * 100
+        
+        # ── Detect stale/projected GDP data (consecutive identical values from the end) ──
+        last_real_idx = n - 1
+        for i in range(n - 1, 0, -1):
             if gdp_vals[i] == gdp_vals[i - 1]:
                 last_real_idx = i - 1
             else:
                 break
         
-        # Mask out stale 0% values — show None so bars don't render
-        gdp_pct_display = gdp_pct.copy()
-        if last_real_idx < len(gdp_vals) - 1:
-            stale_start = last_real_idx + 1
-            gdp_pct_display.iloc[stale_start:] = None
+        # ── Color: real data = blue/red, projected data = light gray ──
+        gdp_colors = []
+        for i in range(n):
+            val = gdp_yoy.iloc[i]
+            if val is None or pd.isna(val):
+                gdp_colors.append('#d1d5db')  # gray for no-data (first 12 months)
+            elif i > last_real_idx and last_real_idx < n - 1:
+                gdp_colors.append('#d1d5db')  # gray for projected/stale months
+            elif val < 0:
+                gdp_colors.append('#ef4444')  # red for negative
+            else:
+                gdp_colors.append('#3b82f6')  # blue for positive
         
-        gdp_colors = ['#ef4444' if (v is not None and v < 0) else '#3b82f6' for v in gdp_pct_display]
         fig_stack.add_trace(go.Bar(
-            x=filtered['period_str'], y=gdp_pct_display.round(2), name="GDP 증감률",
+            x=filtered['period_str'], y=gdp_yoy.round(2), name="GDP 증감률 (YoY)",
             marker=dict(color=gdp_colors),
-            hovertemplate='%{x}<br>증감률: %{y:.2f}%<extra></extra>'
+            hovertemplate='%{x}<br>YoY 증감률: %{y:.2f}%<extra></extra>'
         ), row=3, col=1)
         
         # Add annotation if stale data detected
-        if last_real_idx < len(gdp_vals) - 1 and last_real_idx >= 0:
+        if last_real_idx < n - 1 and last_real_idx >= 0:
             stale_period = filtered['period_str'].iloc[last_real_idx]
+            yoy_val = gdp_yoy.iloc[last_real_idx]
             fig_stack.add_annotation(
-                x=stale_period, y=gdp_pct.iloc[last_real_idx],
+                x=stale_period, y=yoy_val if yoy_val is not None and not pd.isna(yoy_val) else 0,
                 text="← 이후 미발표 (추정치)",
                 showarrow=True, arrowhead=2, arrowcolor="#94a3b8",
                 font=dict(color="#94a3b8", size=10),
