@@ -354,16 +354,6 @@ const ExportAnalysisPage = () => {
                                     />
                                 </div>
                             </div>
-
-                            {/* Row 3: Seasonality */}
-                            <div className="bg-[color:var(--surface)] p-6 rounded-2xl shadow-[0_10px_30px_var(--shadow)] border border-[color:var(--border)]">
-                                <h3 className="text-lg font-bold mb-4 flex items-center gap-2"><Search size={20} className="text-rose-500" /> 5. 품목별 계절성 (Heatmap)</h3>
-                                <Plot
-                                    data={dashboardData.charts.seasonality.data}
-                                    layout={{ ...dashboardData.charts.seasonality.layout, autosize: true, width: undefined, height: undefined }}
-                                    useResizeHandler={true} style={{ width: '100%', height: '400px' }} config={{ displayModeBar: false }}
-                                />
-                            </div>
                         </>
                     ) : (
                         <div className="text-center p-12 text-[color:var(--text-muted)]">데이터를 불러올 수 없습니다. 잠시 후 다시 시도해주세요.</div>

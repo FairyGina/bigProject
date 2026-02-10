@@ -25,14 +25,46 @@ GENERIC_INSIGHT_STOPWORDS = {
     'using', 'add', 'added', 'adding', 'recipe', 'highly', 'food', 'definitely', 
     'amazing', 'awesome', 'wonderful', 'delicious', 'tasty', 'bit', 'lot', 'little', 
     'ordered', 'received', 'came', 'made', 'make', 'makes', 'everything', 'everyone', 
-    'anyone', 'anything', 'would', 'could', 'should', 'first', 'second', 'ever', 'never'
+    'anyone', 'anything', 'would', 'could', 'should', 'first', 'second', 'ever', 'never',
+    'flavor', 'taste', 'mouth', 'feel', 'texture', 'eating', 'eat', 'eaten', 'think', 'thought'
+}
+
+SENSORY_KEYWORDS = {
+    'spicy', 'hot', 'sweet', 'savory', 'crunchy', 'crispy', 'salty', 'bitter', 'sour', 
+    'tangy', 'garlicky', 'smoky', 'smooth', 'creamy', 'chewy', 'tender', 'fresh', 'mild',
+    'strong', 'rich', 'bold', 'dark', 'light', 'kick', 'burn', 'acid'
+}
+
+PAIRING_KEYWORDS = {
+    'rice', 'noodle', 'noodles', 'chicken', 'meat', 'beef', 'pork', 'pizza', 'sandwich',
+    'salad', 'soup', 'topping', 'toppings', 'dip', 'sauce', 'stew', 'fried', 'grilled',
+    'bread', 'vegetable', 'vegetables', 'eggs', 'steak', 'burger', 'taco', 'tacos'
 }
 
 def is_generic_term(term):
     """키워드가 단일 범용 단어이거나, Bigram의 모든 단어가 범형 단어인 경우 True 반환"""
     words = term.lower().split()
-    # 모든 단어가 범용 단어 목록에 포함되어 있으면 의미 없는 키워드로 간주
     return all(w in GENERIC_INSIGHT_STOPWORDS for w in words)
+
+def calculate_relevance_score(keyword, mention_count, impact_score):
+    """키워드의 의미적 가치를 기반으로 점수 계산 (Sensory/Pairing 가중치 부여)"""
+    words = keyword.lower().split()
+    score = float(mention_count)
+    
+    has_sensory = any(w in SENSORY_KEYWORDS for w in words)
+    has_pairing = any(w in PAIRING_KEYWORDS for w in words)
+    
+    # 가중치 적용
+    multiplier = 1.0
+    if has_sensory: multiplier *= 1.6
+    if has_pairing: multiplier *= 1.4
+    
+    # 범용 단어 페널티 (모든 단어가 stopword는 아니지만, stopword가 포함된 경우)
+    has_generic = any(w in GENERIC_INSIGHT_STOPWORDS for w in words)
+    if has_generic and not (has_sensory or has_pairing):
+        multiplier *= 0.6
+        
+    return score * multiplier
 
 # DB Connection Details - Support both Spring format and legacy format
 def parse_spring_datasource_url(url):
@@ -267,16 +299,12 @@ def extract_bigrams_with_metrics(
             "has_adjective": has_adj
         })
     
-    # 4. 정렬: 형용사 포함 우선, 그 다음 언급 횟수
-    if adj_priority:
-        # 형용사 포함 조합이 있다면 그것들만 필터링해서 상위권에 배치
-        adj_results = [r for r in results if r["has_adjective"]]
-        if adj_results:
-            results = sorted(adj_results, key=lambda x: -x["mention_count"])
-        else:
-            results = sorted(results, key=lambda x: -x["mention_count"])
-    else:
-        results = sorted(results, key=lambda x: -x["mention_count"])
+    # 4. 가중치 기반 정렬: Relevance Score 계산 및 정렬
+    for r in results:
+        r["relevance_score"] = calculate_relevance_score(r["keyword"], r["mention_count"], r["impact_score"])
+    
+    # 1차 정렬: Relevance Score (높은 순), 2차 정렬: 언급 횟수
+    results = sorted(results, key=lambda x: (-x["relevance_score"], -x["mention_count"]))
     
     return results[:top_n]
 
@@ -462,7 +490,7 @@ def load_data_background():
                             if len(parts) > 1:
                                 month_part = parts[1]
                                 if len(month_part) == 2: month = month_part
-                                elif len(month_part) == 1: month = '10' if month_part == '1' else '0' + month_part
+                                elif len(month_part) == 1: month = '0' + month_part
                                 else: month = str(month_part)[:2].zfill(2)
                             else: month = '01'
                             return f"{year}-{month}"
@@ -705,8 +733,8 @@ async def analyze(country: str = Query(...), item: str = Query(...)):
         fig_signal.add_trace(go.Scatter(
             x=filtered['period_str'], y=y_common, 
             name="K-Food 전체 관심도",
-            line=dict(color='#fda4af', width=2, dash='dot'), # 연한 핑크 점선
-            opacity=0.6
+            line=dict(color='#94a3b8', width=2, dash='dot'), # 차분한 회색 점선 (가독성 향상)
+            opacity=0.8
         ), secondary_y=True)
 
     # 2. 개별 선행 지표: 1:1 매핑된 품목 관심도
@@ -725,7 +753,7 @@ async def analyze(country: str = Query(...), item: str = Query(...)):
             fig_signal.add_trace(go.Scatter(
                 x=filtered['period_str'], y=y_specific, 
                 name=f"품목 관심도 ({trend_kw})",
-                line=dict(color='#f43f5e', width=4), # 진한 장미색 실선
+                line=dict(color='#6366f1', width=3), # 인디고 색상으로 변경 (너무 튀지 않게)
                 mode='lines+markers'
             ), secondary_y=True)
             
@@ -750,7 +778,7 @@ async def analyze(country: str = Query(...), item: str = Query(...)):
     # 3. 후행 지표: 실적(수출액) - Bar Chart (배경 역할)
     fig_signal.add_trace(go.Bar(
         x=filtered['period_str'], y=filtered['export_value'], name="수출 실적 ($)",
-        marker=dict(color='rgba(99, 102, 241, 0.25)'),
+        marker=dict(color='rgba(99, 102, 241, 0.3)'),
         hovertemplate='%{x}<br>수출액: $%{y:,.0f}<extra></extra>'
     ), secondary_y=False)
     
@@ -812,11 +840,10 @@ async def analyze(country: str = Query(...), item: str = Query(...)):
     signal_insight = " | ".join(signal_summary_parts)
     
     fig_signal.update_layout(
-        title=f"Signal Map — 관심도 vs 수출 실적{signal_corr_text}",
         template="plotly_white",
         height=420,
         legend=dict(orientation="h", y=1.12, x=0.5, xanchor='center'),
-        margin=dict(l=50, r=50, t=70, b=40)
+        margin=dict(l=50, r=50, t=30, b=40) # 제목 제거에 따른 여백 조정
     )
     fig_signal.update_yaxes(title_text="수출액 ($)", secondary_y=False, showgrid=False)
     fig_signal.update_yaxes(title_text="관심도 Index", secondary_y=True, showgrid=False)
@@ -1698,8 +1725,7 @@ async def dashboard():
                 "top_countries": json.loads(fig1.to_json()),
                 "top_items": json.loads(fig2.to_json()),
                 "profitability": json.loads(fig3.to_json()),
-                "positioning": json.loads(fig4.to_json()),
-                "seasonality": json.loads(fig5.to_json())
+                "positioning": json.loads(fig4.to_json())
             }
         }
     except Exception as e:

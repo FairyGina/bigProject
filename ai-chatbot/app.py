@@ -15,12 +15,11 @@ from openai import OpenAI
 from fastapi import FastAPI, Request
 from starlette.middleware.base import BaseHTTPMiddleware
 import uvicorn
-from dotenv import load_dotenv
 
 import helper_app
 from graph import compiled, make_initial_state, FORECAST_COUNTRIES
 
-load_dotenv()  # Load .env for local development
+# load_dotenv()  # Load .env for local development
 
 CUSTOM_CSS = """
 /* Minimal UI polish */
