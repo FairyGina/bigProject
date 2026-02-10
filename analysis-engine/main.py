@@ -381,15 +381,18 @@ def load_data_background():
                     # 2. Global Consumer Stats (Only if step 1 success)
                     print("Calculating Global Consumer Stats from DB...", flush=True)
                     with conn.cursor() as cur:
-                        cur.execute("SELECT AVG(sentiment_score), STDDEV(sentiment_score), AVG(rating) FROM amazon_reviews")
-                        row = cur.fetchone()
-                        if row and row[0] is not None:
-                                GLOBAL_MEAN_SENTIMENT = float(row[0])
-                                GLOBAL_STD_SENTIMENT = float(row[1]) if row[1] is not None else 0.3
-                                GLOBAL_MEAN_RATING = float(row[2])
-                                print(f"Global Stats: Sent={GLOBAL_MEAN_SENTIMENT:.2f}, Std={GLOBAL_STD_SENTIMENT:.2f}, Rating={GLOBAL_MEAN_RATING:.2f}", flush=True)
-                        else:
-                                print("⚠️ amazon_reviews table empty or stats unavailable.", flush=True)
+                        try:
+                            cur.execute("SELECT AVG(sentiment_score), STDDEV(sentiment_score), AVG(rating) FROM amazon_reviews")
+                            row = cur.fetchone()
+                            if row and row[0] is not None:
+                                    GLOBAL_MEAN_SENTIMENT = float(row[0])
+                                    GLOBAL_STD_SENTIMENT = float(row[1]) if row[1] is not None else 0.3
+                                    GLOBAL_MEAN_RATING = float(row[2])
+                                    print(f"Global Stats: Sent={GLOBAL_MEAN_SENTIMENT:.2f}, Std={GLOBAL_STD_SENTIMENT:.2f}, Rating={GLOBAL_MEAN_RATING:.2f}", flush=True)
+                            else:
+                                    print("⚠️ amazon_reviews table empty or stats unavailable.", flush=True)
+                        except Exception as ex:
+                            print(f"Global Stats calculation failed: {ex}", flush=True)
                     
                     conn.close()
                     break # Success, exit retry loop
@@ -407,6 +410,48 @@ def load_data_background():
             print(f"DB Connection Failed (Attempt {i+1}/{max_retries}). Retrying in 5s...", flush=True)
             time.sleep(5)
     
+    # [Fallback] If DB failed, try loading from local CSV
+    if df is None or df.empty:
+        print("⚠️ DB Load failed. Attempting to load from local CSV (Fallback)...", flush=True)
+        csv_path = 'cleaned_merged_export_trends.csv'
+        if not os.path.exists(csv_path):
+            parent_path = os.path.join('..', csv_path)
+            if os.path.exists(parent_path):
+                csv_path = parent_path
+        
+        if os.path.exists(csv_path):
+             try:
+                print(f"Fallback: Loading {csv_path}...", flush=True)
+                df = pd.read_csv(csv_path, low_memory=False, dtype={'period': str})
+                
+                # Basic Preprocessing for CSV
+                if 'period' in df.columns:
+                    def convert_period(val):
+                        try:
+                            if pd.isna(val) or val == '': return ''
+                            s = str(val).strip()
+                            parts = s.split('.')
+                            year = parts[0]
+                            if len(parts) > 1:
+                                month_part = parts[1]
+                                if len(month_part) == 2: month = month_part
+                                elif len(month_part) == 1: month = '10' if month_part == '1' else '0' + month_part
+                                else: month = str(month_part)[:2].zfill(2)
+                            else: month = '01'
+                            return f"{year}-{month}"
+                        except: return ''
+                    df['period_str'] = df['period'].apply(convert_period)
+                    df = df.sort_values(by=['country_name', 'item_name', 'period_str'])
+                
+                numeric_targets = ['export_value', 'export_weight', 'unit_price', 'exchange_rate', 'gdp_level', 'cpi']
+                for col in numeric_targets:
+                    if col in df.columns:
+                        df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0)
+                        
+                print("Fallback CSV Loaded successfully. (Note: Growth Matrix not recalculated)", flush=True)
+             except Exception as e:
+                 print(f"Fallback CSV Load Failed: {e}", flush=True)
+
     if df is None or df.empty: 
         print("❌ Final: Could not load data after retries. App will run with empty state.", flush=True)
         df = pd.DataFrame()
@@ -497,19 +542,69 @@ async def analyze(country: str = Query(...), item: str = Query(...)):
     # Chart 1: Trend Stack (수출액 + 환율 증감률 + GDP 증감률)
     # ---------------------------------------------------------
     rows = 2
-    titles = ["수출액 Trend", f"{country_name} 환율 증감률 (%)"]
+    titles = [f"📊 {country_name} {item} 수출액 추이", f"💱 {country_name} 환율 증감률 (%)"]
     if 'gdp_level' in filtered.columns:
         rows = 3
-        titles.append(f"{country_name} GDP 증감률 (%)")
+        titles.append(f"📈 {country_name} GDP 증감률 (%)")
         
     fig_stack = make_subplots(rows=rows, cols=1, shared_xaxes=True, 
-                              vertical_spacing=0.1, subplot_titles=titles)
+                              vertical_spacing=0.12, subplot_titles=titles)
                               
     # Row 1: Export Value (Bar + Color Gradient)
+    export_values = filtered['export_value']
     fig_stack.add_trace(go.Bar(
-        x=filtered['period_str'], y=filtered['export_value'], name="수출액 ($)",
-        marker=dict(color=filtered['export_value'], colorscale='Purples')
+        x=filtered['period_str'], y=export_values, name="수출액 ($)",
+        marker=dict(color=export_values, colorscale='Purples'),
+        hovertemplate='%{x}<br>수출액: $%{y:,.0f}<extra></extra>'
     ), row=1, col=1)
+    
+    # ★ 최고점/최저점 annotation
+    if len(filtered) >= 3:
+        max_idx = export_values.idxmax()
+        min_idx = export_values[export_values > 0].idxmin() if (export_values > 0).any() else export_values.idxmin()
+        max_val = export_values[max_idx]
+        min_val = export_values[min_idx]
+        max_period = filtered.loc[max_idx, 'period_str']
+        min_period = filtered.loc[min_idx, 'period_str']
+        
+        fig_stack.add_annotation(
+            x=max_period, y=max_val, text=f"<b>최고</b> ${max_val:,.0f}",
+            showarrow=True, arrowhead=2, arrowcolor="#7c3aed",
+            font=dict(color="#7c3aed", size=12, family="Arial Black"),
+            bgcolor="rgba(124,58,237,0.1)", bordercolor="#7c3aed", borderwidth=1,
+            borderpad=4, row=1, col=1
+        )
+        fig_stack.add_annotation(
+            x=min_period, y=min_val, text=f"<b>최저</b> ${min_val:,.0f}",
+            showarrow=True, arrowhead=2, arrowcolor="#ef4444",
+            font=dict(color="#ef4444", size=11),
+            bgcolor="rgba(239,68,68,0.1)", bordercolor="#ef4444", borderwidth=1,
+            borderpad=4, row=1, col=1
+        )
+    
+    # ★ 평균선 추가
+    avg_export = export_values.mean()
+    fig_stack.add_hline(y=avg_export, line_dash="dash", line_color="#94a3b8", line_width=1,
+                        annotation_text=f"평균 ${avg_export:,.0f}", annotation_position="top right",
+                        annotation_font=dict(size=10, color="#94a3b8"), row=1, col=1)
+    
+    # ★ YoY 성장률 계산 (인사이트용)
+    trend_summary_parts = []
+    if len(filtered) >= 12:
+        recent_6m = export_values.tail(6).sum()
+        prev_6m = export_values.iloc[-12:-6].sum()
+        if prev_6m > 0:
+            yoy_growth = ((recent_6m - prev_6m) / prev_6m) * 100
+            if yoy_growth > 0:
+                trend_summary_parts.append(f"최근 6개월 수출액이 전기 대비 +{yoy_growth:.1f}% 성장했습니다 📈")
+            else:
+                trend_summary_parts.append(f"최근 6개월 수출액이 전기 대비 {yoy_growth:.1f}% 감소했습니다 📉")
+    elif len(filtered) >= 2:
+        last_val = export_values.iloc[-1]
+        first_val = export_values.iloc[0]
+        if first_val > 0:
+            total_growth = ((last_val - first_val) / first_val) * 100
+            trend_summary_parts.append(f"전체 기간 수출액이 {total_growth:+.1f}% 변동했습니다")
     
     # Row 2: Exchange Rate 증감률 (Bar with red/green)
     exchange_rate_pct = filtered['exchange_rate'].pct_change().fillna(0) * 100
@@ -519,6 +614,16 @@ async def analyze(country: str = Query(...), item: str = Query(...)):
         marker=dict(color=exchange_colors),
         hovertemplate='%{x}<br>증감률: %{y:.2f}%<extra></extra>'
     ), row=2, col=1)
+    
+    # ★ 환율-수출 상관관계 분석
+    try:
+        corr_exchange = export_values.corr(filtered['exchange_rate'])
+        if not np.isnan(corr_exchange):
+            corr_label = "강한 양의 상관" if corr_exchange > 0.5 else "강한 음의 상관" if corr_exchange < -0.5 else "약한 상관"
+            if abs(corr_exchange) > 0.3:
+                trend_summary_parts.append(f"환율과 수출액의 상관계수: {corr_exchange:.2f} ({corr_label})")
+    except:
+        pass
     
     # Row 3: GDP 증감률 (if exists)
     if rows == 3:
@@ -531,11 +636,13 @@ async def analyze(country: str = Query(...), item: str = Query(...)):
         ), row=3, col=1)
 
     fig_stack.update_layout(
-        height=600 if rows == 3 else 450, 
+        height=650 if rows == 3 else 500, 
         template="plotly_white", 
         showlegend=False,
-        margin=dict(l=40, r=20, t=60, b=40)
+        margin=dict(l=50, r=30, t=70, b=40)
     )
+    
+    trend_insight = " | ".join(trend_summary_parts) if trend_summary_parts else f"{country_name} {item} 수출 추이를 확인하세요"
 
     # ---------------------------------------------------------
     # Chart 2: Signal Map (Leading-Lagging)
@@ -619,13 +726,70 @@ async def analyze(country: str = Query(...), item: str = Query(...)):
         marker=dict(color='rgba(99, 102, 241, 0.25)'),
         hovertemplate='%{x}<br>수출액: $%{y:,.0f}<extra></extra>'
     ), secondary_y=False)
+    
+    # ★ 관심도-수출 상관계수 계산 & 피크 annotation
+    signal_summary_parts = []
+    signal_corr_text = ""
+    
+    # 관심도 데이터 추출 (가장 좋은 걸로)
+    trend_series = None
+    trend_label = ""
+    if trend_kw and trend_kw != "KFood":
+        specific_key = f"{country_code}_{trend_kw}_mean"
+        if isinstance(first_trend_data, dict) and specific_key in first_trend_data:
+            trend_series = filtered.apply(lambda r: get_trend_val(r, specific_key), axis=1)
+            trend_label = trend_kw
+    if trend_series is None and has_common:
+        trend_series = filtered.apply(lambda r: get_trend_val(r, common_trend_key), axis=1)
+        trend_label = "K-Food"
+    
+    if trend_series is not None:
+        trend_clean = trend_series.dropna()
+        export_clean = filtered.loc[trend_clean.index, 'export_value']
         
+        try:
+            corr_val = trend_clean.astype(float).corr(export_clean.astype(float))
+            if not np.isnan(corr_val):
+                corr_strength = "강한" if abs(corr_val) > 0.5 else "중간" if abs(corr_val) > 0.3 else "약한"
+                corr_direction = "양의" if corr_val > 0 else "음의"
+                signal_corr_text = f" (r={corr_val:.2f})"
+                signal_summary_parts.append(f"관심도와 수출 실적의 {corr_strength} {corr_direction} 상관관계 (r={corr_val:.2f})")
+        except:
+            pass
+        
+        # ★ 관심도 피크 자동 annotation
+        try:
+            trend_numeric = trend_clean.astype(float)
+            if len(trend_numeric) >= 4:
+                mean_trend = trend_numeric.mean()
+                std_trend = trend_numeric.std()
+                threshold = mean_trend + std_trend * 1.2
+                
+                peaks = trend_numeric[trend_numeric > threshold]
+                for peak_idx in peaks.index[:3]:  # 최대 3개 피크만
+                    peak_val = trend_numeric[peak_idx]
+                    peak_period = filtered.loc[peak_idx, 'period_str']
+                    fig_signal.add_annotation(
+                        x=peak_period, y=float(peak_val), text="🔥 관심 급등",
+                        showarrow=True, arrowhead=2, arrowcolor="#f43f5e",
+                        font=dict(color="#f43f5e", size=10),
+                        bgcolor="rgba(244,63,94,0.1)", bordercolor="#f43f5e", borderwidth=1,
+                        borderpad=3, secondary_y=True
+                    )
+        except:
+            pass
+    
+    if not signal_summary_parts:
+        signal_summary_parts.append(f"{country_name}에서의 {item} 관심도와 수출 실적 시차를 비교합니다")
+    
+    signal_insight = " | ".join(signal_summary_parts)
+    
     fig_signal.update_layout(
-        title="Signal Map (관심도 vs 실적 시차 분석)",
+        title=f"Signal Map — 관심도 vs 수출 실적{signal_corr_text}",
         template="plotly_white",
-        height=400,
-        legend=dict(orientation="h", y=1.1, x=0.5, xanchor='center'),
-        margin=dict(l=40, r=40, t=60, b=40)
+        height=420,
+        legend=dict(orientation="h", y=1.12, x=0.5, xanchor='center'),
+        margin=dict(l=50, r=50, t=70, b=40)
     )
     fig_signal.update_yaxes(title_text="수출액 ($)", secondary_y=False, showgrid=False)
     fig_signal.update_yaxes(title_text="관심도 Index", secondary_y=True, showgrid=False)
@@ -635,6 +799,7 @@ async def analyze(country: str = Query(...), item: str = Query(...)):
     # ---------------------------------------------------------
     country_matrix = growth_summary_df[growth_summary_df['country'] == country_code].copy()
     fig_scatter = go.Figure()
+    growth_diagnosis = ""
     
     if not country_matrix.empty and not country_matrix[country_matrix['item_csv_name'] == csv_item_name].empty:
         country_matrix['ui_name'] = country_matrix['item_csv_name'].apply(lambda x: CSV_TO_UI_ITEM_MAPPING.get(x, x))
@@ -642,64 +807,98 @@ async def analyze(country: str = Query(...), item: str = Query(...)):
         curr = country_matrix[country_matrix['item_csv_name'] == csv_item_name]
         others = country_matrix[country_matrix['item_csv_name'] != csv_item_name]
         
-        # Others
-        fig_scatter.add_trace(go.Scatter(
-            x=others['weight_growth'], y=others['price_growth'],
-            mode='markers',
-            marker=dict(size=10, color='#94a3b8', opacity=0.4),
-            text=others['ui_name'], name="타 품목",
-            hovertemplate="<b>%{text}</b><br>양적: %{x}%<br>질적: %{y}%"
-        ))
+        # ★ Others — 상위 5개에만 라벨 표시
+        others_sorted = others.sort_values('weight_growth', ascending=False)
+        top_others = others_sorted.head(5)
+        rest_others = others_sorted.iloc[5:]
         
-        # Current
+        # 나머지 품목 (라벨 없음)
+        if not rest_others.empty:
+            fig_scatter.add_trace(go.Scatter(
+                x=rest_others['weight_growth'], y=rest_others['price_growth'],
+                mode='markers',
+                marker=dict(size=8, color='#cbd5e1', opacity=0.3),
+                text=rest_others['ui_name'], name="타 품목",
+                hovertemplate="<b>%{text}</b><br>양적: %{x}%<br>질적: %{y}%"
+            ))
+        
+        # 상위 5개 품목 (라벨 표시)
+        if not top_others.empty:
+            fig_scatter.add_trace(go.Scatter(
+                x=top_others['weight_growth'], y=top_others['price_growth'],
+                mode='markers+text',
+                marker=dict(size=11, color='#94a3b8', opacity=0.6),
+                text=top_others['ui_name'], textposition="top center",
+                textfont=dict(size=10, color='#64748b'),
+                name="주요 품목",
+                hovertemplate="<b>%{text}</b><br>양적: %{x}%<br>질적: %{y}%"
+            ))
+        
+        # ★ Current — ring 마커 효과 (외곽 큰 원 + 내부 원)
+        fig_scatter.add_trace(go.Scatter(
+            x=curr['weight_growth'], y=curr['price_growth'],
+            mode='markers',
+            marker=dict(size=35, color='rgba(244,63,94,0.15)', line=dict(width=3, color='#f43f5e')),
+            showlegend=False, hoverinfo='skip'
+        ))
         fig_scatter.add_trace(go.Scatter(
             x=curr['weight_growth'], y=curr['price_growth'],
             mode='markers+text',
-            marker=dict(size=25, color='#f43f5e', line=dict(width=2, color='white')),
+            marker=dict(size=20, color='#f43f5e', line=dict(width=2, color='white')),
             text=curr['ui_name'], textposition="top center",
             textfont=dict(size=15, color='#f43f5e', family="Arial Black"),
             name=item,
             hovertemplate="<b>%{text}</b> (현재)<br>양적: %{x}%<br>질적: %{y}%"
         ))
         
-        # Quadrant Lines (강조)
+        # ★ 사분면 진단 메시지 생성
+        curr_wg = curr['weight_growth'].values[0]
+        curr_pg = curr['price_growth'].values[0]
+        
+        if curr_wg >= 0 and curr_pg >= 0:
+            growth_diagnosis = f"🌟 {item}: 고부가가치 성장 중! 물량(+{curr_wg:.1f}%)과 단가(+{curr_pg:.1f}%)가 모두 상승하고 있습니다"
+        elif curr_wg < 0 and curr_pg >= 0:
+            growth_diagnosis = f"⚠️ {item}: 단가는 +{curr_pg:.1f}% 상승했지만 물량이 {curr_wg:.1f}% 감소 중. 시장 축소 주의"
+        elif curr_wg < 0 and curr_pg < 0:
+            growth_diagnosis = f"🔻 {item}: 물량({curr_wg:.1f}%)과 단가({curr_pg:.1f}%) 모두 하락. 시장 재진입 전략 필요"
+        else:
+            growth_diagnosis = f"📦 {item}: 물량은 +{curr_wg:.1f}% 증가하지만 단가가 {curr_pg:.1f}% 하락. 가격 경쟁력 전략 확인 필요"
+        
+        # Quadrant Lines
         fig_scatter.add_hline(y=0, line_dash="solid", line_color="#94a3b8", line_width=2)
         fig_scatter.add_vline(x=0, line_dash="solid", line_color="#94a3b8", line_width=2)
         
-        # 사분면 배경 쉐이딩 (x/y 범위 계산)
+        # 사분면 배경 쉐이딩
         all_x = country_matrix['weight_growth']
         all_y = country_matrix['price_growth']
         x_max = max(abs(all_x.max()), abs(all_x.min()), 20) * 1.3
         y_max = max(abs(all_y.max()), abs(all_y.min()), 20) * 1.3
         
-        # Q1 (우상): 초록 배경
         fig_scatter.add_shape(type="rect", x0=0, y0=0, x1=x_max, y1=y_max, fillcolor="rgba(16, 185, 129, 0.06)", line_width=0, layer="below")
-        # Q2 (좌상): 노란 배경
         fig_scatter.add_shape(type="rect", x0=-x_max, y0=0, x1=0, y1=y_max, fillcolor="rgba(245, 158, 11, 0.06)", line_width=0, layer="below")
-        # Q3 (좌하): 빨간 배경
         fig_scatter.add_shape(type="rect", x0=-x_max, y0=-y_max, x1=0, y1=0, fillcolor="rgba(239, 68, 68, 0.06)", line_width=0, layer="below")
-        # Q4 (우하): 파란 배경
         fig_scatter.add_shape(type="rect", x0=0, y0=-y_max, x1=x_max, y1=0, fillcolor="rgba(59, 130, 246, 0.06)", line_width=0, layer="below")
         
-        # 4사분면 라벨
-        fig_scatter.add_annotation(x=x_max*0.7, y=y_max*0.85, text="🌟 Premium<br>(고부가가치 성장)", showarrow=False, font=dict(color="#10b981", size=11), xanchor="center", opacity=0.8)
-        fig_scatter.add_annotation(x=-x_max*0.7, y=y_max*0.85, text="⚠️ 단가 상승<br>(물량 감소)", showarrow=False, font=dict(color="#f59e0b", size=11), xanchor="center", opacity=0.8)
-        fig_scatter.add_annotation(x=-x_max*0.7, y=-y_max*0.85, text="🔻 전면 위축", showarrow=False, font=dict(color="#ef4444", size=11), xanchor="center", opacity=0.8)
-        fig_scatter.add_annotation(x=x_max*0.7, y=-y_max*0.85, text="📦 Volume Driven<br>(박리다매)", showarrow=False, font=dict(color="#3b82f6", size=11), xanchor="center", opacity=0.8)
+        # ★ 4사분면 라벨 — 크기 14pt로 확대
+        fig_scatter.add_annotation(x=x_max*0.7, y=y_max*0.85, text="🌟 Premium<br>(고부가가치 성장)", showarrow=False, font=dict(color="#10b981", size=14, family="Arial Black"), xanchor="center", opacity=0.9)
+        fig_scatter.add_annotation(x=-x_max*0.7, y=y_max*0.85, text="⚠️ 단가 상승<br>(물량 감소 주의)", showarrow=False, font=dict(color="#f59e0b", size=14, family="Arial Black"), xanchor="center", opacity=0.9)
+        fig_scatter.add_annotation(x=-x_max*0.7, y=-y_max*0.85, text="🔻 전면 위축<br>(재진입 전략 필요)", showarrow=False, font=dict(color="#ef4444", size=14, family="Arial Black"), xanchor="center", opacity=0.9)
+        fig_scatter.add_annotation(x=x_max*0.7, y=-y_max*0.85, text="📦 Volume Driven<br>(박리다매 경쟁)", showarrow=False, font=dict(color="#3b82f6", size=14, family="Arial Black"), xanchor="center", opacity=0.9)
         
         fig_scatter.update_layout(
-            title="성장의 질 (Growth Matrix)",
+            title=f"성장의 질 — {item} in {country_name}",
             xaxis_title="양적 성장 (물량 증가율 %)",
             yaxis_title="질적 성장 (단가 증가율 %)",
             template="plotly_white",
-            height=500,
+            height=520,
             showlegend=False,
-            margin=dict(l=40, r=20, t=60, b=40),
+            margin=dict(l=50, r=30, t=70, b=40),
             xaxis=dict(range=[-x_max, x_max], zeroline=False),
             yaxis=dict(range=[-y_max, y_max], zeroline=False)
         )
     else:
         # 데이터가 부족해서 매트릭스를 그릴 수 없을 때 빈 차트
+        growth_diagnosis = f"⚪ {item}의 성장 매트릭스 데이터가 충분하지 않습니다"
         fig_scatter.update_layout(
             title="성장의 질 (데이터 부족)",
             template="plotly_white", height=500
@@ -714,6 +913,11 @@ async def analyze(country: str = Query(...), item: str = Query(...)):
             "trend_stack": json.loads(fig_stack.to_json()),
             "signal_map": json.loads(fig_signal.to_json()),
             "growth_matrix": json.loads(fig_scatter.to_json())
+        },
+        "insights": {
+            "trend_summary": trend_insight,
+            "signal_summary": signal_insight,
+            "growth_diagnosis": growth_diagnosis
         }
     }
 

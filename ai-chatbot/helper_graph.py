@@ -7,6 +7,9 @@ from pathlib import Path
 from typing import Any, Dict, List, Tuple, TypedDict
 
 from langgraph.graph import StateGraph, END
+from dotenv import load_dotenv
+
+load_dotenv()  # Load .env for local development
 
 try:
     from openai import OpenAI
@@ -121,30 +124,49 @@ def build_kb_only_answer(question: str, hits: List[Dict[str, Any]]) -> str:
     return answer.strip()
 
 
+import sys
+import traceback
+
+# 로거 설정 대신 sys.stderr.write 사용 (Docker 로그 강제 출력) + 파일 로그 추가
+def log_stderr(msg: str):
+    # 1. stderr 출력
+    sys.stderr.write(f"[HelperBot] {msg}\n")
+    sys.stderr.flush()
+    
+    # 2. 파일 출력 (확실한 디버깅용)
+    try:
+        with open("/app/debug.log", "a", encoding="utf-8") as f:
+            f.write(f"[HelperBot] {msg}\n")
+    except Exception:
+        pass  # 파일 쓰기 실패는 무시
+
 def answer_with_llm(question: str, context: str) -> str:
     api_key = os.getenv("OPENAI_API_KEY", "").strip()
-    # 디버깅: 실제로 읽히는 키 확인 (앞뒤 4자만 노출)
+    model = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
+    
+    # 디버깅: API Key 및 Model 확인 (필수)
     if api_key:
-        print(f"[HelperBot DEBUG] API key loaded: {api_key[:8]}...{api_key[-4:]} (len={len(api_key)})")
+        log_stderr(f"API Key found (starts with: {api_key[:8]}..., len={len(api_key)})")
     else:
-        print("[HelperBot DEBUG] API key is EMPTY")
+        log_stderr("CRITICAL: OPENAI_API_KEY is EMPTY!")
+        
+    log_stderr(f"Using Model: {model}")
+
     if not api_key or OpenAI is None:
-        # 키 없으면 KB 컨텍스트만 반환(최소 동작)
         if context:
             return (
                 "현재 OPENAI_API_KEY가 설정되지 않아 KB 기반으로만 안내합니다.\n\n"
                 + context
             ).strip()
-        return "OPENAI_API_KEY가 없어 답변을 생성할 수 없습니다. (PowerShell에서 OPENAI_API_KEY 설정 후 다시 실행하세요.)"
+        return "OPENAI_API_KEY가 없어 답변을 생성할 수 없습니다. (환경변수 확인 필요)"
 
     client = OpenAI(api_key=api_key)
-    model = os.getenv("OPENAI_MODEL", "gpt-4.1-mini")
 
     system = (
         "너는 '홈페이지 FAQ / 사용방법 도우미' 챗봇이다.\n"
         "- 사용자는 웹사이트를 이용 중이며, 메뉴 경로(좌측 메뉴)를 기준으로 안내한다.\n"
         "- 답변은 한국어로, 짧고 정확하게, 단계(1,2,3)로 안내한다.\n"
-        "- 제공된 KB 내용 안에서만 근거를 두고, KB에 없는 정보면 추측하지 말고 어떤 화면/메뉴인지 추가 정보를 요청한다.\n"
+        "- 제공된 KB 내용 안에서만 근거를 두고, 추측하지 않는다.\n"
     )
 
     user = f"""
@@ -156,12 +178,11 @@ def answer_with_llm(question: str, context: str) -> str:
 
 요구사항:
 - '어디서/어떻게'를 메뉴 경로로 명확히 안내
-- 필요한 경우에만 짧게 추가 질문 1개
-- 마지막 줄에 (KB: 섹션명) 형태로 근거 섹션 제목을 1~2개 표기
+- 근거가 되는 섹션 제목을 (KB: 섹션명) 으로 표기
 """.strip()
 
     try:
-        # 표준 OpenAI Chat Completion API 호출
+        log_stderr(f"Sending request to OpenAI... (Question: {question})")
         resp = client.chat.completions.create(
             model=model,
             messages=[
@@ -169,10 +190,16 @@ def answer_with_llm(question: str, context: str) -> str:
                 {"role": "user", "content": user},
             ],
         )
+        log_stderr("OpenAI API call successful")
         return resp.choices[0].message.content.strip()
     except Exception as e:
-        print(f"[HelperBot Error] OpenAI API Call Failed: {e}")
-        return "죄송합니다. 답변을 생성하는 도중 오류가 발생했습니다."
+        error_msg = f"죄송합니다. 오류가 발생했습니다.\n[에러 내용]: {str(e)}\n"
+        import traceback
+        tb = traceback.format_exc()
+        log_stderr(f"OpenAI API Call Failed: {e}\n{tb}")
+        
+        # 디버깅용: UI에 에러 노출
+        return f"{error_msg}\n\n[Traceback]\n{tb}"
 
 
 def intro_node(state: Dict[str, Any]) -> Dict[str, Any]:
@@ -194,6 +221,7 @@ def intro_node(state: Dict[str, Any]) -> Dict[str, Any]:
 
 def answer_node(state: Dict[str, Any]) -> Dict[str, Any]:
     q = (state.get("user_input") or "").strip()
+    log_stderr(f"Received help request: {q}")
     if not q:
         return state
 

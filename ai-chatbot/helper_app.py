@@ -120,13 +120,32 @@ def init_chat(request: gr.Request | None = None):
     return state, history_to_messages(state["history"]), gr.update(value="")
 
 
+import sys
+
+def log_stderr_app(msg: str):
+    sys.stderr.write(f"[HelperApp] {msg}\n")
+    sys.stderr.flush()
+    try:
+        with open("/app/debug_app.log", "a", encoding="utf-8") as f:
+            f.write(f"[HelperApp] {msg}\n")
+    except:
+        pass
+
 def on_submit(user_text: str, state: dict, request: gr.Request | None = None):
+    log_stderr_app(f"Submit called with: {user_text}")
     user_text = (user_text or "").strip()
     if not user_text:
         return state, history_to_messages(state["history"]), gr.update(value="")
 
     state["user_input"] = user_text
-    state = run_graph(state)
+    try:
+        state = run_graph(state)
+        log_stderr_app("Graph execution finished")
+    except Exception as e:
+        log_stderr_app(f"Graph execution failed: {e}")
+        import traceback
+        traceback.print_exc(file=sys.stderr)
+        
     _save_history(_user_key_from_request(request), state["history"])
     return state, history_to_messages(state["history"]), gr.update(value="")
 

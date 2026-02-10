@@ -80,7 +80,7 @@ services:
       context: ./frontend
       dockerfile: Dockerfile
       args:
-        - VITE_API_URL=/
+        - VITE_API_URL=/api
     container_name: bigproject-frontend
     restart: unless-stopped
     depends_on:
@@ -108,12 +108,14 @@ services:
       dockerfile: Dockerfile
     container_name: bigproject-analysis
     restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
 
     volumes:
       - ./analysis-engine:/app
-    command: >
-      /bin/sh -c "python migrate_db.py && uvicorn main:app --host 0.0.0.0 --port 8000"
     environment:
+      - PORT=8000
       - OPENAI_API_KEY=${OPENAI_API_KEY}
       - SERPAPI_API_KEY=${SERPAPI_API_KEY}
       - POSTGRES_DB=${DB_NAME:-bigproject}
@@ -121,7 +123,7 @@ services:
       - POSTGRES_PASSWORD=${DB_PASSWORD:-postgres}
       - DB_HOST=db
       - DB_PORT=5432
-      - DB_SSLMODE=${DB_SSLMODE:-prefer}
+      - DB_SSLMODE=${DB_SSLMODE:-disable}
     ports:
       - "8000:8000"
     networks:

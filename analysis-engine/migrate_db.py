@@ -33,7 +33,7 @@ def get_db_connection():
         user=DB_USER,
         password=DB_PASS,
         port=DB_PORT,
-        sslmode='require'
+        sslmode=os.environ.get("DB_SSLMODE", "require")
     )
 
 def load_export_trends():

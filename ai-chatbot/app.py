@@ -15,9 +15,12 @@ from openai import OpenAI
 from fastapi import FastAPI, Request
 from starlette.middleware.base import BaseHTTPMiddleware
 import uvicorn
+from dotenv import load_dotenv
 
 import helper_app
 from graph import compiled, make_initial_state, FORECAST_COUNTRIES
+
+load_dotenv()  # Load .env for local development
 
 CUSTOM_CSS = """
 /* Minimal UI polish */
@@ -93,7 +96,7 @@ button, .primary {
 
 
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
-MODEL_NAME = "gpt-4.1-mini"
+MODEL_NAME = os.getenv("OPENAI_MODEL", "gpt-4o-mini")  # Corrected model name
 SERPAPI_API_KEY = os.getenv("SERPAPI_API_KEY")
 API_BASE_URL = os.getenv("API_BASE_URL", "http://localhost:8080")
 
@@ -1014,4 +1017,4 @@ app = gr.mount_gradio_app(app, demo, path="/recipe")
 app = gr.mount_gradio_app(app, helper_app.helper_demo, path="/helper")
 
 if __name__ == "__main__":
-    uvicorn.run(app, host="0.0.0.0", port=7860)
+    uvicorn.run(app, host="0.0.0.0", port=7860, log_level="debug")

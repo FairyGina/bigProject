@@ -183,7 +183,7 @@ const ExportAnalysisPage = () => {
                     <div className="max-w-7xl mx-auto space-y-8">
                         {/* 1. Trend Stack (Full Width) */}
                         <div className="bg-[color:var(--surface)] p-6 rounded-2xl shadow-[0_10px_30px_var(--shadow)] border border-[color:var(--border)]">
-                            <div className="flex items-center justify-between mb-6">
+                            <div className="flex items-center justify-between mb-4">
                                 <div className="flex items-center gap-3">
                                     <div className="p-2 bg-indigo-100 dark:bg-indigo-900/30 rounded-lg text-indigo-600">
                                         <TrendingUp size={24} />
@@ -194,6 +194,11 @@ const ExportAnalysisPage = () => {
                                     </div>
                                 </div>
                             </div>
+
+                            {/* ★ Insight Badge */}
+                            {data?.insights?.trend_summary && (
+                                <InsightBadge text={data.insights.trend_summary} color="indigo" />
+                            )}
 
                             {loading ? (
                                 <Skeleton className="w-full h-[500px]" />
@@ -221,7 +226,7 @@ const ExportAnalysisPage = () => {
                         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                             {/* Signal Map */}
                             <div className="bg-[color:var(--surface)] p-6 rounded-2xl shadow-[0_10px_30px_var(--shadow)] border border-[color:var(--border)]">
-                                <div className="flex items-center gap-3 mb-6">
+                                <div className="flex items-center gap-3 mb-4">
                                     <div className="p-2 bg-rose-100 dark:bg-rose-900/30 rounded-lg text-rose-600">
                                         <Activity size={24} />
                                     </div>
@@ -230,6 +235,11 @@ const ExportAnalysisPage = () => {
                                         <p className="text-sm text-[color:var(--text-muted)]">검색 관심도(선행)와 수출 실적(후행) 시차 분석</p>
                                     </div>
                                 </div>
+
+                                {/* ★ Insight Badge */}
+                                {data?.insights?.signal_summary && (
+                                    <InsightBadge text={data.insights.signal_summary} color="rose" />
+                                )}
 
                                 {loading ? (
                                     <Skeleton className="w-full h-[400px]" />
@@ -256,7 +266,7 @@ const ExportAnalysisPage = () => {
 
                             {/* Growth Matrix */}
                             <div className="bg-[color:var(--surface)] p-6 rounded-2xl shadow-[0_10px_30px_var(--shadow)] border border-[color:var(--border)]">
-                                <div className="flex items-center gap-3 mb-6">
+                                <div className="flex items-center gap-3 mb-4">
                                     <div className="p-2 bg-emerald-100 dark:bg-emerald-900/30 rounded-lg text-emerald-600">
                                         <BarChart2 size={24} />
                                     </div>
@@ -265,6 +275,11 @@ const ExportAnalysisPage = () => {
                                         <p className="text-sm text-[color:var(--text-muted)]">품목별 성장의 질 (양적 성장 vs 질적 성장) 비교</p>
                                     </div>
                                 </div>
+
+                                {/* ★ Insight Badge */}
+                                {data?.insights?.growth_diagnosis && (
+                                    <InsightBadge text={data.insights.growth_diagnosis} color="emerald" />
+                                )}
 
                                 {loading ? (
                                     <Skeleton className="w-full h-[400px]" />
@@ -355,6 +370,20 @@ const ExportAnalysisPage = () => {
                     )}
                 </div>
             )}
+        </div>
+    );
+};
+
+const InsightBadge = ({ text, color = 'indigo' }) => {
+    const colorMap = {
+        indigo: 'bg-indigo-50 dark:bg-indigo-900/20 text-indigo-700 dark:text-indigo-300 border-indigo-200 dark:border-indigo-800',
+        rose: 'bg-rose-50 dark:bg-rose-900/20 text-rose-700 dark:text-rose-300 border-rose-200 dark:border-rose-800',
+        emerald: 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800',
+    };
+    return (
+        <div className={`mb-4 px-4 py-2.5 rounded-xl border text-sm font-medium flex items-start gap-2 ${colorMap[color] || colorMap.indigo}`}>
+            <span className="text-base mt-0.5">💡</span>
+            <span className="leading-relaxed">{text}</span>
         </div>
     );
 };
