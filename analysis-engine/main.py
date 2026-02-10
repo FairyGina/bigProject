@@ -15,6 +15,25 @@ from sklearn.feature_extraction.text import CountVectorizer
 import psycopg2
 import re
 
+# =========================================================
+# Insight Filtering Constants
+# =========================================================
+GENERIC_INSIGHT_STOPWORDS = {
+    'good', 'great', 'nice', 'excellent', 'better', 'perfect', 'best', 'like', 'love', 
+    'really', 'much', 'get', 'well', 'buy', 'purchased', 'recommend', 'recommended', 
+    'happy', 'satisfied', 'product', 'item', 'bought', 'try', 'tried', 'use', 'used', 
+    'using', 'add', 'added', 'adding', 'recipe', 'highly', 'food', 'definitely', 
+    'amazing', 'awesome', 'wonderful', 'delicious', 'tasty', 'bit', 'lot', 'little', 
+    'ordered', 'received', 'came', 'made', 'make', 'makes', 'everything', 'everyone', 
+    'anyone', 'anything', 'would', 'could', 'should', 'first', 'second', 'ever', 'never'
+}
+
+def is_generic_term(term):
+    """키워드가 단일 범용 단어이거나, Bigram의 모든 단어가 범형 단어인 경우 True 반환"""
+    words = term.lower().split()
+    # 모든 단어가 범용 단어 목록에 포함되어 있으면 의미 없는 키워드로 간주
+    return all(w in GENERIC_INSIGHT_STOPWORDS for w in words)
+
 # DB Connection Details - Support both Spring format and legacy format
 def parse_spring_datasource_url(url):
     """Parse jdbc:postgresql://host:port/database?params format"""
@@ -168,14 +187,22 @@ def extract_bigrams_with_metrics(
         vectorizer = CountVectorizer(
             ngram_range=(2, 2),
             min_df=min_df,
-            max_features=500,
+            max_features=1000, # 필터링을 위해 더 많이 추출
             stop_words='english',
             token_pattern=r'\b[a-zA-Z]{3,}\b'
         )
         
         bigram_matrix = vectorizer.fit_transform(cleaned_texts_no_tags)
-        bigram_names = vectorizer.get_feature_names_out()
-        bigram_counts = bigram_matrix.sum(axis=0).A1
+        raw_bigram_names = vectorizer.get_feature_names_out()
+        raw_bigram_counts = bigram_matrix.sum(axis=0).A1
+        
+        # 범용 단어 필터링 적용
+        bigram_names = []
+        bigram_counts = []
+        for i, name in enumerate(raw_bigram_names):
+            if not is_generic_term(name):
+                bigram_names.append(name)
+                bigram_counts.append(raw_bigram_counts[i])
         
     except Exception as e:
         print(f"Bigram 추출 오류: {e}")
@@ -1102,6 +1129,217 @@ async def analyze_consumer(item_id: str = Query(None, description="ASIN"), item_
         print(f"키워드 분석 오류: {e}")
     
     # =========================================================
+    # 3-1. 전략 인사이트 자동 생성 (Critical Issue / Winning Point / Niche Opportunity)
+    # =========================================================
+    insights_data = {"critical_issue": None, "winning_point": None, "niche_opportunity": None}
+    try:
+        neg_reviews = filtered[filtered['rating'] <= 2]
+        pos_reviews = filtered[filtered['rating'] >= 4]
+        
+        # --- 🚨 Critical Issue: 부정 리뷰에서 가장 많이 언급되는 Pain Point ---
+        if not neg_reviews.empty and 'cleaned_text' in filtered.columns:
+            neg_cleaned = neg_reviews['cleaned_text'].apply(remove_pos_tags).fillna('')
+            try:
+                neg_vec = CountVectorizer(ngram_range=(1, 2), min_df=1, max_features=500, stop_words='english', token_pattern=r'\b[a-zA-Z]{3,}\b')
+                neg_matrix = neg_vec.fit_transform(neg_cleaned)
+                neg_words_raw = neg_vec.get_feature_names_out()
+                neg_counts_raw = neg_matrix.sum(axis=0).A1
+                
+                # 범용 단어 필터링
+                neg_terms_filtered = []
+                for i, word in enumerate(neg_words_raw):
+                    if not is_generic_term(word):
+                        neg_terms_filtered.append((word, int(neg_counts_raw[i])))
+                
+                neg_terms_filtered.sort(key=lambda x: -x[1])
+                top_neg_terms = neg_terms_filtered[:5]
+                
+                neg_pct = round(len(neg_reviews) / total_count * 100, 1) if total_count > 0 else 0
+                top_term = top_neg_terms[0][0] if top_neg_terms else "N/A"
+                top_term_count = top_neg_terms[0][1] if top_neg_terms else 0
+                
+                # quality_issues_semantic 분석 추가
+                quality_context = ""
+                if 'quality_issues_semantic' in neg_reviews.columns:
+                    qi_exploded = neg_reviews.explode('quality_issues_semantic')
+                    qi_counts = qi_exploded['quality_issues_semantic'].dropna().value_counts()
+                    if not qi_counts.empty:
+                        top_qi = qi_counts.head(3).index.tolist()
+                        quality_context = f" 주요 품질 이슈: {', '.join(top_qi)}"
+                
+                insights_data["critical_issue"] = {
+                    "title": f"'{top_term}' 관련 불만이 가장 심각합니다",
+                    "description": f"부정 리뷰(1-2점)의 {neg_pct}%에서 해당 키워드가 발견되었습니다.",
+                    "data_evidence": f"부정 리뷰 {len(neg_reviews)}건 중 '{top_term}' {top_term_count}회 언급.{quality_context}",
+                    "action_item": f"'{top_term}' 문제 해결이 최우선 과제입니다. 상세페이지에 개선 사항을 명시하세요.",
+                    "top_terms": [{'term': t, 'count': c} for t, c in top_neg_terms]
+                }
+            except Exception as e:
+                print(f"[Insight] Critical Issue extraction error: {e}", flush=True)
+        
+        # --- 👍 Winning Point: 긍정 리뷰에서만 두드러지는 키워드 ---
+        if not pos_reviews.empty and 'cleaned_text' in filtered.columns:
+            pos_cleaned = pos_reviews['cleaned_text'].apply(remove_pos_tags).fillna('')
+            try:
+                pos_vec = CountVectorizer(ngram_range=(1, 2), min_df=1, max_features=500, stop_words='english', token_pattern=r'\b[a-zA-Z]{3,}\b')
+                pos_matrix = pos_vec.fit_transform(pos_cleaned)
+                pos_words = pos_vec.get_feature_names_out()
+                pos_counts_arr = pos_matrix.sum(axis=0).A1
+                
+                # 부정에서의 빈도 계산
+                neg_cleaned_all = neg_reviews['cleaned_text'].apply(remove_pos_tags).fillna('') if not neg_reviews.empty else pd.Series(dtype=str)
+                neg_freq_map = {}
+                if not neg_cleaned_all.empty:
+                    try:
+                        neg_vec2 = CountVectorizer(ngram_range=(1, 2), min_df=1, max_features=500, stop_words='english', token_pattern=r'\b[a-zA-Z]{3,}\b')
+                        neg_matrix2 = neg_vec2.fit_transform(neg_cleaned_all)
+                        neg_words2 = neg_vec2.get_feature_names_out()
+                        neg_counts2 = neg_matrix2.sum(axis=0).A1
+                        neg_freq_map = dict(zip(neg_words2, neg_counts2))
+                    except:
+                        pass
+                
+                # 긍정 전용 gap이 큰 키워드 찾기
+                gap_scores = []
+                for i, word in enumerate(pos_words):
+                    if is_generic_term(word):
+                        continue
+                    pos_freq = int(pos_counts_arr[i])
+                    neg_freq = neg_freq_map.get(word, 0)
+                    # 긍정에서의 비율 - 부정에서의 비율
+                    pos_rate = pos_freq / len(pos_reviews) if len(pos_reviews) > 0 else 0
+                    neg_rate = neg_freq / len(neg_reviews) if len(neg_reviews) > 0 else 0
+                    gap = pos_rate - neg_rate
+                    if pos_freq >= 2 and gap > 0:
+                        gap_scores.append({'term': word, 'pos_freq': pos_freq, 'neg_freq': int(neg_freq), 'gap': round(gap, 3)})
+                
+                gap_scores.sort(key=lambda x: -x['gap'])
+                top_winning = gap_scores[:5]
+                
+                if top_winning:
+                    best = top_winning[0]
+                    insights_data["winning_point"] = {
+                        "title": f"소비자는 '{best['term']}'에 열광하고 있습니다",
+                        "description": f"긍정 리뷰에서 '{best['term']}'의 언급 비율이 부정 리뷰 대비 압도적으로 높습니다.",
+                        "data_evidence": f"긍정 리뷰 {best['pos_freq']}회 vs 부정 리뷰 {best['neg_freq']}회 언급.",
+                        "marketing_msg": f"'{best['term']}'을(를) 메인 카피로 활용하세요.",
+                        "top_terms": top_winning
+                    }
+            except Exception as e:
+                print(f"[Insight] Winning Point extraction error: {e}", flush=True)
+        
+        # --- 💡 Niche Opportunity: 언급량 적지만 만족도 높은 키워드 ---
+        if keywords_analysis:
+            median_mention = np.median([k['mention_count'] for k in keywords_analysis]) if keywords_analysis else 5
+            niche_candidates = [
+                k for k in keywords_analysis 
+                if k['mention_count'] <= median_mention and k['impact_score'] > 0.3
+            ]
+            niche_candidates.sort(key=lambda x: -x['impact_score'])
+            
+            if niche_candidates:
+                # 범용 단어 제외 필터링 (이미 keywords_analysis에서 걸렸을 수 있지만 한 번 더 확인)
+                niche_candidates = [n for n in niche_candidates if not is_generic_term(n['keyword'])]
+                
+                if niche_candidates:
+                    best_niche = niche_candidates[0]
+                    avg_rating_niche = round(best_niche['impact_score'] + 3.0, 1)
+                    insights_data["niche_opportunity"] = {
+                        "title": f"'{best_niche['keyword']}' 관련 잠재 수요가 감지됩니다",
+                        "description": f"언급량은 {best_niche['mention_count']}회로 적지만, 언급 시 평균 별점이 {avg_rating_niche}점으로 매우 높습니다.",
+                        "data_evidence": f"Impact Score: +{best_niche['impact_score']}, 만족도 지수: {best_niche.get('satisfaction_index', 'N/A')}",
+                        "top_terms": [{'term': k['keyword'], 'impact': k['impact_score'], 'mentions': k['mention_count']} for k in niche_candidates[:5]]
+                    }
+    except Exception as e:
+        print(f"[Insight] Insight generation error: {e}", flush=True)
+    
+    # =========================================================
+    # 3-2. Sentiment Gap Analysis Chart (긍정 vs 부정 빈도 비교)
+    # =========================================================
+    fig_sentiment_gap = go.Figure()
+    try:
+        # 상위 키워드에 대해 긍정/부정 리뷰별 빈도 계산
+        gap_keywords = sorted(keywords_analysis, key=lambda x: -x['mention_count'])[:12]
+        if gap_keywords and 'cleaned_text' in filtered.columns:
+            pos_reviews_text = filtered[filtered['rating'] >= 4]['cleaned_text'].apply(remove_pos_tags).fillna('')
+            neg_reviews_text = filtered[filtered['rating'] <= 2]['cleaned_text'].apply(remove_pos_tags).fillna('')
+            
+            kw_names = []
+            pos_freqs = []
+            neg_freqs = []
+            
+            for kw in gap_keywords:
+                keyword = kw['keyword']
+                p_count = pos_reviews_text.str.contains(keyword, case=False, na=False, regex=False).sum() if not pos_reviews_text.empty else 0
+                n_count = neg_reviews_text.str.contains(keyword, case=False, na=False, regex=False).sum() if not neg_reviews_text.empty else 0
+                kw_names.append(keyword)
+                pos_freqs.append(int(p_count))
+                neg_freqs.append(int(n_count))
+            
+            fig_sentiment_gap.add_trace(go.Bar(
+                name='긍정 리뷰 (4-5점)', x=kw_names, y=pos_freqs,
+                marker_color='#22c55e',
+                hovertemplate='<b>%{x}</b><br>긍정 리뷰 언급: %{y}회<extra></extra>'
+            ))
+            fig_sentiment_gap.add_trace(go.Bar(
+                name='부정 리뷰 (1-2점)', x=kw_names, y=neg_freqs,
+                marker_color='#ef4444',
+                hovertemplate='<b>%{x}</b><br>부정 리뷰 언급: %{y}회<extra></extra>'
+            ))
+    except Exception as e:
+        print(f"[Chart] Sentiment Gap error: {e}", flush=True)
+    
+    fig_sentiment_gap.update_layout(
+        title="키워드 감성 차이 분석 (Sentiment Gap)",
+        xaxis_title="키워드",
+        yaxis_title="언급 빈도",
+        barmode='group',
+        template='plotly_white',
+        height=450,
+        legend=dict(orientation='h', yanchor='bottom', y=1.02, xanchor='right', x=1)
+    )
+    
+    # =========================================================
+    # 3-3. Keyword-Rating Correlation Chart (키워드별 평균 별점)
+    # =========================================================
+    fig_keyword_rating = go.Figure()
+    try:
+        rating_kw_data = sorted(keywords_analysis, key=lambda x: -x['mention_count'])[:15]
+        if rating_kw_data:
+            kw_labels = [k['keyword'] for k in rating_kw_data]
+            kw_avg_ratings = [round(k['impact_score'] + 3.0, 2) for k in rating_kw_data]  # impact_score = avg - 3.0
+            kw_colors = ['#22c55e' if r >= 4.0 else '#f59e0b' if r >= 3.0 else '#ef4444' for r in kw_avg_ratings]
+            
+            fig_keyword_rating.add_trace(go.Bar(
+                y=kw_labels[::-1],
+                x=kw_avg_ratings[::-1],
+                orientation='h',
+                marker_color=kw_colors[::-1],
+                text=[f'{r:.1f}점' for r in kw_avg_ratings[::-1]],
+                textposition='outside',
+                hovertemplate='<b>%{y}</b><br>평균 별점: %{x}점<extra></extra>'
+            ))
+            
+            # 전체 평균 기준선
+            overall_avg = round(filtered['rating'].mean(), 2) if 'rating' in filtered.columns else 3.0
+            fig_keyword_rating.add_vline(
+                x=overall_avg, line_dash='dash', line_color='#6366f1', line_width=2,
+                annotation_text=f'전체 평균: {overall_avg}점', annotation_position='top right'
+            )
+    except Exception as e:
+        print(f"[Chart] Keyword-Rating Correlation error: {e}", flush=True)
+    
+    fig_keyword_rating.update_layout(
+        title="키워드-별점 상관관계 (Keyword-Rating Correlation)",
+        xaxis_title="평균 별점",
+        yaxis_title="키워드",
+        template='plotly_white',
+        height=500,
+        xaxis=dict(range=[1, 5.5]),
+        showlegend=False
+    )
+    
+    # =========================================================
     # =========================================================
     # 4. Diverging Bar Chart (감성 영향도 시각화)
     # =========================================================
@@ -1350,6 +1588,7 @@ async def analyze_consumer(item_id: str = Query(None, description="ASIN"), item_
     return {
         "has_data": True,
         "search_term": item_name if item_name else item_id,
+        "insights": insights_data,
         "metrics": {
             # Frontend expected metrics
             "total_reviews": total_count,
@@ -1372,8 +1611,10 @@ async def analyze_consumer(item_id: str = Query(None, description="ASIN"), item_
         },
         "charts": {
             "impact_diverging_bar": json.loads(fig_diverging.to_json()),
+            "sentiment_gap": json.loads(fig_sentiment_gap.to_json()),
+            "keyword_rating_corr": json.loads(fig_keyword_rating.to_json()),
             "positivity_bar": json.loads(fig_positivity.to_json()),
-            "value_radar": json.loads(fig_radar.to_json()),  # Renamed from sensory_radar
+            "value_radar": json.loads(fig_radar.to_json()),
             "nss_gauge": json.loads(fig_nss.to_json()),
             "nss_cas_scatter": json.loads(fig_scatter_nss.to_json()),
             "quality_treemap": json.loads(fig_treemap.to_json()),

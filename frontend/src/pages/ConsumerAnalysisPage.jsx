@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import axiosInstance from '../axiosConfig';
 import Plot from 'react-plotly.js';
-import { Search, BarChart2, MessageSquare, AlertCircle, RefreshCw, ThumbsUp, Target, Lightbulb } from 'lucide-react';
+import { Search, BarChart2, MessageSquare, AlertCircle, RefreshCw, ThumbsUp, Target, Lightbulb, AlertTriangle, TrendingUp, ChevronDown, ChevronUp } from 'lucide-react';
 
 const Skeleton = ({ className }) => (
     <div className={`animate-pulse bg-[color:var(--surface-muted)] rounded-lg ${className}`}></div>
@@ -10,8 +10,10 @@ const Skeleton = ({ className }) => (
 const ConsumerAnalysisPage = () => {
     const [loading, setLoading] = useState(false);
     const [data, setData] = useState(null);
-    const [searchTerm, setSearchTerm] = useState('Kimchi'); // Default search term
+    const [searchTerm, setSearchTerm] = useState('Kimchi');
     const [error, setError] = useState(null);
+    const [showMetrics, setShowMetrics] = useState(false);
+    const [showDetailCharts, setShowDetailCharts] = useState(false);
 
     const fetchAnalysis = async () => {
         if (!searchTerm) {
@@ -22,7 +24,6 @@ const ConsumerAnalysisPage = () => {
         setLoading(true);
         setError(null);
         try {
-            // Using item_name query param for keyword search
             const response = await axiosInstance.get('/analysis/consumer', {
                 params: { item_name: searchTerm }
             });
@@ -42,7 +43,6 @@ const ConsumerAnalysisPage = () => {
         }
     };
 
-    // Initial fetch on mount
     useEffect(() => {
         fetchAnalysis();
     }, []);
@@ -66,7 +66,7 @@ const ConsumerAnalysisPage = () => {
                 </p>
             </header>
 
-            {/* Search / Filter Section */}
+            {/* Search Section */}
             <div className="max-w-7xl mx-auto mb-10">
                 <div className="bg-[color:var(--surface)] p-6 rounded-2xl shadow-lg border border-[color:var(--border)]">
                     <form onSubmit={handleSearch} className="flex flex-col md:flex-row gap-4 items-end">
@@ -105,166 +105,260 @@ const ConsumerAnalysisPage = () => {
             {/* Dashboard Content */}
             <div className="max-w-7xl mx-auto space-y-8">
                 {loading ? (
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                        <Skeleton className="h-[400px]" />
-                        <Skeleton className="h-[400px]" />
-                        <Skeleton className="h-[400px] md:col-span-2" />
+                    <div className="space-y-6">
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                            <Skeleton className="h-[200px]" />
+                            <Skeleton className="h-[200px]" />
+                            <Skeleton className="h-[200px]" />
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                            <Skeleton className="h-[400px]" />
+                            <Skeleton className="h-[400px]" />
+                        </div>
                     </div>
                 ) : !data ? (
                     <NoDataPlaceholder />
                 ) : (
                     <>
-                        {/* Business Insight Section */}
-                        <div className="bg-indigo-50 dark:bg-indigo-900/10 p-6 rounded-2xl border border-indigo-100 dark:border-indigo-800 mb-2">
-                            <div className="flex items-start gap-4">
-                                <div className="p-3 bg-indigo-100 dark:bg-indigo-800 rounded-xl shrink-0">
-                                    <Lightbulb className="text-indigo-600 dark:text-indigo-400" size={24} />
-                                </div>
-                                <div>
-                                    <h3 className="text-lg font-bold text-indigo-900 dark:text-indigo-100 mb-2">
-                                        Business Insight: 소비자 목소리에서 발견하는 기회
-                                    </h3>
-                                    <p className="text-indigo-700 dark:text-indigo-300 leading-relaxed text-sm">
-                                        이 대시보드는 <strong>{searchTerm}</strong>에 대한 실제 구매자들의 리뷰를 심층 분석한 결과입니다.
-                                        <br className="mb-2" />
-                                        <span className="block mt-1">
-                                            • <strong>평점 경쟁력 (Impact)</strong>: 경쟁 제품 및 시장 평균(3.0) 대비 우리 제품이 얼마나 더 높은 평가를 받고 있는지 보여줍니다.
-                                        </span>
-                                        <span className="block mt-1">
-                                            • <strong>구매 요인 (Value Drivers)</strong>: 고객이 제품을 선택하는 핵심 이유를 분석하여, 마케팅 문구와 패키징 전략에 활용하세요.
-                                        </span>
-                                    </p>
-                                </div>
+                        {/* =============================================
+                            Section 1: 전략 인사이트 카드 (최상단)
+                            ============================================= */}
+                        {data.insights && (data.insights.critical_issue || data.insights.winning_point || data.insights.niche_opportunity) && (
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                                {/* 🚨 Critical Issue */}
+                                {data.insights.critical_issue && (
+                                    <InsightCard
+                                        type="critical"
+                                        icon={<AlertTriangle size={22} />}
+                                        label="🚨 Critical Issue"
+                                        title={data.insights.critical_issue.title}
+                                        description={data.insights.critical_issue.description}
+                                        evidence={data.insights.critical_issue.data_evidence}
+                                        action={data.insights.critical_issue.action_item}
+                                        terms={data.insights.critical_issue.top_terms}
+                                    />
+                                )}
+                                {/* 👍 Winning Point */}
+                                {data.insights.winning_point && (
+                                    <InsightCard
+                                        type="winning"
+                                        icon={<ThumbsUp size={22} />}
+                                        label="👍 Winning Point"
+                                        title={data.insights.winning_point.title}
+                                        description={data.insights.winning_point.description}
+                                        evidence={data.insights.winning_point.data_evidence}
+                                        action={data.insights.winning_point.marketing_msg}
+                                        terms={data.insights.winning_point.top_terms}
+                                    />
+                                )}
+                                {/* 💡 Niche Opportunity */}
+                                {data.insights.niche_opportunity && (
+                                    <InsightCard
+                                        type="niche"
+                                        icon={<Lightbulb size={22} />}
+                                        label="💡 Niche Opportunity"
+                                        title={data.insights.niche_opportunity.title}
+                                        description={data.insights.niche_opportunity.description}
+                                        evidence={data.insights.niche_opportunity.data_evidence}
+                                        terms={data.insights.niche_opportunity.top_terms}
+                                    />
+                                )}
                             </div>
-                        </div>
+                        )}
 
-                        {/* Metrics Summary Row */}
-                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                            <MetricCard label="총 리뷰 수" value={data.metrics.total_reviews} trend="분석 데이터셋" color="text-gray-500" />
-                            <MetricCard label="평점 경쟁력 (Impact)" value={data.metrics.impact_score > 0 ? `+${data.metrics.impact_score}` : data.metrics.impact_score} trend="기준점(3.0) 대비" color="text-yellow-500" />
-                            <MetricCard label="감성 점수 (vs 평균)" value={data.metrics.sentiment_z_score} trend="+: 긍정 우위 / -: 부정 우위" color="text-pink-500" />
-                            <MetricCard label="열성 고객 비율 (Top Reviews)" value={`${(data.metrics.satisfaction_index * 20).toFixed(1)}%`} trend="5점 리뷰 비중" color="text-indigo-500" />
-                        </div>
-
-                        {/* Row 1: Impact Diverging Bar (신규) */}
-                        <div className="grid grid-cols-1 gap-8">
-                            <ChartCard title="키워드별 감성 영향도 (Impact Score)" icon={<BarChart2 size={20} className="text-indigo-500" />}>
-                                <Plot
-                                    data={data.charts.impact_diverging_bar?.data || []}
-                                    layout={{ ...data.charts.impact_diverging_bar?.layout, autosize: true, paper_bgcolor: 'rgba(0,0,0,0)', plot_bgcolor: 'rgba(0,0,0,0)', font: { color: 'var(--text-muted)' } }}
-                                    useResizeHandler={true}
-                                    style={{ width: '100%', height: '100%' }}
-                                    config={{ displayModeBar: false }}
-                                />
-                            </ChartCard>
-                        </div>
-
-                        {/* Row 2: Positivity Bar & Value Radar */}
-                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                            <ChartCard title="키워드별 만족도 확률 지수 (Index: 1.0 기준)" icon={<ThumbsUp size={20} className="text-green-500" />}>
-                                <Plot
-                                    data={data.charts.positivity_bar?.data || []}
-                                    layout={{ ...data.charts.positivity_bar?.layout, autosize: true, paper_bgcolor: 'rgba(0,0,0,0)', plot_bgcolor: 'rgba(0,0,0,0)', font: { color: 'var(--text-muted)' } }}
-                                    useResizeHandler={true}
-                                    style={{ width: '100%', height: '100%' }}
-                                    config={{ displayModeBar: false }}
-                                />
-                            </ChartCard>
-                            <ChartCard title="핵심 구매 결정 요인 (Value Drivers)" icon={<Target size={20} className="text-purple-500" />}>
-                                <Plot
-                                    data={data.charts.value_radar?.data || []}
-                                    layout={{ ...data.charts.value_radar?.layout, autosize: true, paper_bgcolor: 'rgba(0,0,0,0)', plot_bgcolor: 'rgba(0,0,0,0)', font: { color: 'var(--text-muted)' } }}
-                                    useResizeHandler={true}
-                                    style={{ width: '100%', height: '100%' }}
-                                    config={{ displayModeBar: false }}
-                                />
-                            </ChartCard>
-                        </div>
-
-                        {/* Row 3: Drill-down Only (NSS Removed) */}
-                        <div className="grid grid-cols-1 gap-8">
-
-
-                            {/* Drill-down: 키워드별 원문 리뷰 (긍정/부정 분리) */}
-                            <div className="bg-[color:var(--surface)] p-6 rounded-2xl shadow-lg border border-[color:var(--border)] h-[500px] overflow-y-auto">
-                                <div className="flex items-center gap-3 mb-4">
-                                    <div className="p-2 bg-[color:var(--surface-muted)] rounded-lg">
-                                        <MessageSquare size={20} className="text-blue-500" />
+                        {/* =============================================
+                            Section 2: 핵심 지표 (접을 수 있음)
+                            ============================================= */}
+                        <div className="bg-[color:var(--surface)] rounded-2xl shadow-lg border border-[color:var(--border)] overflow-hidden">
+                            <button
+                                onClick={() => setShowMetrics(!showMetrics)}
+                                className="w-full px-6 py-4 flex items-center justify-between hover:bg-[color:var(--surface-muted)] transition-colors"
+                            >
+                                <div className="flex items-center gap-3">
+                                    <div className="p-2 bg-indigo-500/10 rounded-lg">
+                                        <BarChart2 size={20} className="text-indigo-500" />
                                     </div>
-                                    <h3 className="text-lg font-bold text-[color:var(--text)]">키워드별 원문 리뷰 (Drill-down)</h3>
+                                    <span className="text-lg font-bold text-[color:var(--text)]">핵심 지표 요약</span>
+                                    <span className="text-xs px-2 py-1 rounded-full bg-indigo-500/10 text-indigo-500 font-medium">
+                                        리뷰 {data.metrics.total_reviews}건
+                                    </span>
                                 </div>
-                                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                                    {/* 긍정 키워드 섹션 */}
-                                    <div>
-                                        <div className="flex items-center gap-2 mb-3 pb-2 border-b border-green-500/30">
-                                            <div className="w-3 h-3 rounded-full bg-green-500"></div>
-                                            <span className="font-bold text-green-400 text-sm">긍정 키워드</span>
-                                            <span className="text-xs text-[color:var(--text-muted)]">({data.diverging_summary?.positive_keywords?.length || 0}개)</span>
-                                        </div>
-                                        <div className="space-y-3">
-                                            {data.diverging_summary?.positive_keywords?.length > 0 ? (
-                                                data.diverging_summary.positive_keywords.map((kw, idx) => (
-                                                    <div key={idx} className="p-3 bg-green-500/5 rounded-lg border border-green-500/20">
-                                                        <div className="flex items-center justify-between mb-2">
-                                                            <span className="font-semibold text-[color:var(--text)] text-sm">{kw.keyword}</span>
-                                                            <div className="flex gap-2 text-xs">
-                                                                <span className="px-2 py-1 rounded bg-green-500/20 text-green-400">
-                                                                    +{kw.impact_score}
-                                                                </span>
-                                                                <span className="px-2 py-1 rounded bg-blue-500/20 text-blue-400">
-                                                                    긍정: {kw.positivity_rate}%
-                                                                </span>
-                                                            </div>
-                                                        </div>
-                                                        <div className="space-y-1">
-                                                            {kw.sample_reviews?.slice(0, 2).map((review, rIdx) => (
-                                                                <p key={rIdx} className="text-xs text-[color:var(--text-muted)] line-clamp-2 italic">
-                                                                    "{review.slice(0, 150)}{review.length > 150 ? '...' : ''}"
-                                                                </p>
-                                                            ))}
-                                                        </div>
-                                                    </div>
-                                                ))
-                                            ) : (
-                                                <p className="text-xs text-[color:var(--text-muted)] p-3">해당하는 긍정 키워드가 없습니다.</p>
-                                            )}
-                                        </div>
+                                {showMetrics ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
+                            </button>
+                            {showMetrics && (
+                                <div className="px-6 pb-6">
+                                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 pt-2">
+                                        <MetricCard label="총 리뷰 수" value={data.metrics.total_reviews} trend="분석 데이터셋" color="text-gray-500" />
+                                        <MetricCard label="평점 경쟁력 (Impact)" value={data.metrics.impact_score > 0 ? `+${data.metrics.impact_score}` : data.metrics.impact_score} trend="기준점(3.0) 대비" color="text-yellow-500" />
+                                        <MetricCard label="감성 점수 (vs 평균)" value={data.metrics.sentiment_z_score} trend="+: 긍정 우위 / -: 부정 우위" color="text-pink-500" />
+                                        <MetricCard label="열성 고객 비율" value={`${(data.metrics.satisfaction_index * 20).toFixed(1)}%`} trend="5점 리뷰 비중" color="text-indigo-500" />
                                     </div>
-                                    {/* 부정 키워드 섹션 */}
-                                    <div>
-                                        <div className="flex items-center gap-2 mb-3 pb-2 border-b border-red-500/30">
-                                            <div className="w-3 h-3 rounded-full bg-red-500"></div>
-                                            <span className="font-bold text-red-400 text-sm">부정 키워드</span>
-                                            <span className="text-xs text-[color:var(--text-muted)]">({data.diverging_summary?.negative_keywords?.length || 0}개)</span>
-                                        </div>
-                                        <div className="space-y-3">
-                                            {data.diverging_summary?.negative_keywords?.length > 0 ? (
-                                                data.diverging_summary.negative_keywords.map((kw, idx) => (
-                                                    <div key={idx} className="p-3 bg-red-500/5 rounded-lg border border-red-500/20">
-                                                        <div className="flex items-center justify-between mb-2">
-                                                            <span className="font-semibold text-[color:var(--text)] text-sm">{kw.keyword}</span>
-                                                            <div className="flex gap-2 text-xs">
-                                                                <span className="px-2 py-1 rounded bg-red-500/20 text-red-400">
-                                                                    {kw.impact_score}
-                                                                </span>
-                                                                <span className="px-2 py-1 rounded bg-blue-500/20 text-blue-400">
-                                                                    긍정: {kw.positivity_rate}%
-                                                                </span>
-                                                            </div>
-                                                        </div>
-                                                        <div className="space-y-1">
-                                                            {kw.sample_reviews?.slice(0, 2).map((review, rIdx) => (
-                                                                <p key={rIdx} className="text-xs text-[color:var(--text-muted)] line-clamp-2 italic">
-                                                                    "{review.slice(0, 150)}{review.length > 150 ? '...' : ''}"
-                                                                </p>
-                                                            ))}
+                                </div>
+                            )}
+                        </div>
+
+                        {/* =============================================
+                            Section 3: 인사이트 차트 (Sentiment Gap + Keyword-Rating)
+                            ============================================= */}
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                            <ChartCard title="감성 차이 분석 (Sentiment Gap)" icon={<BarChart2 size={20} className="text-emerald-500" />}>
+                                <Plot
+                                    data={data.charts.sentiment_gap?.data || []}
+                                    layout={{ ...data.charts.sentiment_gap?.layout, autosize: true, paper_bgcolor: 'rgba(0,0,0,0)', plot_bgcolor: 'rgba(0,0,0,0)', font: { color: 'var(--text-muted)' } }}
+                                    useResizeHandler={true}
+                                    style={{ width: '100%', height: '100%' }}
+                                    config={{ displayModeBar: false }}
+                                />
+                            </ChartCard>
+                            <ChartCard title="키워드-별점 상관관계" icon={<TrendingUp size={20} className="text-amber-500" />}>
+                                <Plot
+                                    data={data.charts.keyword_rating_corr?.data || []}
+                                    layout={{ ...data.charts.keyword_rating_corr?.layout, autosize: true, paper_bgcolor: 'rgba(0,0,0,0)', plot_bgcolor: 'rgba(0,0,0,0)', font: { color: 'var(--text-muted)' } }}
+                                    useResizeHandler={true}
+                                    style={{ width: '100%', height: '100%' }}
+                                    config={{ displayModeBar: false }}
+                                />
+                            </ChartCard>
+                        </div>
+
+                        {/* =============================================
+                            Section 4: 기존 분석 차트 (접을 수 있음)
+                            ============================================= */}
+                        <div className="bg-[color:var(--surface)] rounded-2xl shadow-lg border border-[color:var(--border)] overflow-hidden">
+                            <button
+                                onClick={() => setShowDetailCharts(!showDetailCharts)}
+                                className="w-full px-6 py-4 flex items-center justify-between hover:bg-[color:var(--surface-muted)] transition-colors"
+                            >
+                                <div className="flex items-center gap-3">
+                                    <div className="p-2 bg-purple-500/10 rounded-lg">
+                                        <Target size={20} className="text-purple-500" />
+                                    </div>
+                                    <span className="text-lg font-bold text-[color:var(--text)]">상세 분석 차트</span>
+                                    <span className="text-xs px-2 py-1 rounded-full bg-purple-500/10 text-purple-500 font-medium">
+                                        3개 차트
+                                    </span>
+                                </div>
+                                {showDetailCharts ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
+                            </button>
+                            {showDetailCharts && (
+                                <div className="px-6 pb-6 space-y-8 pt-2">
+                                    {/* Impact Diverging Bar */}
+                                    <ChartCard title="키워드별 감성 영향도 (Impact Score)" icon={<BarChart2 size={20} className="text-indigo-500" />}>
+                                        <Plot
+                                            data={data.charts.impact_diverging_bar?.data || []}
+                                            layout={{ ...data.charts.impact_diverging_bar?.layout, autosize: true, paper_bgcolor: 'rgba(0,0,0,0)', plot_bgcolor: 'rgba(0,0,0,0)', font: { color: 'var(--text-muted)' } }}
+                                            useResizeHandler={true}
+                                            style={{ width: '100%', height: '100%' }}
+                                            config={{ displayModeBar: false }}
+                                        />
+                                    </ChartCard>
+
+                                    {/* Positivity Bar & Value Radar */}
+                                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                                        <ChartCard title="키워드별 만족도 지수 (Index: 1.0 기준)" icon={<ThumbsUp size={20} className="text-green-500" />}>
+                                            <Plot
+                                                data={data.charts.positivity_bar?.data || []}
+                                                layout={{ ...data.charts.positivity_bar?.layout, autosize: true, paper_bgcolor: 'rgba(0,0,0,0)', plot_bgcolor: 'rgba(0,0,0,0)', font: { color: 'var(--text-muted)' } }}
+                                                useResizeHandler={true}
+                                                style={{ width: '100%', height: '100%' }}
+                                                config={{ displayModeBar: false }}
+                                            />
+                                        </ChartCard>
+                                        <ChartCard title="핵심 구매 결정 요인 (Value Drivers)" icon={<Target size={20} className="text-purple-500" />}>
+                                            <Plot
+                                                data={data.charts.value_radar?.data || []}
+                                                layout={{ ...data.charts.value_radar?.layout, autosize: true, paper_bgcolor: 'rgba(0,0,0,0)', plot_bgcolor: 'rgba(0,0,0,0)', font: { color: 'var(--text-muted)' } }}
+                                                useResizeHandler={true}
+                                                style={{ width: '100%', height: '100%' }}
+                                                config={{ displayModeBar: false }}
+                                            />
+                                        </ChartCard>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+
+                        {/* =============================================
+                            Section 5: 키워드별 원문 리뷰 Drill-down
+                            ============================================= */}
+                        <div className="bg-[color:var(--surface)] p-6 rounded-2xl shadow-lg border border-[color:var(--border)] max-h-[500px] overflow-y-auto">
+                            <div className="flex items-center gap-3 mb-4">
+                                <div className="p-2 bg-[color:var(--surface-muted)] rounded-lg">
+                                    <MessageSquare size={20} className="text-blue-500" />
+                                </div>
+                                <h3 className="text-lg font-bold text-[color:var(--text)]">키워드별 원문 리뷰 (Drill-down)</h3>
+                            </div>
+                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                                {/* 긍정 키워드 섹션 */}
+                                <div>
+                                    <div className="flex items-center gap-2 mb-3 pb-2 border-b border-green-500/30">
+                                        <div className="w-3 h-3 rounded-full bg-green-500"></div>
+                                        <span className="font-bold text-green-400 text-sm">긍정 키워드</span>
+                                        <span className="text-xs text-[color:var(--text-muted)]">({data.diverging_summary?.positive_keywords?.length || 0}개)</span>
+                                    </div>
+                                    <div className="space-y-3">
+                                        {data.diverging_summary?.positive_keywords?.length > 0 ? (
+                                            data.diverging_summary.positive_keywords.map((kw, idx) => (
+                                                <div key={idx} className="p-3 bg-green-500/5 rounded-lg border border-green-500/20">
+                                                    <div className="flex items-center justify-between mb-2">
+                                                        <span className="font-semibold text-[color:var(--text)] text-sm">{kw.keyword}</span>
+                                                        <div className="flex gap-2 text-xs">
+                                                            <span className="px-2 py-1 rounded bg-green-500/20 text-green-400">
+                                                                +{kw.impact_score}
+                                                            </span>
+                                                            <span className="px-2 py-1 rounded bg-blue-500/20 text-blue-400">
+                                                                긍정: {kw.positivity_rate}%
+                                                            </span>
                                                         </div>
                                                     </div>
-                                                ))
-                                            ) : (
-                                                <p className="text-xs text-[color:var(--text-muted)] p-3">해당하는 부정 키워드가 없습니다.</p>
-                                            )}
-                                        </div>
+                                                    <div className="space-y-1">
+                                                        {kw.sample_reviews?.slice(0, 2).map((review, rIdx) => (
+                                                            <p key={rIdx} className="text-xs text-[color:var(--text-muted)] line-clamp-2 italic">
+                                                                "{review.slice(0, 150)}{review.length > 150 ? '...' : ''}"
+                                                            </p>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                            ))
+                                        ) : (
+                                            <p className="text-xs text-[color:var(--text-muted)] p-3">해당하는 긍정 키워드가 없습니다.</p>
+                                        )}
+                                    </div>
+                                </div>
+                                {/* 부정 키워드 섹션 */}
+                                <div>
+                                    <div className="flex items-center gap-2 mb-3 pb-2 border-b border-red-500/30">
+                                        <div className="w-3 h-3 rounded-full bg-red-500"></div>
+                                        <span className="font-bold text-red-400 text-sm">부정 키워드</span>
+                                        <span className="text-xs text-[color:var(--text-muted)]">({data.diverging_summary?.negative_keywords?.length || 0}개)</span>
+                                    </div>
+                                    <div className="space-y-3">
+                                        {data.diverging_summary?.negative_keywords?.length > 0 ? (
+                                            data.diverging_summary.negative_keywords.map((kw, idx) => (
+                                                <div key={idx} className="p-3 bg-red-500/5 rounded-lg border border-red-500/20">
+                                                    <div className="flex items-center justify-between mb-2">
+                                                        <span className="font-semibold text-[color:var(--text)] text-sm">{kw.keyword}</span>
+                                                        <div className="flex gap-2 text-xs">
+                                                            <span className="px-2 py-1 rounded bg-red-500/20 text-red-400">
+                                                                {kw.impact_score}
+                                                            </span>
+                                                            <span className="px-2 py-1 rounded bg-blue-500/20 text-blue-400">
+                                                                긍정: {kw.positivity_rate}%
+                                                            </span>
+                                                        </div>
+                                                    </div>
+                                                    <div className="space-y-1">
+                                                        {kw.sample_reviews?.slice(0, 2).map((review, rIdx) => (
+                                                            <p key={rIdx} className="text-xs text-[color:var(--text-muted)] line-clamp-2 italic">
+                                                                "{review.slice(0, 150)}{review.length > 150 ? '...' : ''}"
+                                                            </p>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                            ))
+                                        ) : (
+                                            <p className="text-xs text-[color:var(--text-muted)] p-3">해당하는 부정 키워드가 없습니다.</p>
+                                        )}
                                     </div>
                                 </div>
                             </div>
@@ -276,9 +370,82 @@ const ConsumerAnalysisPage = () => {
     );
 };
 
+// =============================================
+// Insight Card Component
+// =============================================
+const InsightCard = ({ type, icon, label, title, description, evidence, action, terms }) => {
+    const styles = {
+        critical: {
+            bg: 'bg-red-500/5',
+            border: 'border-red-500/20',
+            iconBg: 'bg-red-500/10',
+            iconColor: 'text-red-500',
+            labelColor: 'text-red-500',
+            termBg: 'bg-red-500/10',
+            termText: 'text-red-400',
+        },
+        winning: {
+            bg: 'bg-emerald-500/5',
+            border: 'border-emerald-500/20',
+            iconBg: 'bg-emerald-500/10',
+            iconColor: 'text-emerald-500',
+            labelColor: 'text-emerald-500',
+            termBg: 'bg-emerald-500/10',
+            termText: 'text-emerald-400',
+        },
+        niche: {
+            bg: 'bg-amber-500/5',
+            border: 'border-amber-500/20',
+            iconBg: 'bg-amber-500/10',
+            iconColor: 'text-amber-500',
+            labelColor: 'text-amber-500',
+            termBg: 'bg-amber-500/10',
+            termText: 'text-amber-400',
+        },
+    };
+
+    const s = styles[type] || styles.niche;
+
+    return (
+        <div className={`${s.bg} p-5 rounded-2xl border ${s.border} flex flex-col h-full`}>
+            {/* Header */}
+            <div className="flex items-center gap-3 mb-3">
+                <div className={`p-2 ${s.iconBg} rounded-xl ${s.iconColor}`}>{icon}</div>
+                <span className={`text-xs font-bold uppercase tracking-wider ${s.labelColor}`}>{label}</span>
+            </div>
+            {/* Title */}
+            <h3 className="text-base font-bold text-[color:var(--text)] mb-2 leading-snug">{title}</h3>
+            {/* Description */}
+            <p className="text-sm text-[color:var(--text-muted)] mb-3 leading-relaxed">{description}</p>
+            {/* Evidence */}
+            <div className="bg-[color:var(--background)] p-3 rounded-lg mb-3">
+                <p className="text-xs text-[color:var(--text-soft)] font-medium">📊 데이터 근거</p>
+                <p className="text-xs text-[color:var(--text-muted)] mt-1">{evidence}</p>
+            </div>
+            {/* Action Item */}
+            {action && (
+                <div className="bg-[color:var(--background)] p-3 rounded-lg mb-3">
+                    <p className="text-xs text-[color:var(--text-soft)] font-medium">💡 액션 아이템</p>
+                    <p className="text-xs text-[color:var(--text-muted)] mt-1">{action}</p>
+                </div>
+            )}
+            {/* Related Terms */}
+            {terms && terms.length > 0 && (
+                <div className="flex flex-wrap gap-1.5 mt-auto pt-2">
+                    {terms.slice(0, 5).map((t, i) => (
+                        <span key={i} className={`text-[10px] px-2 py-1 rounded-full ${s.termBg} ${s.termText} font-medium`}>
+                            {t.term || t.keyword} {t.count ? `(${t.count})` : t.mentions ? `(${t.mentions})` : ''}
+                        </span>
+                    ))}
+                </div>
+            )}
+        </div>
+    );
+};
+
 // Helper Components
 const MetricCard = ({ label, value, trend, color }) => (
-    <div className="bg-[color:var(--surface)] p-4 rounded-xl border border-[color:var(--border)] shadow-sm">
+    <div className="bg-[color:var(--background)] p-4 rounded-xl border border-[color:var(--border)] shadow-sm">
         <p className="text-xs text-[color:var(--text-muted)] font-medium uppercase tracking-wider">{label}</p>
         <p className={`text-2xl font-bold mt-1 ${color}`}>{value}</p>
         <p className="text-[10px] text-[color:var(--text-soft)] mt-1">{trend}</p>
@@ -286,7 +453,7 @@ const MetricCard = ({ label, value, trend, color }) => (
 );
 
 const ChartCard = ({ title, icon, children }) => (
-    <div className="bg-[color:var(--surface)] p-6 rounded-2xl shadow-lg border border-[color:var(--border)] flex flex-col h-[400px]">
+    <div className="bg-[color:var(--surface)] p-6 rounded-2xl shadow-lg border border-[color:var(--border)] flex flex-col h-[450px]">
         <div className="flex items-center gap-3 mb-4">
             <div className="p-2 bg-[color:var(--surface-muted)] rounded-lg">
                 {icon}
