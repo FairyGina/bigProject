@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import axiosInstance from '../axiosConfig';
 import Plot from 'react-plotly.js';
-import { Search, BarChart2, MessageSquare, AlertCircle, RefreshCw, ThumbsUp, Target } from 'lucide-react';
+import { Search, BarChart2, MessageSquare, AlertCircle, RefreshCw, ThumbsUp, Target, Lightbulb } from 'lucide-react';
 
 const Skeleton = ({ className }) => (
     <div className={`animate-pulse bg-[color:var(--surface-muted)] rounded-lg ${className}`}></div>
@@ -10,7 +10,7 @@ const Skeleton = ({ className }) => (
 const ConsumerAnalysisPage = () => {
     const [loading, setLoading] = useState(false);
     const [data, setData] = useState(null);
-    const [searchTerm, setSearchTerm] = useState('Gochujang'); // Default search term
+    const [searchTerm, setSearchTerm] = useState('Kimchi'); // Default search term
     const [error, setError] = useState(null);
 
     const fetchAnalysis = async () => {
@@ -114,12 +114,36 @@ const ConsumerAnalysisPage = () => {
                     <NoDataPlaceholder />
                 ) : (
                     <>
+                        {/* Business Insight Section */}
+                        <div className="bg-indigo-50 dark:bg-indigo-900/10 p-6 rounded-2xl border border-indigo-100 dark:border-indigo-800 mb-2">
+                            <div className="flex items-start gap-4">
+                                <div className="p-3 bg-indigo-100 dark:bg-indigo-800 rounded-xl shrink-0">
+                                    <Lightbulb className="text-indigo-600 dark:text-indigo-400" size={24} />
+                                </div>
+                                <div>
+                                    <h3 className="text-lg font-bold text-indigo-900 dark:text-indigo-100 mb-2">
+                                        Business Insight: 소비자 목소리에서 발견하는 기회
+                                    </h3>
+                                    <p className="text-indigo-700 dark:text-indigo-300 leading-relaxed text-sm">
+                                        이 대시보드는 <strong>{searchTerm}</strong>에 대한 실제 구매자들의 리뷰를 심층 분석한 결과입니다.
+                                        <br className="mb-2" />
+                                        <span className="block mt-1">
+                                            • <strong>평점 경쟁력 (Impact)</strong>: 경쟁 제품 및 시장 평균(3.0) 대비 우리 제품이 얼마나 더 높은 평가를 받고 있는지 보여줍니다.
+                                        </span>
+                                        <span className="block mt-1">
+                                            • <strong>구매 요인 (Value Drivers)</strong>: 고객이 제품을 선택하는 핵심 이유를 분석하여, 마케팅 문구와 패키징 전략에 활용하세요.
+                                        </span>
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+
                         {/* Metrics Summary Row */}
                         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                            <MetricCard label="총 리뷰 수" value={data.metrics.total_reviews} trend="분석 완료" color="text-gray-500" />
-                            <MetricCard label="Impact Score" value={data.metrics.impact_score > 0 ? `+${data.metrics.impact_score}` : data.metrics.impact_score} trend="평점 기준 대비" color="text-yellow-500" />
-                            <MetricCard label="상대적 감성 (Z-Score)" value={data.metrics.sentiment_z_score} trend="전체 평균 대비" color="text-pink-500" />
-                            <MetricCard label="만족도 지수 (Index)" value={data.metrics.satisfaction_index} trend="5점 리뷰 확률 배수" color="text-indigo-500" />
+                            <MetricCard label="총 리뷰 수" value={data.metrics.total_reviews} trend="분석 데이터셋" color="text-gray-500" />
+                            <MetricCard label="평점 경쟁력 (Impact)" value={data.metrics.impact_score > 0 ? `+${data.metrics.impact_score}` : data.metrics.impact_score} trend="기준점(3.0) 대비" color="text-yellow-500" />
+                            <MetricCard label="감성 점수 (vs 평균)" value={data.metrics.sentiment_z_score} trend="+: 긍정 우위 / -: 부정 우위" color="text-pink-500" />
+                            <MetricCard label="열성 고객 비율 (Top Reviews)" value={`${(data.metrics.satisfaction_index * 20).toFixed(1)}%`} trend="5점 리뷰 비중" color="text-indigo-500" />
                         </div>
 
                         {/* Row 1: Impact Diverging Bar (신규) */}
@@ -146,7 +170,7 @@ const ConsumerAnalysisPage = () => {
                                     config={{ displayModeBar: false }}
                                 />
                             </ChartCard>
-                            <ChartCard title="핵심 구매 결정 요인" icon={<Target size={20} className="text-purple-500" />}>
+                            <ChartCard title="핵심 구매 결정 요인 (Value Drivers)" icon={<Target size={20} className="text-purple-500" />}>
                                 <Plot
                                     data={data.charts.value_radar?.data || []}
                                     layout={{ ...data.charts.value_radar?.layout, autosize: true, paper_bgcolor: 'rgba(0,0,0,0)', plot_bgcolor: 'rgba(0,0,0,0)', font: { color: 'var(--text-muted)' } }}

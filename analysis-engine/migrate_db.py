@@ -257,7 +257,8 @@ def load_amazon_reviews():
             
             data_to_insert.append((
                 row_data['asin'],
-                "", # title
+                (row_data['original_text'][:100].strip() if isinstance(row_data['original_text'], str) else "") if not row.get('title') else str(row.get('title')), # title extraction
+
                 row_data['rating'],
                 row_data['original_text'],
                 row_data['cleaned_text'],

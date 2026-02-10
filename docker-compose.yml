@@ -81,6 +81,7 @@ services:
       dockerfile: Dockerfile
       args:
         - VITE_API_URL=/api
+        - VITE_CHATBOT_URL=http://localhost:7860
     container_name: bigproject-frontend
     restart: unless-stopped
     depends_on:
@@ -141,6 +142,7 @@ services:
     environment:
       - OPENAI_API_KEY=${OPENAI_API_KEY}
       - SERPAPI_API_KEY=${SERPAPI_API_KEY}
+      - API_BASE_URL=http://bigproject-backend:8080
 
     networks:
       - bigproject-network

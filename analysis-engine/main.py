@@ -941,10 +941,10 @@ async def analyze_consumer(item_id: str = Query(None, description="ASIN"), item_
         if item_name:
             query = """
                 SELECT * FROM amazon_reviews 
-                WHERE title ILIKE %s OR cleaned_text ILIKE %s
+                WHERE title ILIKE %s OR cleaned_text ILIKE %s OR original_text ILIKE %s
             """
             search_pattern = f"%{item_name}%"
-            filtered = pd.read_sql(query, conn, params=(search_pattern, search_pattern))
+            filtered = pd.read_sql(query, conn, params=(search_pattern, search_pattern, search_pattern))
             
         elif item_id:
             query = "SELECT * FROM amazon_reviews WHERE asin = %s"
@@ -1076,7 +1076,7 @@ async def analyze_consumer(item_id: str = Query(None, description="ASIN"), item_
             print(f"[Consumer] No positive keywords from impact_score. Extracting from high-rated reviews (4-5★)...", flush=True)
             pos_reviews = filtered[filtered['rating'] >= 4]
             
-            if len(pos_reviews) >= 3:  # 최소 3개 이상의 긍정 리뷰 필요
+            if len(pos_reviews) >= 1:  # 긍정 리뷰가 1개라도 있으면 추출 시도 (기존 3개 -> 1개 완화)
                 pos_min_df = 1 if len(pos_reviews) < 30 else 2
                 pos_keywords_analysis = extract_bigrams_with_metrics(
                     texts=pos_reviews['cleaned_text'],
