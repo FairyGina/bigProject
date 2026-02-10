@@ -865,6 +865,35 @@ async def analyze_consumer(item_id: str = Query(None, description="ASIN"), item_
             top_n=8, 
             threshold=impact_threshold_val
         )
+        
+        # ★ 긍정 키워드 보완: impact_score 방식으로 긍정이 안 나올 때
+        #   -> 4-5점 리뷰에서만 별도 Bigram 추출하여 채움
+        if not diverging_keywords["positive"] and 'cleaned_text' in filtered.columns and 'original_text' in filtered.columns:
+            print(f"[Consumer] No positive keywords from impact_score. Extracting from high-rated reviews (4-5★)...", flush=True)
+            pos_reviews = filtered[filtered['rating'] >= 4]
+            
+            if len(pos_reviews) >= 3:  # 최소 3개 이상의 긍정 리뷰 필요
+                pos_min_df = 1 if len(pos_reviews) < 30 else 2
+                pos_keywords_analysis = extract_bigrams_with_metrics(
+                    texts=pos_reviews['cleaned_text'],
+                    ratings=pos_reviews['rating'],
+                    original_texts=pos_reviews['original_text'],
+                    top_n=10,
+                    adj_priority=False,  # 긍정에서는 형용사 필터 해제
+                    min_df=pos_min_df
+                )
+                
+                # 부정에 이미 나온 키워드는 제외 (중복 방지)
+                neg_keyword_set = {k["keyword"] for k in diverging_keywords["negative"]}
+                pos_unique = [k for k in pos_keywords_analysis if k["keyword"] not in neg_keyword_set]
+                
+                # 상위 8개를 긍정 키워드로 설정
+                diverging_keywords["positive"] = sorted(
+                    pos_unique[:8],
+                    key=lambda x: -x["impact_score"]
+                )
+                print(f"[Consumer] Found {len(diverging_keywords['positive'])} positive keywords from high-rated reviews.", flush=True)
+            
     except Exception as e:
         print(f"키워드 분석 오류: {e}")
     

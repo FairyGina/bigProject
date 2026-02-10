@@ -123,6 +123,11 @@ def build_kb_only_answer(question: str, hits: List[Dict[str, Any]]) -> str:
 
 def answer_with_llm(question: str, context: str) -> str:
     api_key = os.getenv("OPENAI_API_KEY", "").strip()
+    # 디버깅: 실제로 읽히는 키 확인 (앞뒤 4자만 노출)
+    if api_key:
+        print(f"[HelperBot DEBUG] API key loaded: {api_key[:8]}...{api_key[-4:]} (len={len(api_key)})")
+    else:
+        print("[HelperBot DEBUG] API key is EMPTY")
     if not api_key or OpenAI is None:
         # 키 없으면 KB 컨텍스트만 반환(최소 동작)
         if context:
