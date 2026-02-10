@@ -5,6 +5,7 @@ import Sidebar from './Sidebar';
 import ThemeToggle from '../common/ThemeToggle';
 import Footer from '../common/Footer';
 import GlassCard from '../common/GlassCard';
+import axiosInstance from '../../axiosConfig';
 
 const MainLayout = ({ children }) => {
     const navigate = useNavigate();
@@ -14,6 +15,30 @@ const MainLayout = ({ children }) => {
     // Help chatbot URL definition - 챗봇 컨테이너의 /helper/ 경로 사용 (Trailing slash 중요)
     const chatbotBaseUrl = import.meta.env.VITE_CHATBOT_URL || 'https://bp-chatbot-app.wittysand-a0f4e87e.centralindia.azurecontainerapps.io';
     const helperChatUrl = `${chatbotBaseUrl}/helper/`;
+
+    // ==========================================================
+    // Application-level Warm-up: 페이지 진입 시 컨테이너 미리 깨우기
+    // ACA의 Scale-to-Zero 정책 대응 — 사용자가 실제 기능을 사용할 때쯤
+    // 컨테이너가 이미 프로비저닝되어 있도록 미리 신호를 보냄
+    // ==========================================================
+    useEffect(() => {
+        const warmUp = async () => {
+            try {
+                // 1. Chatbot 컨테이너 Warm-up (no-cors: CORS 에러 무시, 단순 wake-up 목적)
+                fetch(chatbotBaseUrl, { mode: 'no-cors' }).catch(() => { });
+                console.log('[Warm-up] Chatbot 컨테이너 wake-up 요청 전송');
+
+                // 2. Analysis Engine 컨테이너 Warm-up (백엔드 프록시 경유)
+                axiosInstance.get('/analysis/items').catch(() => { });
+                console.log('[Warm-up] Analysis Engine 컨테이너 wake-up 요청 전송');
+            } catch (e) {
+                // Warm-up 실패는 무시 — 사용자 경험에 영향 없음
+                console.log('[Warm-up] 컨테이너 warm-up 중 오류 (무시):', e);
+            }
+        };
+
+        warmUp();
+    }, []); // 최초 마운트 시 1회만 실행
 
     useEffect(() => {
         const deferredUntil = localStorage.getItem('passwordChangeDeferredUntil');

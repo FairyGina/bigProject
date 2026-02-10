@@ -494,13 +494,13 @@ async def analyze(country: str = Query(...), item: str = Query(...)):
     filtered = filtered.sort_values('period_str')
 
     # ---------------------------------------------------------
-    # Chart 1: Trend Stack (수출액 + 환율 + GDP/Econ)
+    # Chart 1: Trend Stack (수출액 + 환율 증감률 + GDP 증감률)
     # ---------------------------------------------------------
     rows = 2
-    titles = ["수출액 Trend", f"{country_name} 현지 환율"]
+    titles = ["수출액 Trend", f"{country_name} 환율 증감률 (%)"]
     if 'gdp_level' in filtered.columns:
         rows = 3
-        titles.append(f"{country_name} GDP 지표")
+        titles.append(f"{country_name} GDP 증감률 (%)")
         
     fig_stack = make_subplots(rows=rows, cols=1, shared_xaxes=True, 
                               vertical_spacing=0.1, subplot_titles=titles)
@@ -511,17 +511,23 @@ async def analyze(country: str = Query(...), item: str = Query(...)):
         marker=dict(color=filtered['export_value'], colorscale='Purples')
     ), row=1, col=1)
     
-    # Row 2: Exchange Rate (Line with Fill)
-    fig_stack.add_trace(go.Scatter(
-        x=filtered['period_str'], y=filtered['exchange_rate'], name="환율",
-        line=dict(color='#f59e0b', width=2), fill='tozeroy', fillcolor='rgba(245, 158, 11, 0.1)'
+    # Row 2: Exchange Rate 증감률 (Bar with red/green)
+    exchange_rate_pct = filtered['exchange_rate'].pct_change().fillna(0) * 100
+    exchange_colors = ['#ef4444' if v < 0 else '#22c55e' for v in exchange_rate_pct]
+    fig_stack.add_trace(go.Bar(
+        x=filtered['period_str'], y=exchange_rate_pct.round(2), name="환율 증감률",
+        marker=dict(color=exchange_colors),
+        hovertemplate='%{x}<br>증감률: %{y:.2f}%<extra></extra>'
     ), row=2, col=1)
     
-    # Row 3: GDP (if exists)
+    # Row 3: GDP 증감률 (if exists)
     if rows == 3:
-        fig_stack.add_trace(go.Scatter(
-            x=filtered['period_str'], y=filtered['gdp_level'], name="GDP",
-            line=dict(color='#10b981', width=2, dash='dot')
+        gdp_pct = filtered['gdp_level'].pct_change().fillna(0) * 100
+        gdp_colors = ['#ef4444' if v < 0 else '#3b82f6' for v in gdp_pct]
+        fig_stack.add_trace(go.Bar(
+            x=filtered['period_str'], y=gdp_pct.round(2), name="GDP 증감률",
+            marker=dict(color=gdp_colors),
+            hovertemplate='%{x}<br>증감률: %{y:.2f}%<extra></extra>'
         ), row=3, col=1)
 
     fig_stack.update_layout(
@@ -607,10 +613,11 @@ async def analyze(country: str = Query(...), item: str = Query(...)):
                 line=dict(color='#f43f5e', width=3)
             ), secondary_y=True)
 
-    # 3. 후행 지표: 실적(수출액) - Area
-    fig_signal.add_trace(go.Scatter(
+    # 3. 후행 지표: 실적(수출액) - Bar Chart (배경 역할)
+    fig_signal.add_trace(go.Bar(
         x=filtered['period_str'], y=filtered['export_value'], name="수출 실적 ($)",
-        fill='tozeroy', line=dict(color='#6366f1', width=0), opacity=0.3
+        marker=dict(color='rgba(99, 102, 241, 0.25)'),
+        hovertemplate='%{x}<br>수출액: $%{y:,.0f}<extra></extra>'
     ), secondary_y=False)
         
     fig_signal.update_layout(
@@ -655,15 +662,30 @@ async def analyze(country: str = Query(...), item: str = Query(...)):
             hovertemplate="<b>%{text}</b> (현재)<br>양적: %{x}%<br>질적: %{y}%"
         ))
         
-        # Quadrant Lines
-        fig_scatter.add_hline(y=0, line_dash="solid", line_color="#e2e8f0")
-        fig_scatter.add_vline(x=0, line_dash="solid", line_color="#e2e8f0")
+        # Quadrant Lines (강조)
+        fig_scatter.add_hline(y=0, line_dash="solid", line_color="#94a3b8", line_width=2)
+        fig_scatter.add_vline(x=0, line_dash="solid", line_color="#94a3b8", line_width=2)
         
-        # Annotations (1~4사분면)
-        # 1사분면 (우상향): Premium Expansion
-        fig_scatter.add_annotation(x=10, y=10, text="Premium (고부가가치 성장)", showarrow=False, font=dict(color="#10b981", size=12), xanchor="left")
-        # 4사분면 (우하향): Volume Driven
-        fig_scatter.add_annotation(x=10, y=-10, text="Volume (박리다매)", showarrow=False, font=dict(color="#3b82f6", size=12), xanchor="left")
+        # 사분면 배경 쉐이딩 (x/y 범위 계산)
+        all_x = country_matrix['weight_growth']
+        all_y = country_matrix['price_growth']
+        x_max = max(abs(all_x.max()), abs(all_x.min()), 20) * 1.3
+        y_max = max(abs(all_y.max()), abs(all_y.min()), 20) * 1.3
+        
+        # Q1 (우상): 초록 배경
+        fig_scatter.add_shape(type="rect", x0=0, y0=0, x1=x_max, y1=y_max, fillcolor="rgba(16, 185, 129, 0.06)", line_width=0, layer="below")
+        # Q2 (좌상): 노란 배경
+        fig_scatter.add_shape(type="rect", x0=-x_max, y0=0, x1=0, y1=y_max, fillcolor="rgba(245, 158, 11, 0.06)", line_width=0, layer="below")
+        # Q3 (좌하): 빨간 배경
+        fig_scatter.add_shape(type="rect", x0=-x_max, y0=-y_max, x1=0, y1=0, fillcolor="rgba(239, 68, 68, 0.06)", line_width=0, layer="below")
+        # Q4 (우하): 파란 배경
+        fig_scatter.add_shape(type="rect", x0=0, y0=-y_max, x1=x_max, y1=0, fillcolor="rgba(59, 130, 246, 0.06)", line_width=0, layer="below")
+        
+        # 4사분면 라벨
+        fig_scatter.add_annotation(x=x_max*0.7, y=y_max*0.85, text="🌟 Premium<br>(고부가가치 성장)", showarrow=False, font=dict(color="#10b981", size=11), xanchor="center", opacity=0.8)
+        fig_scatter.add_annotation(x=-x_max*0.7, y=y_max*0.85, text="⚠️ 단가 상승<br>(물량 감소)", showarrow=False, font=dict(color="#f59e0b", size=11), xanchor="center", opacity=0.8)
+        fig_scatter.add_annotation(x=-x_max*0.7, y=-y_max*0.85, text="🔻 전면 위축", showarrow=False, font=dict(color="#ef4444", size=11), xanchor="center", opacity=0.8)
+        fig_scatter.add_annotation(x=x_max*0.7, y=-y_max*0.85, text="📦 Volume Driven<br>(박리다매)", showarrow=False, font=dict(color="#3b82f6", size=11), xanchor="center", opacity=0.8)
         
         fig_scatter.update_layout(
             title="성장의 질 (Growth Matrix)",
@@ -672,7 +694,9 @@ async def analyze(country: str = Query(...), item: str = Query(...)):
             template="plotly_white",
             height=500,
             showlegend=False,
-            margin=dict(l=40, r=20, t=60, b=40)
+            margin=dict(l=40, r=20, t=60, b=40),
+            xaxis=dict(range=[-x_max, x_max], zeroline=False),
+            yaxis=dict(range=[-y_max, y_max], zeroline=False)
         )
     else:
         # 데이터가 부족해서 매트릭스를 그릴 수 없을 때 빈 차트
@@ -1110,8 +1134,8 @@ async def analyze_consumer(item_id: str = Query(None, description="ASIN"), item_
         },
         "keywords_analysis": keywords_analysis[:50],
         "diverging_summary": {
-            "negative_keywords": [{"keyword": k["keyword"], "impact_score": k["impact_score"], "satisfaction_index": k.get("satisfaction_index", 0)} for k in neg_keywords],
-            "positive_keywords": [{"keyword": k["keyword"], "impact_score": k["impact_score"], "satisfaction_index": k.get("satisfaction_index", 0)} for k in pos_keywords]
+            "negative_keywords": [{"keyword": k["keyword"], "impact_score": k["impact_score"], "satisfaction_index": k.get("satisfaction_index", 0), "positivity_rate": k.get("positivity_rate", 0), "sample_reviews": k.get("sample_reviews", [])} for k in neg_keywords],
+            "positive_keywords": [{"keyword": k["keyword"], "impact_score": k["impact_score"], "satisfaction_index": k.get("satisfaction_index", 0), "positivity_rate": k.get("positivity_rate", 0), "sample_reviews": k.get("sample_reviews", [])} for k in pos_keywords]
         },
         "charts": {
             "impact_diverging_bar": json.loads(fig_diverging.to_json()),

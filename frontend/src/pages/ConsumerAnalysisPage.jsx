@@ -161,37 +161,87 @@ const ConsumerAnalysisPage = () => {
                         <div className="grid grid-cols-1 gap-8">
 
 
-                            {/* Drill-down: 키워드별 원문 리뷰 (신규) */}
-                            <div className="bg-[color:var(--surface)] p-6 rounded-2xl shadow-lg border border-[color:var(--border)] h-[400px] overflow-y-auto">
+                            {/* Drill-down: 키워드별 원문 리뷰 (긍정/부정 분리) */}
+                            <div className="bg-[color:var(--surface)] p-6 rounded-2xl shadow-lg border border-[color:var(--border)] h-[500px] overflow-y-auto">
                                 <div className="flex items-center gap-3 mb-4">
                                     <div className="p-2 bg-[color:var(--surface-muted)] rounded-lg">
                                         <MessageSquare size={20} className="text-blue-500" />
                                     </div>
                                     <h3 className="text-lg font-bold text-[color:var(--text)]">키워드별 원문 리뷰 (Drill-down)</h3>
                                 </div>
-                                <div className="space-y-4">
-                                    {data.keywords_analysis?.slice(0, 5).map((kw, idx) => (
-                                        <div key={idx} className="p-3 bg-[color:var(--background)] rounded-lg border border-[color:var(--border)]">
-                                            <div className="flex items-center justify-between mb-2">
-                                                <span className="font-semibold text-[color:var(--text)]">{kw.keyword}</span>
-                                                <div className="flex gap-2 text-xs">
-                                                    <span className={`px-2 py-1 rounded ${kw.impact_score >= 0 ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'}`}>
-                                                        영향도: {kw.impact_score > 0 ? '+' : ''}{kw.impact_score}
-                                                    </span>
-                                                    <span className="px-2 py-1 rounded bg-blue-500/20 text-blue-400">
-                                                        긍정: {kw.positivity_rate}%
-                                                    </span>
-                                                </div>
-                                            </div>
-                                            <div className="space-y-1">
-                                                {kw.sample_reviews?.slice(0, 2).map((review, rIdx) => (
-                                                    <p key={rIdx} className="text-xs text-[color:var(--text-muted)] line-clamp-2 italic">
-                                                        "{review.slice(0, 150)}{review.length > 150 ? '...' : ''}"
-                                                    </p>
-                                                ))}
-                                            </div>
+                                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                                    {/* 긍정 키워드 섹션 */}
+                                    <div>
+                                        <div className="flex items-center gap-2 mb-3 pb-2 border-b border-green-500/30">
+                                            <div className="w-3 h-3 rounded-full bg-green-500"></div>
+                                            <span className="font-bold text-green-400 text-sm">긍정 키워드</span>
+                                            <span className="text-xs text-[color:var(--text-muted)]">({data.diverging_summary?.positive_keywords?.length || 0}개)</span>
                                         </div>
-                                    ))}
+                                        <div className="space-y-3">
+                                            {data.diverging_summary?.positive_keywords?.length > 0 ? (
+                                                data.diverging_summary.positive_keywords.map((kw, idx) => (
+                                                    <div key={idx} className="p-3 bg-green-500/5 rounded-lg border border-green-500/20">
+                                                        <div className="flex items-center justify-between mb-2">
+                                                            <span className="font-semibold text-[color:var(--text)] text-sm">{kw.keyword}</span>
+                                                            <div className="flex gap-2 text-xs">
+                                                                <span className="px-2 py-1 rounded bg-green-500/20 text-green-400">
+                                                                    +{kw.impact_score}
+                                                                </span>
+                                                                <span className="px-2 py-1 rounded bg-blue-500/20 text-blue-400">
+                                                                    긍정: {kw.positivity_rate}%
+                                                                </span>
+                                                            </div>
+                                                        </div>
+                                                        <div className="space-y-1">
+                                                            {kw.sample_reviews?.slice(0, 2).map((review, rIdx) => (
+                                                                <p key={rIdx} className="text-xs text-[color:var(--text-muted)] line-clamp-2 italic">
+                                                                    "{review.slice(0, 150)}{review.length > 150 ? '...' : ''}"
+                                                                </p>
+                                                            ))}
+                                                        </div>
+                                                    </div>
+                                                ))
+                                            ) : (
+                                                <p className="text-xs text-[color:var(--text-muted)] p-3">해당하는 긍정 키워드가 없습니다.</p>
+                                            )}
+                                        </div>
+                                    </div>
+                                    {/* 부정 키워드 섹션 */}
+                                    <div>
+                                        <div className="flex items-center gap-2 mb-3 pb-2 border-b border-red-500/30">
+                                            <div className="w-3 h-3 rounded-full bg-red-500"></div>
+                                            <span className="font-bold text-red-400 text-sm">부정 키워드</span>
+                                            <span className="text-xs text-[color:var(--text-muted)]">({data.diverging_summary?.negative_keywords?.length || 0}개)</span>
+                                        </div>
+                                        <div className="space-y-3">
+                                            {data.diverging_summary?.negative_keywords?.length > 0 ? (
+                                                data.diverging_summary.negative_keywords.map((kw, idx) => (
+                                                    <div key={idx} className="p-3 bg-red-500/5 rounded-lg border border-red-500/20">
+                                                        <div className="flex items-center justify-between mb-2">
+                                                            <span className="font-semibold text-[color:var(--text)] text-sm">{kw.keyword}</span>
+                                                            <div className="flex gap-2 text-xs">
+                                                                <span className="px-2 py-1 rounded bg-red-500/20 text-red-400">
+                                                                    {kw.impact_score}
+                                                                </span>
+                                                                <span className="px-2 py-1 rounded bg-blue-500/20 text-blue-400">
+                                                                    긍정: {kw.positivity_rate}%
+                                                                </span>
+                                                            </div>
+                                                        </div>
+                                                        <div className="space-y-1">
+                                                            {kw.sample_reviews?.slice(0, 2).map((review, rIdx) => (
+                                                                <p key={rIdx} className="text-xs text-[color:var(--text-muted)] line-clamp-2 italic">
+                                                                    "{review.slice(0, 150)}{review.length > 150 ? '...' : ''}"
+                                                                </p>
+                                                            ))}
+                                                        </div>
+                                                    </div>
+                                                ))
+                                            ) : (
+                                                <p className="text-xs text-[color:var(--text-muted)] p-3">해당하는 부정 키워드가 없습니다.</p>
+                                            )}
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         </div>
