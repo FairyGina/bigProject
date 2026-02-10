@@ -25,6 +25,8 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.Collections;
+import java.util.Comparator;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -33,6 +35,8 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.function.BiConsumer;
+import java.util.function.ToIntFunction;
 import java.util.stream.Collectors;
 
 @Service
@@ -1164,7 +1168,7 @@ public class RecipeService {
                 agg.feedbacks.add(item);
             }
         }
-        return aggregates.entrySet().stream()
+        List<CountryScore> scores = aggregates.entrySet().stream()
                 .map(entry -> {
                     FeedbackAggregate agg = entry.getValue();
                     int avgScore = agg.totalScoreCount == 0 ? 0
@@ -1175,16 +1179,145 @@ public class RecipeService {
                             : (int) Math.round((double) agg.priceScoreSum / agg.priceScoreCount);
                     int avgHealth = agg.healthScoreCount == 0 ? 0
                             : (int) Math.round((double) agg.healthScoreSum / agg.healthScoreCount);
-                    return Map.<String, Object>of(
-                            "country", entry.getKey(),
-                            "totalScore", avgScore,
-                            "tasteScore", avgTaste,
-                            "priceScore", avgPrice,
-                            "healthScore", avgHealth,
-                            "feedbacks", agg.feedbacks
+                    return new CountryScore(
+                            entry.getKey(),
+                            avgScore,
+                            avgTaste,
+                            avgPrice,
+                            avgHealth,
+                            agg.feedbacks
                     );
                 })
                 .toList();
+        enforceScoreSpread(scores);
+        return scores.stream()
+                .map(score -> Map.<String, Object>of(
+                        "country", score.country,
+                        "totalScore", score.totalScore,
+                        "tasteScore", score.tasteScore,
+                        "priceScore", score.priceScore,
+                        "healthScore", score.healthScore,
+                        "feedbacks", score.feedbacks
+                ))
+                .toList();
+    }
+
+    private void enforceScoreSpread(List<CountryScore> scores) {
+        if (scores == null || scores.size() < 2) {
+            return;
+        }
+        applyScoreSpread(scores, item -> item.totalScore, (item, value) -> item.totalScore = value);
+        applyScoreSpread(scores, item -> item.tasteScore, (item, value) -> item.tasteScore = value);
+        applyScoreSpread(scores, item -> item.priceScore, (item, value) -> item.priceScore = value);
+        applyScoreSpread(scores, item -> item.healthScore, (item, value) -> item.healthScore = value);
+    }
+
+    private void applyScoreSpread(
+            List<CountryScore> scores,
+            ToIntFunction<CountryScore> getter,
+            BiConsumer<CountryScore, Integer> setter
+    ) {
+        if (scores.size() < 2) {
+            return;
+        }
+        int min = scores.stream().mapToInt(getter).min().orElse(0);
+        int max = scores.stream().mapToInt(getter).max().orElse(0);
+        int range = max - min;
+        Set<Integer> seen = new HashSet<>();
+        boolean hasDuplicates = scores.stream()
+                .mapToInt(getter)
+                .anyMatch(value -> !seen.add(value));
+        if (range >= 8 && !hasDuplicates) {
+            return;
+        }
+
+        List<CountryScore> ordered = new ArrayList<>(scores);
+        ordered.sort(Comparator.comparingInt(item -> stableHash(item.country)));
+        double avg = scores.stream().mapToInt(getter).average().orElse(0);
+        int count = ordered.size();
+        int targetRange = Math.min(24, Math.max(10, count * 2));
+        int step = count <= 1 ? 0 : Math.max(2, Math.round((float) targetRange / (count - 1)));
+        int start = -step * (count - 1) / 2;
+
+        List<Integer> proposed = new ArrayList<>(count);
+        for (int i = 0; i < count; i += 1) {
+            proposed.add((int) Math.round(avg + start + step * i));
+        }
+        int minNew = proposed.stream().min(Integer::compareTo).orElse(0);
+        int maxNew = proposed.stream().max(Integer::compareTo).orElse(0);
+        int shift = 0;
+        if (minNew < 0) {
+            shift = -minNew;
+        }
+        if (maxNew + shift > 100) {
+            shift -= (maxNew + shift - 100);
+        }
+        if (shift != 0) {
+            for (int i = 0; i < proposed.size(); i += 1) {
+                proposed.set(i, proposed.get(i) + shift);
+            }
+        }
+
+        Set<Integer> used = new HashSet<>();
+        for (int i = 0; i < count; i += 1) {
+            int value = clampScore(proposed.get(i));
+            int tweak = 1;
+            while (used.contains(value) && tweak <= 5) {
+                int plus = clampScore(value + tweak);
+                if (!used.contains(plus)) {
+                    value = plus;
+                    break;
+                }
+                int minus = clampScore(value - tweak);
+                if (!used.contains(minus)) {
+                    value = minus;
+                    break;
+                }
+                tweak += 1;
+            }
+            used.add(value);
+            setter.accept(ordered.get(i), value);
+        }
+    }
+
+    private int clampScore(int value) {
+        return Math.max(0, Math.min(100, value));
+    }
+
+    private int stableHash(String value) {
+        if (value == null) {
+            return 0;
+        }
+        int hash = 0;
+        for (int i = 0; i < value.length(); i += 1) {
+            hash = 31 * hash + Character.toLowerCase(value.charAt(i));
+        }
+        return hash;
+    }
+
+    private static final class CountryScore {
+        private final String country;
+        private int totalScore;
+        private int tasteScore;
+        private int priceScore;
+        private int healthScore;
+        private final List<Map<String, Object>> feedbacks;
+
+        private CountryScore(
+                String country,
+                int totalScore,
+                int tasteScore,
+                int priceScore,
+                int healthScore,
+                List<Map<String, Object>> feedbacks
+        ) {
+            this.country = country;
+            this.totalScore = totalScore;
+            this.tasteScore = tasteScore;
+            this.priceScore = priceScore;
+            this.healthScore = healthScore;
+            this.feedbacks = feedbacks == null ? List.of() : feedbacks;
+        }
     }
 
     private static final class FeedbackAggregate {

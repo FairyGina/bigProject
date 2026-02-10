@@ -3,13 +3,16 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import axiosInstance from '../axiosConfig';
 
 const PALETTE = [
-    '#8a8075',
-    '#4f7c8a',
-    '#8a4f5f',
-    '#5f7a4f',
-    '#8a6f4f',
-    '#4f5f8a',
-    '#7a4f8a',
+    '#2ECC40', // green
+    '#0055CC', // blue
+    '#D62728', // red
+    '#9467BD', // purple
+    '#E67E22', // amber
+    '#E91E63', // pink/magenta
+    '#8C564B', // brown
+    '#7A9B00', // olive
+    '#7F7F7F', // gray
+    '#111111', // black
 ];
 
 const buildRadarPoints = (values, radius, center) => {
@@ -595,9 +598,11 @@ const FinalEvaluationPage = () => {
                                                 <polygon
                                                     key={item.recipeId || item.title}
                                                     points={buildRadarPoints(item.scores, 120, 160)}
-                                                    fill={`${PALETTE[index % PALETTE.length]}33`}
+                                                    fill={PALETTE[index % PALETTE.length]}
+                                                    fillOpacity="0.18"
                                                     stroke={PALETTE[index % PALETTE.length]}
                                                     strokeWidth="2"
+                                                    strokeLinejoin="round"
                                                 />
                                             ))}
                                         </svg>
