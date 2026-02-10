@@ -99,7 +99,7 @@ def load_export_trends():
         if len(parts) > 1:
             month_part = parts[1]
             if len(month_part) == 2: month = month_part
-            elif len(month_part) == 1: month = '10' if month_part == '1' else '0' + month_part
+            elif len(month_part) == 1: month = str(int(month_part) + 9).zfill(2)  # 1->10, 2->11, 3->12
             else: month = str(month_part)[:2].zfill(2)
         else:
             month = '01'

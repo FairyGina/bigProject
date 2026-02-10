@@ -94,7 +94,8 @@ button, .primary {
 """
 
 
-client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+# Global client removed to ensure runtime env var is used
+# client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 MODEL_NAME = os.getenv("OPENAI_MODEL", "gpt-4o-mini")  # Corrected model name
 SERPAPI_API_KEY = os.getenv("SERPAPI_API_KEY")
 API_BASE_URL = os.getenv("API_BASE_URL", "http://localhost:8080")
@@ -404,6 +405,8 @@ def run_graph(state: Dict[str, Any]) -> Dict[str, Any]:
 
 def call_llm(prompt: str) -> str:
     # 기본 시스템 프롬프트로 LLM 호출
+    # Ensure client uses latest runtime environment variable
+    client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
     try:
         response = client.chat.completions.create(
             model=MODEL_NAME,
@@ -477,6 +480,8 @@ def render_recipe_text(payload: Dict[str, Any]) -> str:
 
 def call_llm_with_system(system_prompt: str, prompt: str) -> str:
     # 시스템 프롬프트를 외부에서 지정해 LLM 호출
+    # Ensure client uses latest runtime environment variable
+    client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
     try:
         response = client.chat.completions.create(
             model=MODEL_NAME,
@@ -713,6 +718,8 @@ def summarize_trends(prompt_template: str, search_results: List[Dict[str, Any]])
     payload = json.dumps(search_results, ensure_ascii=False, indent=2)
     prompt = prompt_template.replace("{search_results}", payload)
     print("[trend] summarize_trends input size:", len(payload))
+    # Ensure client uses latest runtime environment variable
+    client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
     try:
         response = client.chat.completions.create(
             model=MODEL_NAME,

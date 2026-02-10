@@ -9,7 +9,7 @@ from typing import Any, Dict, List, Tuple, TypedDict
 from langgraph.graph import StateGraph, END
 from dotenv import load_dotenv
 
-load_dotenv()  # Load .env for local development
+# load_dotenv()  # Load .env for local development
 
 try:
     from openai import OpenAI
@@ -160,7 +160,9 @@ def answer_with_llm(question: str, context: str) -> str:
             ).strip()
         return "OPENAI_API_KEY가 없어 답변을 생성할 수 없습니다. (환경변수 확인 필요)"
 
-    client = OpenAI(api_key=api_key)
+    # client = OpenAI(api_key=api_key)
+    # Ensure client uses latest runtime environment variable
+    client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
 
     system = (
         "너는 '홈페이지 FAQ / 사용방법 도우미' 챗봇이다.\n"

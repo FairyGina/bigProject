@@ -490,7 +490,7 @@ def load_data_background():
                             if len(parts) > 1:
                                 month_part = parts[1]
                                 if len(month_part) == 2: month = month_part
-                                elif len(month_part) == 1: month = '0' + month_part
+                                elif len(month_part) == 1: month = str(int(month_part) + 9).zfill(2)  # 1->10, 2->11, 3->12
                                 else: month = str(month_part)[:2].zfill(2)
                             else: month = '01'
                             return f"{year}-{month}"
@@ -683,12 +683,39 @@ async def analyze(country: str = Query(...), item: str = Query(...)):
     # Row 3: GDP 증감률 (if exists)
     if rows == 3:
         gdp_pct = filtered['gdp_level'].pct_change().fillna(0) * 100
-        gdp_colors = ['#ef4444' if v < 0 else '#3b82f6' for v in gdp_pct]
+        
+        # Detect stale/projected GDP data (consecutive identical values)
+        gdp_vals = filtered['gdp_level'].values
+        last_real_idx = len(gdp_vals) - 1
+        for i in range(len(gdp_vals) - 1, 0, -1):
+            if gdp_vals[i] == gdp_vals[i - 1]:
+                last_real_idx = i - 1
+            else:
+                break
+        
+        # Mask out stale 0% values — show None so bars don't render
+        gdp_pct_display = gdp_pct.copy()
+        if last_real_idx < len(gdp_vals) - 1:
+            stale_start = last_real_idx + 1
+            gdp_pct_display.iloc[stale_start:] = None
+        
+        gdp_colors = ['#ef4444' if (v is not None and v < 0) else '#3b82f6' for v in gdp_pct_display]
         fig_stack.add_trace(go.Bar(
-            x=filtered['period_str'], y=gdp_pct.round(2), name="GDP 증감률",
+            x=filtered['period_str'], y=gdp_pct_display.round(2), name="GDP 증감률",
             marker=dict(color=gdp_colors),
             hovertemplate='%{x}<br>증감률: %{y:.2f}%<extra></extra>'
         ), row=3, col=1)
+        
+        # Add annotation if stale data detected
+        if last_real_idx < len(gdp_vals) - 1 and last_real_idx >= 0:
+            stale_period = filtered['period_str'].iloc[last_real_idx]
+            fig_stack.add_annotation(
+                x=stale_period, y=gdp_pct.iloc[last_real_idx],
+                text="← 이후 미발표 (추정치)",
+                showarrow=True, arrowhead=2, arrowcolor="#94a3b8",
+                font=dict(color="#94a3b8", size=10),
+                ax=60, ay=-30, row=3, col=1
+            )
 
     fig_stack.update_layout(
         height=650 if rows == 3 else 500, 
