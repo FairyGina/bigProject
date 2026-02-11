@@ -5,6 +5,7 @@ from psycopg2.extras import execute_values
 import json
 import numpy as np
 import re
+import ast
 
 # DB Connection Details - Support both Spring format and legacy format
 def parse_spring_datasource_url(url):
@@ -193,90 +194,83 @@ def load_amazon_reviews():
     """)
     conn.commit()
     
-    cur.execute("SELECT COUNT(*) FROM amazon_reviews")
-    count = cur.fetchone()[0]
-    if count > 0:
-        print(f"amazon_reviews already has {count} rows. Skipping.")
-        cur.close()
-        conn.close()
-        return
+    # [Retest after deleting existing data] Logic
+    FORCE_MIGRATE = os.environ.get("FORCE_MIGRATE", "false").lower() == "true"
+    if FORCE_MIGRATE:
+        print("FORCE_MIGRATE is true. Truncating amazon_reviews...")
+        cur.execute("TRUNCATE TABLE amazon_reviews")
+        conn.commit()
+    else:
+        cur.execute("SELECT COUNT(*) FROM amazon_reviews")
+        count = cur.fetchone()[0]
+        if count > 0:
+            print(f"amazon_reviews already has {count} rows. Skipping. (Set FORCE_MIGRATE=true to reload)")
+            cur.close()
+            conn.close()
+            return
 
-    print("Loading amazon_reviews...")
-    # Read chunked to save memory if huge, but 84MB is manageable in 512MB container?
-    # 84MB CSV -> ~400MB DataFrame. Might be tight on 0.5GB.
-    # Better to process in chunks.
-    chunk_size = 5000
-    
-    # Mapping CSV columns to DB columns
-    # DB: asin, title, rating, original_text, cleaned_text, sentiment_score, 
-    #     quality_issues_semantic, packaging_keywords, texture_terms, ingredients, 
-    #     health_keywords, dietary_keywords, delivery_issues_semantic, 
-    #     repurchase_intent_hybrid, recommendation_intent_hybrid
-    
-    # CSV has: 'title' (Wait, I didn't see 'title' in head output? Let me check head output again)
-    # Output: rating,original_text,cleaned_text,texture_terms,comparative_superlative,entities,asin,...
-    # I DON'T SEE 'title' in the CSV header!
-    # I will set title to NULL or empty string.
-    
-    json_cols = ['quality_issues_semantic', 'packaging_keywords', 'texture_terms', 'ingredients', 
-                 'health_keywords', 'dietary_keywords', 'delivery_issues_semantic']
-    
-    # Helper to clean JSON string
-    def clean_json_field(val):
-        if pd.isna(val) or val == '' or val == '[]': return json.dumps([])
+    # Boolean 변환을 안전하게 처리하기 위한 헬퍼 함수
+    def clean_bool(val):
+        if pd.isna(val):
+            return False # 혹은 None
+        if isinstance(val, bool):
+            return val
         if isinstance(val, str):
-            # Try parsing
+            return val.lower() in ('true', '1', 't', 'y', 'yes')
+        return bool(val)
+
+    # JSON 클리닝 함수 (ast.literal_eval 안전성 강화)
+    def clean_json_field(val):
+        if pd.isna(val) or val == '' or val == '[]': 
+            return json.dumps([])
+        if isinstance(val, str):
             try:
-                # If it uses single quotes, replace? But it might contain text with single quotes.
-                # Use literal_eval if it looks like python list
-                if val.startswith('[') and "'" in val:
-                    try:
-                        import ast
-                        return json.dumps(ast.literal_eval(val))
-                    except:
-                        pass
-                return val # Assume valid JSON or let DB fail?
-            except:
+                # 싱글 쿼트가 포함된 리스트 형태의 문자열 처리
+                return json.dumps(ast.literal_eval(val))
+            except (ValueError, SyntaxError):
                 return json.dumps([])
         return json.dumps(val)
 
-    # Note: DB expects JSONB. We send JSON string.
+    print("Loading amazon_reviews...")
+    chunk_size = 5000
     
-    cols_to_use = ['rating', 'original_text', 'cleaned_text', 'sentiment_score', 'asin', 
-                   'repurchase_intent_hybrid', 'recommendation_intent_hybrid'] + json_cols
-
     for chunk in pd.read_csv(csv_path, chunksize=chunk_size):
         data_to_insert = []
         for _, row in chunk.iterrows():
-            # Prepare row
-            row_data = {c: row.get(c) for c in cols_to_use}
+            # 1. 긍정/부정 판단에 중요한 데이터 정제
+            repurchase = clean_bool(row.get('repurchase_intent_hybrid'))
+            recommend = clean_bool(row.get('recommendation_intent_hybrid'))
             
-            # Handle JSON fields
-            for jc in json_cols:
-                row_data[jc] = clean_json_field(row_data.get(jc))
-            
-            data_to_insert.append((
-                row_data['asin'],
-                (row_data['original_text'].strip() if isinstance(row_data['original_text'], str) else "") if not row.get('title') else str(row.get('title')), # title extraction (full, no truncation)
+            # 2. 제목이 없을 경우 본문의 일부를 제목으로 사용 (검색 최적화)
+            title = row.get('title')
+            if pd.isna(title) or str(title).strip() == "":
+                original_text = str(row.get('original_text', ""))
+                title = original_text[:100] + "..." if len(original_text) > 100 else original_text
 
-                row_data['rating'],
-                row_data['original_text'],
-                row_data['cleaned_text'],
-                row_data['sentiment_score'],
-                row_data['quality_issues_semantic'],
-                row_data['packaging_keywords'],
-                row_data['texture_terms'],
-                row_data['ingredients'],
-                row_data['health_keywords'],
-                row_data['dietary_keywords'],
-                row_data['delivery_issues_semantic'],
-                bool(row_data['repurchase_intent_hybrid']),
-                bool(row_data['recommendation_intent_hybrid'])
+            data_to_insert.append((
+                row.get('asin'),
+                title,
+                row.get('rating'),
+                row.get('original_text'),
+                row.get('cleaned_text'),
+                row.get('sentiment_score'),
+                clean_json_field(row.get('quality_issues_semantic')),
+                clean_json_field(row.get('packaging_keywords')),
+                clean_json_field(row.get('texture_terms')),
+                clean_json_field(row.get('ingredients')),
+                clean_json_field(row.get('health_keywords')),
+                clean_json_field(row.get('dietary_keywords')),
+                clean_json_field(row.get('delivery_issues_semantic')),
+                repurchase,
+                recommend
             ))
             
         insert_query = """
         INSERT INTO amazon_reviews 
-        (asin, title, rating, original_text, cleaned_text, sentiment_score, quality_issues_semantic, packaging_keywords, texture_terms, ingredients, health_keywords, dietary_keywords, delivery_issues_semantic, repurchase_intent_hybrid, recommendation_intent_hybrid)
+        (asin, title, rating, original_text, cleaned_text, sentiment_score, 
+         quality_issues_semantic, packaging_keywords, texture_terms, ingredients, 
+         health_keywords, dietary_keywords, delivery_issues_semantic, 
+         repurchase_intent_hybrid, recommendation_intent_hybrid)
         VALUES %s
         """
         execute_values(cur, insert_query, data_to_insert)

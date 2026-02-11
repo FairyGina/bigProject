@@ -5,68 +5,170 @@ import pandas as pd
 import numpy as np
 import json
 import re
+import ast
+from collections import Counter
 import plotly.express as px
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 from typing import Optional, List, Dict, Any
 from contextlib import asynccontextmanager
 import os
-from sklearn.feature_extraction.text import CountVectorizer
+from sklearn.feature_extraction.text import CountVectorizer, ENGLISH_STOP_WORDS
 import psycopg2
-import re
 
 # =========================================================
 # Insight Filtering Constants
 # =========================================================
+
+# 기존 범용 불용어 (구매/사용 행위 관련)
 GENERIC_INSIGHT_STOPWORDS = {
-    'good', 'great', 'nice', 'excellent', 'better', 'perfect', 'best', 'like', 'love', 
-    'really', 'much', 'get', 'well', 'buy', 'purchased', 'recommend', 'recommended', 
-    'happy', 'satisfied', 'product', 'item', 'bought', 'try', 'tried', 'use', 'used', 
-    'using', 'add', 'added', 'adding', 'recipe', 'highly', 'food', 'definitely', 
-    'amazing', 'awesome', 'wonderful', 'delicious', 'tasty', 'bit', 'lot', 'little', 
-    'ordered', 'received', 'came', 'made', 'make', 'makes', 'everything', 'everyone', 
-    'anyone', 'anything', 'would', 'could', 'should', 'first', 'second', 'ever', 'never',
-    'flavor', 'taste', 'mouth', 'feel', 'texture', 'eating', 'eat', 'eaten', 'think', 'thought'
+    'good', 'great', 'nice', 'excellent', 'better', 'perfect', 'best', 'like', 'love',
+    'really', 'much', 'get', 'well', 'buy', 'purchased', 'recommend', 'recommended',
+    'happy', 'satisfied', 'product', 'item', 'bought', 'try', 'tried', 'use', 'used',
+    'using', 'add', 'added', 'adding', 'recipe', 'highly', 'food', 'definitely',
+    'amazing', 'awesome', 'wonderful', 'bit', 'lot', 'little',
+    'ordered', 'received', 'came', 'made', 'make', 'makes', 'everything', 'everyone',
+    'anyone', 'anything', 'would', 'could', 'should', 'first', 'second', 'ever', 'never'
 }
 
+# [신규] 감각/감정 관련 불용어 — "뻔한 칭찬" 을 분석 대상에서 제거
+SENSORY_STOPWORDS = {
+    'taste', 'tastes', 'tasted', 'flavor', 'flavour', 'smell', 'smells', 'scent',
+    'delicious', 'yummy', 'tasty', 'good', 'great', 'bad', 'horrible', 'best',
+    'amazing', 'awesome', 'love', 'like', 'really', 'much', 'perfect', 'nice',
+    'better', 'excellent', 'favorite', 'quality', 'product', 'item', 'buy', 'buying',
+    'bought', 'order', 'ordered', 'definitely', 'highly', 'recommend', 'worth'
+}
+
+# 통합 불용어 (CountVectorizer 전달용) — sklearn 기본 + 커스텀
+COMBINED_STOP_WORDS = list(ENGLISH_STOP_WORDS | GENERIC_INSIGHT_STOPWORDS | SENSORY_STOPWORDS)
+
+# 순수 식감 형용사 (가중치 대상 — 평가성 단어 제거)
 SENSORY_KEYWORDS = {
-    'spicy', 'hot', 'sweet', 'savory', 'crunchy', 'crispy', 'salty', 'bitter', 'sour', 
+    'spicy', 'hot', 'sweet', 'savory', 'crunchy', 'crispy', 'salty', 'bitter', 'sour',
     'tangy', 'garlicky', 'smoky', 'smooth', 'creamy', 'chewy', 'tender', 'fresh', 'mild',
     'strong', 'rich', 'bold', 'dark', 'light', 'kick', 'burn', 'acid'
 }
 
+# 식감 전용 키워드 사전 (extract_specific_insights에서 사용)
+TEXTURE_KEYWORDS = {
+    'crunchy', 'crispy', 'chewy', 'soft', 'spicy', 'salty', 'sweet', 'sour',
+    'thick', 'thin', 'rich', 'creamy', 'juicy', 'dry', 'moist', 'greasy'
+}
+
+# 페어링 재료 키워드
 PAIRING_KEYWORDS = {
     'rice', 'noodle', 'noodles', 'chicken', 'meat', 'beef', 'pork', 'pizza', 'sandwich',
     'salad', 'soup', 'topping', 'toppings', 'dip', 'sauce', 'stew', 'fried', 'grilled',
     'bread', 'vegetable', 'vegetables', 'eggs', 'steak', 'burger', 'taco', 'tacos'
 }
 
+# 페어링 문맥 마커 (전치사/동사)
+PAIRING_MARKERS = {'with', 'add', 'on', 'mix', 'top', 'serve'}
+
+
 def is_generic_term(term):
-    """키워드가 단일 범용 단어이거나, Bigram의 모든 단어가 범형 단어인 경우 True 반환"""
+    """키워드가 단일 범용 단어이거나, Bigram의 모든 단어가 범용+감각 불용어인 경우 True 반환"""
     words = term.lower().split()
-    return all(w in GENERIC_INSIGHT_STOPWORDS for w in words)
+    all_stopwords = GENERIC_INSIGHT_STOPWORDS | SENSORY_STOPWORDS
+    return all(w in all_stopwords for w in words)
+
 
 def calculate_relevance_score(keyword, mention_count, impact_score):
-    """키워드의 의미적 가치를 기반으로 점수 계산 (Sensory/Pairing 가중치 부여)"""
+    """키워드의 의미적 가치를 기반으로 점수 계산 (Impact Score 반영 고도화)"""
     words = keyword.lower().split()
-    score = float(mention_count)
-    
-    has_sensory = any(w in SENSORY_KEYWORDS for w in words)
-    has_pairing = any(w in PAIRING_KEYWORDS for w in words)
-    
-    # 가중치 적용
-    multiplier = 1.0
-    if has_sensory: multiplier *= 1.6
-    if has_pairing: multiplier *= 1.4
-    
-    # 범용 단어 페널티 (모든 단어가 stopword는 아니지만, stopword가 포함된 경우)
-    has_generic = any(w in GENERIC_INSIGHT_STOPWORDS for w in words)
-    if has_generic and not (has_sensory or has_pairing):
-        multiplier *= 0.6
-        
-    return score * multiplier
 
-# DB Connection Details - Support both Spring format and legacy format
+    frequency_score = np.log1p(float(mention_count))
+    impact_weight = 1.0 + (abs(impact_score) * 1.5)
+
+    has_sensory = any(w in SENSORY_KEYWORDS for w in words)  # 순수 식감만
+    has_pairing = any(w in PAIRING_KEYWORDS for w in words)
+
+    multiplier = 1.0
+    if has_sensory: multiplier *= 1.8
+    if has_pairing: multiplier *= 1.4
+
+    # 범용 단어 페널티 (감각/재료 키워드가 포함되지 않은 경우)
+    all_stop = GENERIC_INSIGHT_STOPWORDS | SENSORY_STOPWORDS
+    has_generic = any(w in all_stop for w in words)
+    if has_generic and not (has_sensory or has_pairing):
+        multiplier *= 0.3  # 더 강한 페널티
+
+    return frequency_score * impact_weight * multiplier
+
+
+def analyze_features(df_filtered):
+    """DB 컬럼(texture_terms, ingredients)을 활용한 식감/페어링 분석
+    
+    CountVectorizer 대신 이미 정제된 컬럼 데이터를 집계하여 정확한 결과를 제공
+    """
+    result = {"top_textures": [], "top_pairings": []}
+
+    # 1. 식감 (Texture) 분석 — texture_terms 컬럼 활용
+    if 'texture_terms' in df_filtered.columns:
+        all_textures = []
+        for terms in df_filtered['texture_terms'].dropna():
+            try:
+                parsed = terms if isinstance(terms, list) else ast.literal_eval(str(terms))
+                # _ADJ 등 태그 제거, 빈 문자열 스킵
+                cleaned = [t.split('_')[0].lower() for t in parsed if t and isinstance(t, str)]
+                all_textures.extend(cleaned)
+            except (ValueError, SyntaxError):
+                pass
+        if all_textures:
+            result["top_textures"] = [{'term': t, 'count': c} for t, c in Counter(all_textures).most_common(8)]
+
+    # 2. 재료/페어링 (Ingredients) 분석 — ingredients 컬럼 활용
+    if 'ingredients' in df_filtered.columns:
+        all_ingredients = []
+        for ing_list in df_filtered['ingredients'].dropna():
+            try:
+                parsed = ing_list if isinstance(ing_list, list) else ast.literal_eval(str(ing_list))
+                for item in parsed:
+                    if isinstance(item, str) and len(item) > 2:
+                        clean_item = item.split('_')[0].lower()
+                        # NOT_ 접두어 제거, 불용어 제외
+                        if clean_item.startswith('not_'):
+                            continue
+                        if clean_item not in SENSORY_STOPWORDS and clean_item not in GENERIC_INSIGHT_STOPWORDS:
+                            all_ingredients.append(clean_item)
+            except (ValueError, SyntaxError):
+                pass
+        if all_ingredients:
+            result["top_pairings"] = [{'term': t, 'count': c} for t, c in Counter(all_ingredients).most_common(8)]
+
+    return result
+
+
+def extract_specific_insights(texts, mode='pairing'):
+    """텍스트 패턴 매칭으로 식감/페어링 인사이트 추출 (DB 컬럼 보완용)
+    
+    mode='pairing': 'with', 'add', 'mix' 뒤에 나오는 명사(재료) 추출
+    mode='texture': 식감 형용사가 포함된 문구 추출
+    """
+    extracted = []
+
+    for text in texts:
+        text = str(text).lower()
+        words = text.split()
+
+        if mode == 'pairing':
+            for i, word in enumerate(words[:-1]):
+                if word in PAIRING_MARKERS:
+                    target = words[i + 1]
+                    if len(target) > 2 and target not in SENSORY_STOPWORDS:
+                        extracted.append(f"{word} {target}")
+
+        elif mode == 'texture':
+            for i, word in enumerate(words):
+                if word in TEXTURE_KEYWORDS:
+                    prev = words[i - 1] if i > 0 else ""
+                    phrase = f"{prev} {word}".strip()
+                    extracted.append(phrase)
+
+    return [{'term': t, 'count': c} for t, c in Counter(extracted).most_common(5)]
+
+# DB 연결 
 def parse_spring_datasource_url(url):
     """Parse jdbc:postgresql://host:port/database?params format"""
     if not url:
@@ -123,7 +225,7 @@ UI_TO_CSV_ITEM_MAPPING = {
     "소주": "소주", "만두": "속을 채운 파스타(조리한 것인지 또는 그 밖의 방법으로 조제한 것인지에 상관없다)",
     "초코파이류": "스위트 비스킷", "떡볶이 떡": "쌀가루의 것", "전통 한과/약과": "쌀과자", "유자": "유자",
     "인스턴트 커피": "인스턴트 커피의 조제품", "즉석밥": "찌거나 삶은 쌀", "참기름": "참기름과 그 분획물",
-    "춘장": "춘장", "막걸리": "탁주", "쌀 튀밥": "튀긴 쌀", "팽이버섯": "팽이버섯", 
+    "막걸리": "탁주", "쌀 튀밥": "튀긴 쌀", "팽이버섯": "팽이버섯", 
     "표고버섯": "표고버섯", "쌈장 및 양념장": "혼합조미료", "홍삼 엑기스": "홍삼 추출물(extract)"
 }
 
@@ -132,36 +234,43 @@ CSV_TO_UI_ITEM_MAPPING = {v: k for k, v in UI_TO_CSV_ITEM_MAPPING.items()}
 # 아이템별 검색어(Trend Keyword) 매핑
 # 트렌드 데이터 컬럼명 예시: {COUNTRY}_{KEYWORD}_mean
 ITEM_TO_TREND_MAPPING = {
-    "간장": "Gochujang",
+    # [Level 3] 핵심 소스 및 장류
+    "간장": "SoySauce",          # (수정) Gochujang -> SoySauce (직접 매핑 가능)
     "고추장": "Gochujang",
     "된장": "Doenjang",
-    "춘장": "Gochujang",
     "쌈장 및 양념장": "Ssamjang",
     "김치": "Kimchi",
-    "라면": "Ramyun",
-    "국수": "Ramyun",
-    "냉면": "Ramyun",
-    "당면": "Ramyun",
-    "소주": "Soju",
-    "막걸리": "Makgeolli",
-    "김밥류": "Gimbap",
-    "떡볶이 떡": "Tteokbokki",
+    "참기름": "SesameOil",       # (추가) 새 트렌드 키 SesameOil 반영
+    
+    "라면": "Ramen",             # (수정) Ramyun -> Ramen (트렌드 키 이름 일치)
+    "국수": "Ramen",             # 면류 트렌드 대푯값으로 Ramen 활용
+    "냉면": "Ramen",
+    "당면": "GlassNoodles",      # (수정) Ramen -> GlassNoodles (정확한 매핑)
+    "만두": "Mandu",             # (추가) KFood -> Mandu 반영
+    "즉석밥": "InstantRice",     # (추가) KFood -> InstantRice 반영
+    "떡볶이 떡": "RiceCake",      # (수정) Tteokbokki(요리) 대신 RiceCake(재료) 매핑
+    "팽이버섯": "Enoki",         # (추가) KFood -> Enoki 반영
+    
+    # [Level 2] 바이럴 메뉴 (Viral Menu)
+    "김밥류": "Kimbap",          # (수정) Gimbap -> Kimbap (트렌드 키 이름 일치)
+    
+    # [Level 5] 고부가가치 및 건강식품
     "유자": "Yuja",
-    "만두": "KFood",
+    "홍삼 엑기스": "Ginseng",    # (추가) KFood -> Ginseng 반영
+    "들기름": "PerillaOil",      # (추가) KFood -> PerillaOil 반영
+
+    # [Level 1] 트렌드 키가 없는 경우 상위 범주(KFood)로 매핑
+    "소주": "KFood",             # (참고) Soju 트렌드 분석 제외됨
+    "막걸리": "KFood",           # (참고) Makgeolli 트렌드 분석 제외됨
     "삼계탕": "KFood",
     "참치 통조림": "KFood",
     "초코파이류": "KFood",
     "쿠키 및 크래커": "KFood",
     "전통 한과/약과": "KFood",
     "인스턴트 커피": "KFood",
-    "즉석밥": "KFood",
     "쌀": "KFood",
     "두부": "KFood",
-    "들기름": "KFood",
-    "참기름": "KFood",
-    "팽이버섯": "KFood",
-    "표고버섯": "KFood",
-    "홍삼 엑기스": "KFood"
+    "표고버섯": "KFood"
 }
 
 df = None
@@ -220,7 +329,7 @@ def extract_bigrams_with_metrics(
             ngram_range=(2, 2),
             min_df=min_df,
             max_features=1000, # 필터링을 위해 더 많이 추출
-            stop_words='english',
+            stop_words=COMBINED_STOP_WORDS,
             token_pattern=r'\b[a-zA-Z]{3,}\b'
         )
         
@@ -280,7 +389,8 @@ def extract_bigrams_with_metrics(
         positivity_rate = round((positive_count / len(matching_ratings)) * 100, 1)
         
         # Satisfaction Index = (5점 리뷰 비율) / 0.2 (전체 5점 확률)
-        five_star_ratio = (matching_ratings == 5).mean()
+        # FLOAT 오차 방지를 위해 4.9 이상으로 체크
+        five_star_ratio = (matching_ratings >= 4.9).mean()
         satisfaction_index = round(five_star_ratio / 0.2, 2)
         
         # Sample Reviews (최대 3개)
@@ -590,8 +700,18 @@ async def analyze(country: str = Query(...), item: str = Query(...)):
         print(f"[Analyze] No data found for {country_name} - {csv_item_name}", flush=True)
         return {"has_data": False}
 
-    # 날짜순 정렬
-    filtered = filtered.sort_values('period_str')
+    # 날짜순 정렬 (period_str: 2022.01, 2022.1 등 혼용 대응)
+    if not filtered.empty:
+        # 2022.1 -> 2022.01 변환 및 정규화
+        def normalize_period(p):
+            if not isinstance(p, str): return p
+            parts = p.split('.')
+            if len(parts) == 2:
+                return f"{parts[0]}.{parts[1].zfill(2)}"
+            return p
+            
+        filtered['period_str'] = filtered['period_str'].apply(normalize_period)
+        filtered = filtered.sort_values('period_str')
 
     # ---------------------------------------------------------
     # Chart 1: Trend Stack (수출액 + 환율 증감률 + GDP 증감률)
@@ -600,7 +720,7 @@ async def analyze(country: str = Query(...), item: str = Query(...)):
     titles = [f"📊 {country_name} {item} 수출액 추이", f"💱 {country_name} 환율 증감률 (%)"]
     if 'gdp_level' in filtered.columns:
         rows = 3
-        titles.append(f"📈 {country_name} GDP 증감률 (YoY %)")
+        titles.append(f"📈 {country_name} GDP 증감률 (MoM %)")
         
     fig_stack = make_subplots(rows=rows, cols=1, shared_xaxes=True, 
                               vertical_spacing=0.12, subplot_titles=titles)
@@ -680,63 +800,36 @@ async def analyze(country: str = Query(...), item: str = Query(...)):
     except:
         pass
     
-    # Row 3: GDP 증감률 — YoY (전년 동월 대비) (if exists)
+    # Row 3: GDP 증감률 수정
     if rows == 3:
-        gdp_vals = filtered['gdp_level'].values
-        n = len(gdp_vals)
+        # [수정] 품목 필터링과 무관하게 해당 국가의 전체 GDP 시계열 확보 (2025년 끊김 방지)
+        gdp_full = df[df['country_name'] == country_name][['period_str', 'gdp_level']].drop_duplicates('period_str').sort_values('period_str')
         
-        # ── YoY 증감률 계산 (12개월 전 대비) ──
-        # MoM pct_change was too small within quarters (~0.05%), making chart look quarterly.
-        # YoY gives meaningful, visible values for every month.
-        gdp_yoy = pd.Series([None] * n, dtype='float64')
-        for i in range(n):
-            if i >= 12 and gdp_vals[i - 12] != 0:
-                gdp_yoy.iloc[i] = ((gdp_vals[i] - gdp_vals[i - 12]) / gdp_vals[i - 12]) * 100
+        # 1. 중복 값(계단)을 NaN으로 마스킹하여 "점"으로 만듦
+        # 0 제거 및 정규화된 period_str 기반 정렬
+        gdp_full['period_str'] = gdp_full['period_str'].apply(normalize_period)
+        gdp_full = gdp_full.sort_values('period_str')
         
-        # ── Detect stale/projected GDP data (consecutive identical values from the end) ──
-        last_real_idx = n - 1
-        for i in range(n - 1, 0, -1):
-            if gdp_vals[i] == gdp_vals[i - 1]:
-                last_real_idx = i - 1
-            else:
-                break
+        gdp_series = gdp_full['gdp_level'].replace(to_replace=0, method='ffill')
+        mask = gdp_series != gdp_series.shift(1)
+        gdp_masked = gdp_series.where(mask)
         
-        # ── Color: real data = blue/red, projected data = light gray ──
-        gdp_colors = []
-        for i in range(n):
-            val = gdp_yoy.iloc[i]
-            if val is None or pd.isna(val):
-                gdp_colors.append('#d1d5db')  # gray for no-data (first 12 months)
-            elif i > last_real_idx and last_real_idx < n - 1:
-                gdp_colors.append('#d1d5db')  # gray for projected/stale months
-            elif val < 0:
-                gdp_colors.append('#ef4444')  # red for negative
-            else:
-                gdp_colors.append('#3b82f6')  # blue for positive
-        
-        fig_stack.add_trace(go.Bar(
-            x=filtered['period_str'], y=gdp_yoy.round(2), name="GDP 증감률 (YoY)",
-            marker=dict(color=gdp_colors),
-            hovertemplate='%{x}<br>YoY 증감률: %{y:.2f}%<extra></extra>'
+        # 2. 선형 보간 (Linear Interpolation)으로 "선"으로 이음 -> 월별 부드러운 성장
+        gdp_interpolated = gdp_masked.interpolate(method='linear', limit_direction='both')
+
+        fig_stack.add_trace(go.Scatter(
+            x=gdp_full['period_str'], 
+            y=gdp_interpolated, 
+            name="GDP",
+            line=dict(color='#10b981', width=2, dash='dot'),
+            hovertemplate='%{x}<br>GDP: %{y:,.0f}<extra></extra>'
         ), row=3, col=1)
-        
-        # Add annotation if stale data detected
-        if last_real_idx < n - 1 and last_real_idx >= 0:
-            stale_period = filtered['period_str'].iloc[last_real_idx]
-            yoy_val = gdp_yoy.iloc[last_real_idx]
-            fig_stack.add_annotation(
-                x=stale_period, y=yoy_val if yoy_val is not None and not pd.isna(yoy_val) else 0,
-                text="← 이후 미발표 (추정치)",
-                showarrow=True, arrowhead=2, arrowcolor="#94a3b8",
-                font=dict(color="#94a3b8", size=10),
-                ax=60, ay=-30, row=3, col=1
-            )
 
     fig_stack.update_layout(
-        height=650 if rows == 3 else 500, 
+        height=600 if rows == 3 else 450, 
         template="plotly_white", 
         showlegend=False,
-        margin=dict(l=50, r=30, t=70, b=40)
+        margin=dict(l=40, r=20, t=60, b=40)
     )
     
     trend_insight = " | ".join(trend_summary_parts) if trend_summary_parts else f"{country_name} {item} 수출 추이를 확인하세요"
@@ -745,14 +838,6 @@ async def analyze(country: str = Query(...), item: str = Query(...)):
     # Chart 2: Signal Map (Leading-Lagging)
     # ---------------------------------------------------------
     fig_signal = make_subplots(specs=[[{"secondary_y": True}]])
-    
-    # ---------------------------------------------------------
-    # Chart 2: Signal Map (Leading-Lagging)
-    # ---------------------------------------------------------
-    fig_signal = make_subplots(specs=[[{"secondary_y": True}]])
-    
-    # [Optimization] Extract Trend Data on-the-fly for filtered rows
-    # filtered['trend_data'] is a Series of dicts
     
     common_trend_key = f"{country_code}_KFood_mean"
     
@@ -911,7 +996,8 @@ async def analyze(country: str = Query(...), item: str = Query(...)):
         # 나머지 품목 (라벨 없음)
         if not rest_others.empty:
             fig_scatter.add_trace(go.Scatter(
-                x=rest_others['weight_growth'], y=rest_others['price_growth'],
+                x=np.clip(rest_others['weight_growth'], -150, 150), 
+                y=np.clip(rest_others['price_growth'], -50, 50),
                 mode='markers',
                 marker=dict(size=8, color='#cbd5e1', opacity=0.3),
                 text=rest_others['ui_name'], name="타 품목",
@@ -921,7 +1007,8 @@ async def analyze(country: str = Query(...), item: str = Query(...)):
         # 상위 5개 품목 (라벨 표시)
         if not top_others.empty:
             fig_scatter.add_trace(go.Scatter(
-                x=top_others['weight_growth'], y=top_others['price_growth'],
+                x=np.clip(top_others['weight_growth'], -150, 150), 
+                y=np.clip(top_others['price_growth'], -50, 50),
                 mode='markers+text',
                 marker=dict(size=11, color='#94a3b8', opacity=0.6),
                 text=top_others['ui_name'], textposition="top center",
@@ -931,14 +1018,17 @@ async def analyze(country: str = Query(...), item: str = Query(...)):
             ))
         
         # ★ Current — ring 마커 효과 (외곽 큰 원 + 내부 원)
+        curr_x_clamped = np.clip(curr['weight_growth'], -150, 150)
+        curr_y_clamped = np.clip(curr['price_growth'], -50, 50)
+        
         fig_scatter.add_trace(go.Scatter(
-            x=curr['weight_growth'], y=curr['price_growth'],
+            x=curr_x_clamped, y=curr_y_clamped,
             mode='markers',
             marker=dict(size=35, color='rgba(244,63,94,0.15)', line=dict(width=3, color='#f43f5e')),
             showlegend=False, hoverinfo='skip'
         ))
         fig_scatter.add_trace(go.Scatter(
-            x=curr['weight_growth'], y=curr['price_growth'],
+            x=curr_x_clamped, y=curr_y_clamped,
             mode='markers+text',
             marker=dict(size=20, color='#f43f5e', line=dict(width=2, color='white')),
             text=curr['ui_name'], textposition="top center",
@@ -947,7 +1037,7 @@ async def analyze(country: str = Query(...), item: str = Query(...)):
             hovertemplate="<b>%{text}</b> (현재)<br>양적: %{x}%<br>질적: %{y}%"
         ))
         
-        # ★ 사분면 진단 메시지 생성
+        # 사분면 진단 메시지 생성
         curr_wg = curr['weight_growth'].values[0]
         curr_pg = curr['price_growth'].values[0]
         
@@ -964,22 +1054,20 @@ async def analyze(country: str = Query(...), item: str = Query(...)):
         fig_scatter.add_hline(y=0, line_dash="solid", line_color="#94a3b8", line_width=2)
         fig_scatter.add_vline(x=0, line_dash="solid", line_color="#94a3b8", line_width=2)
         
-        # 사분면 배경 쉐이딩
-        all_x = country_matrix['weight_growth']
-        all_y = country_matrix['price_growth']
-        x_max = max(abs(all_x.max()), abs(all_x.min()), 20) * 1.3
-        y_max = max(abs(all_y.max()), abs(all_y.min()), 20) * 1.3
+        # 사분면 배경 쉐이딩 - 고정 스케일 기반 (150%, 50%)
+        x_limit = 150
+        y_limit = 50
         
-        fig_scatter.add_shape(type="rect", x0=0, y0=0, x1=x_max, y1=y_max, fillcolor="rgba(16, 185, 129, 0.06)", line_width=0, layer="below")
-        fig_scatter.add_shape(type="rect", x0=-x_max, y0=0, x1=0, y1=y_max, fillcolor="rgba(245, 158, 11, 0.06)", line_width=0, layer="below")
-        fig_scatter.add_shape(type="rect", x0=-x_max, y0=-y_max, x1=0, y1=0, fillcolor="rgba(239, 68, 68, 0.06)", line_width=0, layer="below")
-        fig_scatter.add_shape(type="rect", x0=0, y0=-y_max, x1=x_max, y1=0, fillcolor="rgba(59, 130, 246, 0.06)", line_width=0, layer="below")
+        fig_scatter.add_shape(type="rect", x0=0, y0=0, x1=x_limit, y1=y_limit, fillcolor="rgba(16, 185, 129, 0.06)", line_width=0, layer="below")
+        fig_scatter.add_shape(type="rect", x0=-x_limit, y0=0, x1=0, y1=y_limit, fillcolor="rgba(245, 158, 11, 0.06)", line_width=0, layer="below")
+        fig_scatter.add_shape(type="rect", x0=-x_limit, y0=-y_limit, x1=0, y1=0, fillcolor="rgba(239, 68, 68, 0.06)", line_width=0, layer="below")
+        fig_scatter.add_shape(type="rect", x0=0, y0=-y_limit, x1=x_limit, y1=0, fillcolor="rgba(59, 130, 246, 0.06)", line_width=0, layer="below")
         
-        # ★ 4사분면 라벨 — 크기 14pt로 확대
-        fig_scatter.add_annotation(x=x_max*0.7, y=y_max*0.85, text="🌟 Premium<br>(고부가가치 성장)", showarrow=False, font=dict(color="#10b981", size=14, family="Arial Black"), xanchor="center", opacity=0.9)
-        fig_scatter.add_annotation(x=-x_max*0.7, y=y_max*0.85, text="⚠️ 단가 상승<br>(물량 감소 주의)", showarrow=False, font=dict(color="#f59e0b", size=14, family="Arial Black"), xanchor="center", opacity=0.9)
-        fig_scatter.add_annotation(x=-x_max*0.7, y=-y_max*0.85, text="🔻 전면 위축<br>(재진입 전략 필요)", showarrow=False, font=dict(color="#ef4444", size=14, family="Arial Black"), xanchor="center", opacity=0.9)
-        fig_scatter.add_annotation(x=x_max*0.7, y=-y_max*0.85, text="📦 Volume Driven<br>(박리다매 경쟁)", showarrow=False, font=dict(color="#3b82f6", size=14, family="Arial Black"), xanchor="center", opacity=0.9)
+        # 4사분면 라벨 — 고정 위치
+        fig_scatter.add_annotation(x=x_limit*0.7, y=y_limit*0.85, text="🌟 Premium<br>(고부가가치 성장)", showarrow=False, font=dict(color="#10b981", size=14, family="Arial Black"), xanchor="center", opacity=0.9)
+        fig_scatter.add_annotation(x=-x_limit*0.7, y=y_limit*0.85, text="⚠️ 단가 상승<br>(물량 감소 주의)", showarrow=False, font=dict(color="#f59e0b", size=14, family="Arial Black"), xanchor="center", opacity=0.9)
+        fig_scatter.add_annotation(x=-x_limit*0.7, y=-y_limit*0.85, text="🔻 전면 위축<br>(재진입 전략 필요)", showarrow=False, font=dict(color="#ef4444", size=14, family="Arial Black"), xanchor="center", opacity=0.9)
+        fig_scatter.add_annotation(x=x_limit*0.7, y=-y_limit*0.85, text="📦 Volume Driven<br>(박리다매 경쟁)", showarrow=False, font=dict(color="#3b82f6", size=14, family="Arial Black"), xanchor="center", opacity=0.9)
         
         fig_scatter.update_layout(
             title=f"성장의 질 — {item} in {country_name}",
@@ -989,8 +1077,8 @@ async def analyze(country: str = Query(...), item: str = Query(...)):
             height=520,
             showlegend=False,
             margin=dict(l=50, r=30, t=70, b=40),
-            xaxis=dict(range=[-x_max, x_max], zeroline=False),
-            yaxis=dict(range=[-y_max, y_max], zeroline=False)
+            xaxis=dict(range=[-x_limit, x_limit], zeroline=False),
+            yaxis=dict(range=[-y_limit, y_limit], zeroline=False)
         )
     else:
         # 데이터가 부족해서 매트릭스를 그릴 수 없을 때 빈 차트
@@ -1654,6 +1742,18 @@ async def analyze_consumer(item_id: str = Query(None, description="ASIN"), item_
     fig_marketing.add_vline(x=0.5, line_dash="dash", line_color="gray")
     fig_marketing.update_layout(title="가치-가격 포지셔닝 맵", xaxis_title="가격 민감도", yaxis_title="가치 인식", template="plotly_white")
 
+    # ★ DB 컬럼 기반 식감/페어링 분석
+    feature_data = analyze_features(filtered)
+
+    # ★ 텍스트 패턴 매칭 보완 (DB 컬럼 데이터가 부족할 때)
+    if 'cleaned_text' in filtered.columns:
+        review_texts = filtered['cleaned_text'].dropna().tolist()
+        text_pairing = extract_specific_insights(review_texts, mode='pairing')
+        text_texture = extract_specific_insights(review_texts, mode='texture')
+    else:
+        text_pairing = []
+        text_texture = []
+
     return {
         "has_data": True,
         "search_term": item_name if item_name else item_id,
@@ -1674,6 +1774,12 @@ async def analyze_consumer(item_id: str = Query(None, description="ASIN"), item_
             "price_sensitivity": round(price_sensitive_ratio, 2)
         },
         "keywords_analysis": keywords_analysis[:50],
+        "feature_analysis": {
+            "top_textures": feature_data.get("top_textures", []),
+            "top_pairings": feature_data.get("top_pairings", []),
+            "text_pairing_insights": text_pairing,
+            "text_texture_insights": text_texture
+        },
         "diverging_summary": {
             "negative_keywords": [{"keyword": k["keyword"], "impact_score": k["impact_score"], "satisfaction_index": k.get("satisfaction_index", 0), "positivity_rate": k.get("positivity_rate", 0), "sample_reviews": k.get("sample_reviews", [])} for k in neg_keywords],
             "positive_keywords": [{"keyword": k["keyword"], "impact_score": k["impact_score"], "satisfaction_index": k.get("satisfaction_index", 0), "positivity_rate": k.get("positivity_rate", 0), "sample_reviews": k.get("sample_reviews", [])} for k in pos_keywords]
