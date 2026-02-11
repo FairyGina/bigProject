@@ -119,4 +119,4 @@ jobs:
             --name ${{ env.CHATBOT_APP_NAME }} \
             --resource-group ${{ env.RESOURCE_GROUP }} \
             --image ${{ env.CHATBOT_ACR }}.azurecr.io/${{ env.CHATBOT_IMAGE_NAME }}:${{ github.sha }} \
-            --set-env-vars OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }}
+            --set-env-vars OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }} API_BASE_URL=https://bp-backend-app.wittysand-a0f4e87e.centralindia.azurecontainerapps.io
