@@ -98,7 +98,7 @@ button, .primary {
 # client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 MODEL_NAME = os.getenv("OPENAI_MODEL", "gpt-4o-mini")  # Corrected model name
 SERPAPI_API_KEY = os.getenv("SERPAPI_API_KEY")
-API_BASE_URL = os.getenv("API_BASE_URL", "http://localhost:8080")
+API_BASE_URL = os.getenv("API_BASE_URL", "http://bigproject-backend:8080")
 
 REGEN_OPTION = "레시피 다시 생성"
 SAVE_OPTION = "저장"

@@ -1192,10 +1192,28 @@ async def analyze_consumer(item_id: str = Query(None, description="ASIN"), item_
     try:
         # [DIAGNOSTIC] Rating & Sentiment Distribution Log
         r_mean = filtered['rating'].mean()
+        r_std = filtered['rating'].std()
         r_min = filtered['rating'].min()
         r_max = filtered['rating'].max()
         s_mean = filtered['sentiment_score'].mean()
-        print(f"[Consumer-Diag] Total: {total_count}, Rating: mean={r_mean:.2f} (min={r_min}, max={r_max}), Sentiment: mean={s_mean:.2f}", flush=True)
+        s_std = filtered['sentiment_score'].std()
+        
+        print(f"[Consumer-Diag] Total: {total_count}, Rating: mean={r_mean:.2f}, std={r_std:.2f}, min={r_min}, max={r_max}", flush=True)
+        print(f"[Consumer-Diag] Sentiment: mean={s_mean:.2f}, std={s_std:.2f}", flush=True)
+
+        # [Self-Healing] Detect invalid ratings (e.g., all 3.0 or 0 variance despite sentiment variance)
+        # If rating variance is near 0 but sentiment variance is healthy, backfill rating from sentiment.
+        is_rating_flat = (pd.isna(r_std) or r_std < 0.1) and (abs(r_mean - 3.0) < 0.1)
+        is_sentiment_active = (not pd.isna(s_std) and s_std > 0.1)
+        
+        if is_rating_flat and is_sentiment_active:
+            print("[Consumer] 🚨 Detected abnormal ratings (all ~3.0). Attempting SELF-HEALING from sentiment_score...", flush=True)
+            # Formula: Rating = Sentiment * 4 + 1 (Approximate mapping)
+            # 0.0 -> 1.0, 0.5 -> 3.0, 1.0 -> 5.0
+            filtered['rating'] = filtered['sentiment_score'] * 4 + 1
+            # Recalculate stats
+            r_mean = filtered['rating'].mean()
+            print(f"[Consumer] Healed Rating Mean: {r_mean:.2f}", flush=True)
 
         # 1. Impact Score (Rating Lift)
         avg_rating = r_mean
@@ -1212,7 +1230,7 @@ async def analyze_consumer(item_id: str = Query(None, description="ASIN"), item_
             sentiment_z_score = 0.0
             
         # 3. Satisfaction Index (Likelihood Ratio)
-        target_five_star_ratio = (filtered['rating'] == 5).mean()
+        target_five_star_ratio = (filtered['rating'] >= 4.5).mean() # 4.5 이상을 5점으로 간주 (Healed data may be float)
         if pd.isna(target_five_star_ratio): target_five_star_ratio = 0.0
         satisfaction_index = round(target_five_star_ratio / 0.2, 2)
         

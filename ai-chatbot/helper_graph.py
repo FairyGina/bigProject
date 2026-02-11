@@ -162,7 +162,6 @@ def answer_with_llm(question: str, context: str) -> str:
             ).strip()
         return "OPENAI_API_KEY가 없어 답변을 생성할 수 없습니다. (환경변수 확인 필요)"
 
-    # client = OpenAI(api_key=api_key)
     # Ensure client uses latest runtime environment variable
     client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
 
@@ -202,8 +201,8 @@ def answer_with_llm(question: str, context: str) -> str:
         tb = traceback.format_exc()
         log_stderr(f"OpenAI API Call Failed: {e}\n{tb}")
         
-        # 디버깅용: UI에 에러 노출
-        return f"{error_msg}\n\n[Traceback]\n{tb}"
+        # 디버깅용: UI에 에러 노출 (Traceback 제거)
+        return error_msg # + f"\n\n[Traceback]\n{tb}"
 
 
 def intro_node(state: Dict[str, Any]) -> Dict[str, Any]:
