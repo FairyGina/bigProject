@@ -26,7 +26,7 @@ axiosInstance.defaults.xsrfHeaderName = 'X-XSRF-TOKEN';
 axiosInstance.interceptors.request.use(
     (config) => {
         // JWT 토큰 추가
-        const token = localStorage.getItem('accessToken');
+        const token = sessionStorage.getItem('accessToken');
         if (token) {
             config.headers['Authorization'] = `Bearer ${token}`;
         }
@@ -60,7 +60,7 @@ axiosInstance.interceptors.response.use(
             const errorCode = error.response?.data?.errorCode;
             const isPasswordMismatch = errorCode === 'PASSWORD_MISMATCH';
             if (!isPasswordCheck && !isProfileUpdate && !isPasswordMismatch) {
-                localStorage.removeItem('accessToken');
+                sessionStorage.removeItem('accessToken');
                 // Optionally redirect to login: window.location.href = '/'
             }
         }

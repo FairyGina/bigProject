@@ -153,6 +153,7 @@ const RecipeAnalysis = () => {
             return;
         }
         const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
+        console.log('[MAP] Google Maps API key loaded:', apiKey ? 'YES (length:' + apiKey.length + ')' : 'NO');
         if (!apiKey) {
             setMapError('Google Maps API 키가 없습니다.');
             return;

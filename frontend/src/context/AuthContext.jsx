@@ -13,12 +13,12 @@ export const AuthProvider = ({ children }) => {
             .then((res) => {
                 const data = res.data;
                 if (data?.token) {
-                    localStorage.setItem('csrfToken', data.token);
+                    sessionStorage.setItem('csrfToken', data.token);
                 }
             })
             .catch(() => { });
 
-        const token = localStorage.getItem('accessToken');
+        const token = sessionStorage.getItem('accessToken');
         if (token) {
             setUser({ token });
         }
@@ -26,12 +26,12 @@ export const AuthProvider = ({ children }) => {
     }, []);
 
     const login = (token, userData = {}) => {
-        localStorage.setItem('accessToken', token);
+        sessionStorage.setItem('accessToken', token);
         setUser({ token, ...userData });
     };
 
     const logout = () => {
-        localStorage.removeItem('accessToken');
+        sessionStorage.removeItem('accessToken');
         setUser(null);
     };
 

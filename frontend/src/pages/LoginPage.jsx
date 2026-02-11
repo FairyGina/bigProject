@@ -20,7 +20,6 @@ const LoginPage = () => {
 
     const handleSocialLogin = (provider) => {
         sessionStorage.setItem('oauthFlow', 'login');
-        localStorage.setItem('oauthFlow', 'login');
         window.location.href = `/oauth2/authorization/${provider}`;
     };
 
@@ -50,12 +49,12 @@ const LoginPage = () => {
             if (data.accessToken) {
                 login(data.accessToken, { userName: data.userName });
                 if (data.userName) {
-                    localStorage.setItem('userName', data.userName);
+                    sessionStorage.setItem('userName', data.userName);
                 }
                 if (data.userId) {
-                    localStorage.setItem('userId', data.userId);
+                    sessionStorage.setItem('userId', data.userId);
                 } else {
-                    localStorage.setItem('userId', userId);
+                    sessionStorage.setItem('userId', userId);
                 }
             }
 
