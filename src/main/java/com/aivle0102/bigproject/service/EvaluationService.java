@@ -18,6 +18,20 @@ public class EvaluationService {
     private final OpenAiClient openAiClient;
     private final ObjectMapper objectMapper;
     private final ConsumerFeedbackRepository consumerFeedbackRepository;
+    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(EvaluationService.class);
+
+    @org.springframework.beans.factory.annotation.Value("${google.maps.api-key:dummy-google-maps-key}")
+    private String googleMapsApiKey;
+
+    @jakarta.annotation.PostConstruct
+    public void init() {
+        if (googleMapsApiKey == null || googleMapsApiKey.isEmpty() || googleMapsApiKey.contains("dummy")) {
+            log.warn(
+                    "🚨 [CONFIG] Google Maps API Key is MISSING or set to DUMMY value. Map features in frontend may not work.");
+        } else {
+            log.info("✅ [CONFIG] Google Maps API Key is LOADED (length: {})", googleMapsApiKey.length());
+        }
+    }
 
     // 각 AI 심사위원에게 생성한 보고서를 토대로 평가 진행
     public List<ConsumerFeedback> evaluate(List<VirtualConsumer> personas, String report) {
@@ -32,7 +46,8 @@ public class EvaluationService {
                 results.add(evaluation);
 
             } catch (Exception e) {
-                System.err.println("[평가 실패] " + persona.getCountry() + " / " + persona.getPersonaName());
+                log.error("[평가 실패] 국가: {}, 페르소나: {}, 원인: {}",
+                        persona.getCountry(), persona.getPersonaName(), e.getMessage());
             }
         }
 
@@ -40,7 +55,8 @@ public class EvaluationService {
     }
 
     // 심사의원 평가 저장
-    public List<ConsumerFeedback> evaluateAndSave(MarketReport report, List<VirtualConsumer> personas, String reportText) {
+    public List<ConsumerFeedback> evaluateAndSave(MarketReport report, List<VirtualConsumer> personas,
+            String reportText) {
         if (report == null || report.getId() == null || personas == null || personas.isEmpty()) {
             return List.of();
         }
@@ -52,7 +68,8 @@ public class EvaluationService {
                 evaluation.setConsumer(persona);
                 results.add(evaluation);
             } catch (Exception e) {
-                System.err.println("[에러발생] " + persona.getCountry() + " / " + persona.getPersonaName());
+                log.error("[평가 및 저장 실패] 국가: {}, 페르소나: {}, 에러: {}",
+                        persona.getCountry(), persona.getPersonaName(), e.getMessage());
             }
         }
         if (!results.isEmpty()) {
@@ -69,10 +86,8 @@ public class EvaluationService {
         Map<String, Object> body = Map.of(
                 "model", "gpt-4o-mini",
                 "messages", List.of(
-                        Map.of("role", "user", "content", prompt)
-                ),
-                "temperature", 0.2
-        );
+                        Map.of("role", "user", "content", prompt)),
+                "temperature", 0.2);
 
         String raw = openAiClient.chatCompletion(body);
         String json = extractJson(raw);
@@ -80,81 +95,78 @@ public class EvaluationService {
         return objectMapper.readValue(json, ConsumerFeedback.class);
     }
 
-
     // 생성한 보고서를 토대로 평가 진행 프롬프트
     private String buildEvaluationPrompt(VirtualConsumer persona, String report) {
 
         return """
-        당신은 다음과 같은 소비자 AI 페르소나다.
+                당신은 다음과 같은 소비자 AI 페르소나다.
 
-        [페르소나 정보]
-        %s
+                [페르소나 정보]
+                %s
 
-        당신의 관점에서 아래 신메뉴 기획 보고서를 읽고
-        소비자 심사위원으로서 평가하라.
+                당신의 관점에서 아래 신메뉴 기획 보고서를 읽고
+                소비자 심사위원으로서 평가하라.
 
-        [신메뉴 기획 보고서]
-        %s
+                [신메뉴 기획 보고서]
+                %s
 
-        [출력 형식]
-        아래 JSON 형식으로만 출력하라.
+                [출력 형식]
+                아래 JSON 형식으로만 출력하라.
 
-        {
-          "country": "%s",
-          "ageGroup": "%s",
-          "personaName": "%s",
+                {
+                  "country": "%s",
+                  "ageGroup": "%s",
+                  "personaName": "%s",
 
-          "totalScore": 0,
-          "tasteScore": 0,
-          "priceScore": 0,
-          "healthScore": 0,
+                  "totalScore": 0,
+                  "tasteScore": 0,
+                  "priceScore": 0,
+                  "healthScore": 0,
 
-          "positiveFeedback": "",
-          "negativeFeedback": "",
+                  "positiveFeedback": "",
+                  "negativeFeedback": "",
 
-          "purchaseIntent": "YES | NO | MAYBE"
-        }
+                  "purchaseIntent": "YES | NO | MAYBE"
+                }
 
-        [평가 기준]
-        - 소비자 관점에서 현실적으로 판단
-        - 과장 금지
-        - 점수는 0~100 사이 정수
-        - 보고서에 근거한 평가만 작성
-        - 중요: 모든 국가에 대해 동일한 totalScore를 반환하지 마세요.
-        - 국가/연령대 차이를 반영해 점수를 다르게 주세요(가능하면 최소 5~15점 차이).
-        """
+                [평가 기준]
+                - 소비자 관점에서 현실적으로 판단
+                - 과장 금지
+                - 점수는 0~100 사이 정수
+                - 보고서에 근거한 평가만 작성
+                - 중요: 모든 국가에 대해 동일한 totalScore를 반환하지 마세요.
+                - 국가/연령대 차이를 반영해 점수를 다르게 주세요(가능하면 최소 5~15점 차이).
+                """
 
-        .formatted(
-                personaToText(persona),
-                report,
-                persona.getCountry(),
-                persona.getAgeGroup(),
-                persona.getPersonaName()
-        );
+                .formatted(
+                        personaToText(persona),
+                        report,
+                        persona.getCountry(),
+                        persona.getAgeGroup(),
+                        persona.getPersonaName());
     }
 
     // 페르소나 정보 -> 프롬프트화
     private String personaToText(VirtualConsumer p) {
         return """
-        국가: %s
-        연령대: %s
-        라이프스타일: %s
-        식품 선호: %s
-        구매 기준: %s
-        K-Food 태도: %s
-        평가 관점: %s
-        """
-        .formatted(
-                p.getCountry(),
-                p.getAgeGroup(),
-                p.getLifestyle(),
-                p.getFoodPreference(),
-                (p.getPurchaseCriteria() == null || p.getPurchaseCriteria().isEmpty())
-                        ? ""
-                        : String.join(", ", p.getPurchaseCriteria()),
-                p.getAttitudeToKFood(),
-                p.getEvaluationPerspective()
-        );
+                국가: %s
+                연령대: %s
+                라이프스타일: %s
+                식품 선호: %s
+                구매 기준: %s
+                K-Food 태도: %s
+                평가 관점: %s
+                """
+                .formatted(
+                        p.getCountry(),
+                        p.getAgeGroup(),
+                        p.getLifestyle(),
+                        p.getFoodPreference(),
+                        (p.getPurchaseCriteria() == null || p.getPurchaseCriteria().isEmpty())
+                                ? ""
+                                : String.join(", ", p.getPurchaseCriteria()),
+                        p.getAttitudeToKFood(),
+                        p.getEvaluationPerspective());
     }
 
     // JSON만 추출
