@@ -81,7 +81,8 @@ jobs:
           az containerapp update \
             --name ${{ env.BACKEND_APP_NAME }} \
             --resource-group ${{ env.RESOURCE_GROUP }} \
-            --image ${{ env.BACKEND_ACR }}.azurecr.io/${{ env.BACKEND_IMAGE_NAME }}:${{ github.sha }}
+            --image ${{ env.BACKEND_ACR }}.azurecr.io/${{ env.BACKEND_IMAGE_NAME }}:${{ github.sha }} \
+            --set-env-vars OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }}
 
       # 7. Frontend Container App 업데이트
       - name: Deploy Frontend to ACA
@@ -97,7 +98,8 @@ jobs:
           az containerapp update \
             --name ${{ env.ANALYSIS_APP_NAME }} \
             --resource-group ${{ env.RESOURCE_GROUP }} \
-            --image ${{ env.ANALYSIS_ACR }}.azurecr.io/${{ env.ANALYSIS_IMAGE_NAME }}:${{ github.sha }}
+            --image ${{ env.ANALYSIS_ACR }}.azurecr.io/${{ env.ANALYSIS_IMAGE_NAME }}:${{ github.sha }} \
+            --set-env-vars OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }} SERPAPI_API_KEY=${{ secrets.SERPAPI_API_KEY }}
 
       # 9. AI Chatbot 이미지 빌드 및 푸시
       - name: ACR Login for Chatbot
@@ -116,4 +118,5 @@ jobs:
           az containerapp update \
             --name ${{ env.CHATBOT_APP_NAME }} \
             --resource-group ${{ env.RESOURCE_GROUP }} \
-            --image ${{ env.CHATBOT_ACR }}.azurecr.io/${{ env.CHATBOT_IMAGE_NAME }}:${{ github.sha }}
+            --image ${{ env.CHATBOT_ACR }}.azurecr.io/${{ env.CHATBOT_IMAGE_NAME }}:${{ github.sha }} \
+            --set-env-vars OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }}

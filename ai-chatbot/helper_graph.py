@@ -146,7 +146,9 @@ def answer_with_llm(question: str, context: str) -> str:
     
     # 디버깅: API Key 및 Model 확인 (필수)
     if api_key:
-        log_stderr(f"API Key found (starts with: {api_key[:8]}..., len={len(api_key)})")
+        # 보안을 위해 앞 8자리와 뒤 4자리만 출력
+        suffix = api_key[-4:] if len(api_key) > 12 else "****"
+        log_stderr(f"API Key found (starts with: {api_key[:8]}..., ends with: ...{suffix}, len={len(api_key)})")
     else:
         log_stderr("CRITICAL: OPENAI_API_KEY is EMPTY!")
         
