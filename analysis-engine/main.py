@@ -1263,10 +1263,10 @@ async def analyze_consumer(item_id: str = Query(None, description="ASIN"), item_
 
         # [Logic Fix] 긍정 키워드가 없지만 분석된 키워드 중 Impact Score 양수인 것이 있다면 "Soft Fallback"
         if not diverging_keywords["positive"] and keywords_analysis:
-            # 0.0 초과인 것들을 찾아서 추가 (Impact Score가 양수이기만 하면 추출)
-            soft_positives = [k for k in keywords_analysis if k['impact_score'] > 0.0]
+            # 0.02 이상인 것들을 찾아서 추가 (Impact Score가 아주 미세하게라도 양수인 것)
+            soft_positives = [k for k in keywords_analysis if k['impact_score'] > 0.02]
             if soft_positives:
-                print(f"[Consumer] Soft Fallback: Found {len(soft_positives)} positive keywords (0.0 < score < {impact_threshold_val})", flush=True)
+                print(f"[Consumer] Soft Fallback: Found {len(soft_positives)} positive keywords (0.02 < score < {impact_threshold_val})", flush=True)
                 diverging_keywords["positive"] = sorted(
                     soft_positives[:8],
                     key=lambda x: -x["impact_score"]

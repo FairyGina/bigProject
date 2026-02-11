@@ -241,6 +241,10 @@ def load_amazon_reviews():
             repurchase = clean_bool(row.get('repurchase_intent_hybrid'))
             recommend = clean_bool(row.get('recommendation_intent_hybrid'))
             
+            # [Safe Conversion] 평점과 감성 점수를 수치형으로 변환 (오류 시 NaN)
+            rating = pd.to_numeric(row.get('rating'), errors='coerce')
+            sentiment = pd.to_numeric(row.get('sentiment_score'), errors='coerce')
+
             # 2. 제목이 없을 경우 본문의 일부를 제목으로 사용 (검색 최적화)
             title = row.get('title')
             if pd.isna(title) or str(title).strip() == "":
@@ -250,10 +254,10 @@ def load_amazon_reviews():
             data_to_insert.append((
                 row.get('asin'),
                 title,
-                row.get('rating'),
+                rating, # Safe numeric or NaN (DB will store as NULL)
                 row.get('original_text'),
                 row.get('cleaned_text'),
-                row.get('sentiment_score'),
+                sentiment, # Safe numeric or NaN
                 clean_json_field(row.get('quality_issues_semantic')),
                 clean_json_field(row.get('packaging_keywords')),
                 clean_json_field(row.get('texture_terms')),
@@ -264,6 +268,14 @@ def load_amazon_reviews():
                 repurchase,
                 recommend
             ))
+            
+        # [Diagnostic Log] 현재 청크의 데이터 분포 확인
+        ratings_in_chunk = [x[2] for x in data_to_insert if pd.notna(x[2])]
+        if ratings_in_chunk:
+            avg_r = sum(ratings_in_chunk) / len(ratings_in_chunk)
+            print(f"Chunk stats ({len(data_to_insert)} rows): Avg Rating={avg_r:.2f}, Valid Ratings={len(ratings_in_chunk)}")
+        else:
+            print(f"Chunk stats ({len(data_to_insert)} rows): NO VALID RATINGS FOUND")
             
         insert_query = """
         INSERT INTO amazon_reviews 
