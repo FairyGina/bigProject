@@ -8,7 +8,7 @@ const Dashboard = () => {
     const [userName, setUserName] = React.useState('사용자');
 
     React.useEffect(() => {
-        const storedName = localStorage.getItem('userName');
+        const storedName = sessionStorage.getItem('userName') || localStorage.getItem('userName');
         if (storedName) {
             setUserName(storedName);
         }

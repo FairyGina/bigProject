@@ -3,7 +3,7 @@ import { useAuth } from '../context/AuthContext';
 
 const AICreateRecipe = () => {
     const { user } = useAuth();
-    const rawName = user?.userName || localStorage.getItem('userName') || '사용자';
+    const rawName = user?.userName || sessionStorage.getItem('userName') || localStorage.getItem('userName') || '사용자';
     const maskedName = rawName.length <= 1 ? '*' : `${rawName.slice(0, -1)}*`;
     // 환경변수로 챗봇 URL 설정, 기본값은 Azure Container Apps 주소
     const chatbotBaseUrl = import.meta.env.VITE_CHATBOT_URL || 'https://bp-chatbot-app.wittysand-a0f4e87e.centralindia.azurecontainerapps.io';

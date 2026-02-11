@@ -9,7 +9,7 @@ import jakarta.annotation.PostConstruct;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
-import tools.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -35,6 +35,24 @@ public class EvaluationService {
         } else {
             log.info("✅ [CONFIG] Google Maps API Key is LOADED (length: {})", googleMapsApiKey.length());
         }
+    }
+
+    public Map<String, Object> getMapsConfigStatus() {
+        boolean isSet = googleMapsApiKey != null && !googleMapsApiKey.isEmpty() && !googleMapsApiKey.contains("dummy");
+        return Map.of(
+                "isSet", isSet,
+                "length", isSet ? googleMapsApiKey.length() : 0,
+                "propertyValue",
+                googleMapsApiKey == null ? "null" : (googleMapsApiKey.contains("dummy") ? "dummy-value" : "set"));
+    }
+
+    public String getMapsKey() {
+        if (googleMapsApiKey != null && !googleMapsApiKey.contains("dummy")) {
+            log.info("📡 [MAP] Providing Google Maps API Key to frontend (length: {})", googleMapsApiKey.length());
+            return googleMapsApiKey;
+        }
+        log.warn("📡 [MAP] Google Maps API Key requested by frontend but it is MISSING or DUMMY.");
+        return null;
     }
 
     // 각 AI 심사위원에게 생성한 보고서를 토대로 평가 진행

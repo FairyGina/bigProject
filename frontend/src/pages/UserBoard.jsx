@@ -6,7 +6,7 @@ import axiosInstance from '../axiosConfig';
 const UserBoard = () => {
     const { user } = useAuth();
     const navigate = useNavigate();
-    const rawName = user?.userName || localStorage.getItem('userName') || '게스트';
+    const rawName = user?.userName || sessionStorage.getItem('userName') || localStorage.getItem('userName') || '게스트';
     const maskedName = rawName.length <= 1 ? '*' : `${rawName.slice(0, -1)}*`;
 
     const [recipes, setRecipes] = useState([]);

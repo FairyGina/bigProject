@@ -8,9 +8,9 @@ const RecipeAnalysis = () => {
     const navigate = useNavigate();
     const { id, reportId } = useParams();
     const location = useLocation();
-    const rawName = user?.userName || localStorage.getItem('userName') || '게스트';
+    const rawName = user?.userName || sessionStorage.getItem('userName') || localStorage.getItem('userName') || '게스트';
     const maskedName = rawName.length <= 1 ? '*' : `${rawName.slice(0, -1)}*`;
-    const userId = user?.userId || localStorage.getItem('userId') || null;
+    const userId = user?.userId || sessionStorage.getItem('userId') || localStorage.getItem('userId') || null;
 
     const [recipe, setRecipe] = useState(null);
     const [loading, setLoading] = useState(true);
@@ -148,73 +148,94 @@ const RecipeAnalysis = () => {
         }
     }, [allowInfluencer, allowInfluencerImage, location.state]);
 
-    useEffect(() => {
-        if (!showMap) {
-            return;
-        }
-        const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
-        console.log('[MAP] Google Maps API key loaded:', apiKey ? 'YES (length:' + apiKey.length + ')' : 'NO');
-        if (!apiKey) {
-            setMapError('Google Maps API 키가 없습니다.');
-            return;
-        }
+    const [mapsApiKey, setMapsApiKey] = useState(import.meta.env.VITE_GOOGLE_MAPS_API_KEY || '');
 
-        const initMap = (retry = 0) => {
-            if (!mapRef.current) {
-                if (retry < 10) {
-                    setTimeout(() => initMap(retry + 1), 100);
+    useEffect(() => {
+        if (!showMap) return;
+
+        const loadKeyAndInit = async () => {
+            let key = mapsApiKey;
+
+            // 환경 변수에 키가 없으면 백엔드에서 가져오기 시도
+            if (!key) {
+                try {
+                    console.log('[MAP] Attempting to fetch Google Maps API key from backend...');
+                    const res = await axiosInstance.get('/evaluation/maps-key');
+                    if (res.data?.apiKey) {
+                        key = res.data.apiKey;
+                        setMapsApiKey(key);
+                        console.log('[MAP] Google Maps API key fetched from backend successfully.');
+                    }
+                } catch (err) {
+                    console.error('[MAP] Failed to fetch Google Maps API key from backend:', err);
+                }
+            }
+
+            if (!key) {
+                console.error('[MAP] Google Maps API key is missing (both VITE_ env and backend).');
+                setMapError('Google Maps API 키가 없습니다.');
+                return;
+            }
+
+            const initMap = (retry = 0) => {
+                if (!mapRef.current) {
+                    if (retry < 10) {
+                        setTimeout(() => initMap(retry + 1), 100);
+                    } else {
+                        setMapError('지도 초기화에 실패했습니다.');
+                    }
+                    return;
+                }
+                if (!window.google?.maps) {
+                    if (retry < 20) {
+                        setTimeout(() => initMap(retry + 1), 150);
+                    } else {
+                        setMapError('Google Maps 로딩에 실패했습니다. API 키와 설정을 확인하세요.');
+                    }
+                    return;
+                }
+                setMapError('');
+                const map = new window.google.maps.Map(mapRef.current, {
+                    center: { lat: 20, lng: 0 },
+                    zoom: 1,
+                    minZoom: 1,
+                    maxZoom: 8,
+                    disableDefaultUI: false,
+                    gestureHandling: 'greedy',
+                    scrollwheel: true,
+                    styles: [
+                        { featureType: 'administrative', elementType: 'labels', stylers: [{ visibility: 'off' }] },
+                        { featureType: 'poi', elementType: 'all', stylers: [{ visibility: 'off' }] },
+                        { featureType: 'road', elementType: 'all', stylers: [{ visibility: 'off' }] },
+                    ],
+                });
+                mapInstanceRef.current = map;
+                setMapReady(true);
+            };
+
+            const existing = document.querySelector('script[data-google-maps]');
+            if (existing) {
+                if (window.google?.maps) {
+                    initMap();
                 } else {
-                    setMapError('지도 초기화에 실패했습니다.');
+                    existing.addEventListener('load', () => initMap(), { once: true });
+                    existing.addEventListener('error', () => setMapError('Google Maps script failed to load.'), { once: true });
+                    initMap();
                 }
                 return;
             }
-            if (!window.google?.maps) {
-                if (retry < 20) {
-                    setTimeout(() => initMap(retry + 1), 150);
-                } else {
-                    setMapError('Google Maps 로딩에 실패했습니다. API 키와 설정을 확인하세요.');
-                }
-                return;
-            }
-            setMapError('');
-            const map = new window.google.maps.Map(mapRef.current, {
-                center: { lat: 20, lng: 0 },
-                zoom: 1,
-                minZoom: 1,
-                maxZoom: 8,
-                disableDefaultUI: false,
-                gestureHandling: 'greedy',
-                scrollwheel: true,
-                styles: [
-                    { featureType: 'administrative', elementType: 'labels', stylers: [{ visibility: 'off' }] },
-                    { featureType: 'poi', elementType: 'all', stylers: [{ visibility: 'off' }] },
-                    { featureType: 'road', elementType: 'all', stylers: [{ visibility: 'off' }] },
-                ],
-            });
-            mapInstanceRef.current = map;
-            setMapReady(true);
+
+            window.__initRecipeMap = () => initMap();
+            const script = document.createElement('script');
+            script.src = `https://maps.googleapis.com/maps/api/js?key=${key}&v=weekly&callback=__initRecipeMap`;
+            script.async = true;
+            script.defer = true;
+            script.dataset.googleMaps = 'true';
+            script.onerror = () => setMapError('Google Maps 스크립트 로딩에 실패했습니다.');
+            document.body.appendChild(script);
         };
 
-        const existing = document.querySelector('script[data-google-maps]');
-        if (existing) {
-            if (window.google?.maps) {
-                initMap();
-            } else {
-                existing.addEventListener('load', () => initMap(), { once: true });
-                existing.addEventListener('error', () => setMapError('Google Maps script failed to load.'), { once: true });
-                initMap();
-            }
-            return;
-        }
-
-        window.__initRecipeMap = () => initMap();
-        const script = document.createElement('script');
-        script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&v=weekly&callback=__initRecipeMap`;
-        script.async = true;
-        script.defer = true;
-        script.dataset.googleMaps = 'true';
-        script.onerror = () => setMapError('Google Maps 스크립트 로딩에 실패했습니다.');
-        document.body.appendChild(script);
+        loadKeyAndInit();
     }, [showMap]);
 
     useEffect(() => {

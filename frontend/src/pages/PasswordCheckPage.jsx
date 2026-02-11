@@ -8,7 +8,7 @@ const PasswordCheckPage = () => {
     const navigate = useNavigate();
     const [password, setPassword] = useState('');
     const [error, setError] = useState('');
-    const isDemoAdmin = localStorage.getItem('userId') === 'super';
+    const isDemoAdmin = (sessionStorage.getItem('userId') || localStorage.getItem('userId')) === 'super';
 
     const handlePasswordCheck = async () => {
         setError('');

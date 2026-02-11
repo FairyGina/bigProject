@@ -212,7 +212,7 @@ const UserCreateRecipe = () => {
     const navigate = useNavigate();
     const location = useLocation();
     const { id } = useParams();
-    const rawName = user?.userName || localStorage.getItem('userName') || labels.guest;
+    const rawName = user?.userName || sessionStorage.getItem('userName') || localStorage.getItem('userName') || labels.guest;
     const maskedName = rawName.length <= 1 ? '*' : `${rawName.slice(0, -1)}*`;
 
     const initialRecipe = useMemo(() => location.state?.recipe || null, [location.state]);

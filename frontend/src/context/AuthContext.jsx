@@ -20,7 +20,9 @@ export const AuthProvider = ({ children }) => {
 
         const token = sessionStorage.getItem('accessToken');
         if (token) {
-            setUser({ token });
+            const userName = sessionStorage.getItem('userName') || localStorage.getItem('userName');
+            const userId = sessionStorage.getItem('userId') || localStorage.getItem('userId');
+            setUser({ token, userName, userId });
         }
         setLoading(false);
     }, []);

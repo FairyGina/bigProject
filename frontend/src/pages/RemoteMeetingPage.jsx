@@ -43,7 +43,7 @@ const RemoteMeetingPage = () => {
                 console.error('채팅 내역을 불러오지 못했습니다.', err);
             }
 
-            const token = localStorage.getItem('accessToken');
+            const token = sessionStorage.getItem('accessToken') || localStorage.getItem('accessToken');
             // 보안을 위해 프론트엔드 도메인(Nginx 프록시)을 통해 백엔드로 전달됩니다.
             const wsBaseUrl = window.location.origin;
             const client = new Client({

@@ -90,7 +90,7 @@ const normalizeComment = (comment) => {
 
 const NoticeBoard = () => {
     const { user } = useAuth();
-    const rawName = user?.userName || localStorage.getItem('userName') || '김에이블러';
+    const rawName = user?.userName || sessionStorage.getItem('userName') || localStorage.getItem('userName') || '김에이블러';
     const maskedName = maskName(rawName);
     const [notices, setNotices] = React.useState([]);
     const [selectedId, setSelectedId] = React.useState(null);
@@ -127,7 +127,7 @@ const NoticeBoard = () => {
     const totalPages = Math.max(1, Math.ceil(filteredNotices.length / pageSize));
     const currentPage = Math.min(page, totalPages);
     const pagedNotices = filteredNotices.slice((currentPage - 1) * pageSize, currentPage * pageSize);
-    const isLoggedIn = Boolean(user || localStorage.getItem('accessToken'));
+    const isLoggedIn = Boolean(user || sessionStorage.getItem('accessToken') || localStorage.getItem('accessToken'));
     const isEditingComment = commentEditingId !== null;
 
     const refreshCsrf = React.useCallback(async () => {

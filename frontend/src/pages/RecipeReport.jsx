@@ -100,9 +100,9 @@ const RecipeReport = () => {
     const navigate = useNavigate();
     const location = useLocation();
     const { id } = useParams();
-    const rawName = user?.userName || localStorage.getItem('userName') || '게스트';
+    const rawName = user?.userName || sessionStorage.getItem('userName') || localStorage.getItem('userName') || '게스트';
     const maskedName = rawName.length <= 1 ? '*' : `${rawName.slice(0, -1)}*`;
-    const userId = user?.userId || localStorage.getItem('userId') || null;
+    const userId = user?.userId || sessionStorage.getItem('userId') || localStorage.getItem('userId') || null;
 
     const [recipe, setRecipe] = useState(null);
     const [reports, setReports] = useState([]);
@@ -132,9 +132,12 @@ const RecipeReport = () => {
     );
     const includesReport = Boolean(selectedGeneration?.includeReport);
 
-    const isOwner =
-        (userId && (recipe?.user_id === userId || recipe?.userId === userId)) ||
-        (!userId && (recipe?.user_name === rawName || recipe?.userName === rawName));
+    const isOwner = useMemo(() => {
+        if (!recipe) return false;
+        const idMatch = userId && (recipe.user_id === userId || recipe.userId === userId);
+        const nameMatch = rawName !== '게스트' && (recipe.user_name === rawName || recipe.userName === rawName);
+        return Boolean(idMatch || nameMatch);
+    }, [recipe, userId, rawName]);
 
     const fromHub = Boolean(location.state?.fromHub);
     const visibleReports = useMemo(() => {

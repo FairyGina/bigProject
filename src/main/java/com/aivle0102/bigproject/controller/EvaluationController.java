@@ -20,5 +20,16 @@ public class EvaluationController {
     public List<ConsumerFeedback> evaluateByPersonas(@RequestBody EvaluationRequest request) {
         return evaluationService.evaluate(request.getPersonas(), request.getReport());
     }
-}
 
+    // 레시피 분석 지도용 API 키 상태 확인 (디버깅용)
+    @GetMapping("/config")
+    public java.util.Map<String, Object> getConfigStatus() {
+        return evaluationService.getMapsConfigStatus();
+    }
+
+    @GetMapping("/maps-key")
+    public java.util.Map<String, String> getMapsKey() {
+        String key = evaluationService.getMapsKey();
+        return java.util.Map.of("apiKey", key != null ? key : "");
+    }
+}

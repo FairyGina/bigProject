@@ -16,7 +16,7 @@ const UserProfilePage = () => {
     });
     const [loading, setLoading] = useState(false);
     const [isSocialAccount, setIsSocialAccount] = useState(false);
-    const isDemoAdmin = localStorage.getItem('userId') === 'super';
+    const isDemoAdmin = (sessionStorage.getItem('userId') || localStorage.getItem('userId')) === 'super';
     const canEditPassword = !isSocialAccount && !isDemoAdmin;
 
     const hasSequentialDigits = (value, length = 3) => {
@@ -139,8 +139,8 @@ const UserProfilePage = () => {
         };
 
         const loadProfile = async () => {
-            const storedUserName = localStorage.getItem('userName') || '';
-            const storedUserId = localStorage.getItem('userId') || '';
+            const storedUserName = sessionStorage.getItem('userName') || localStorage.getItem('userName') || '';
+            const storedUserId = sessionStorage.getItem('userId') || localStorage.getItem('userId') || '';
             setFormData((prev) => ({
                 ...prev,
                 userName: storedUserName || prev.userName,
@@ -152,9 +152,11 @@ const UserProfilePage = () => {
                 const response = await axiosInstance.get('/user/me');
                 const data = response.data || {};
                 if (data.userName) {
+                    sessionStorage.setItem('userName', data.userName);
                     localStorage.setItem('userName', data.userName);
                 }
                 if (data.userId) {
+                    sessionStorage.setItem('userId', data.userId);
                     localStorage.setItem('userId', data.userId);
                 }
                 setIsSocialAccount(Boolean(data.socialAccount));
