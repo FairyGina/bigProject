@@ -188,7 +188,16 @@ def _ensure_db():
 
 
 def _user_key_from_request(request: gr.Request | None) -> str:
-    # 사용자 구분 키 (helper-chatbot과 동일하게 IP 기반)
+    # 1. 쿼리 파라미터에서 토큰 확인 (프론트엔드에서 고유 식별자로 전달)
+    if request:
+        try:
+            token = request.query_params.get("token")
+            if token:
+                return f"token:{token[:32]}"
+        except Exception:
+            pass
+
+    # 2. IP 기반 (fallback)
     if request and getattr(request, "client", None):
         host = getattr(request.client, "host", None)
         if host:
@@ -546,21 +555,31 @@ def _build_backend_session(request: gr.Request | None) -> requests.Session:
         return session
     headers = {}
     try:
+        # 1. 쿼리 파라미터에서 토큰 확인 (프론트엔드에서 iframe URL에 포함해 전달)
+        token = request.query_params.get("token")
+        if token:
+            headers["Authorization"] = f"Bearer {token}"
+
+        # 2. 기존 헤더 복사 (Authorization이 없을 경우)
         req_headers = request.headers or {}
         auth = req_headers.get("authorization") or req_headers.get("Authorization")
-        if auth:
+        if auth and "Authorization" not in headers:
             headers["Authorization"] = auth
+
         cookie_header = req_headers.get("cookie") or req_headers.get("Cookie")
         if cookie_header:
             headers["Cookie"] = cookie_header
+
         if headers:
             session.headers.update(headers)
-    except Exception:
+    except Exception as e:
+        print(f"[RecipeBot Error] _build_backend_session headers failed: {e}")
         pass
     try:
         if getattr(request, "cookies", None):
             session.cookies.update(request.cookies)
-    except Exception:
+    except Exception as e:
+        print(f"[RecipeBot Error] _build_backend_session cookies failed: {e}")
         pass
     return session
 
