@@ -1190,13 +1190,20 @@ async def analyze_consumer(item_id: str = Query(None, description="ASIN"), item_
     # 2. 시장 감성 및 주요 점수 (상대적 지표로 전면 교체)
     # =========================================================
     try:
+        # [DIAGNOSTIC] Rating & Sentiment Distribution Log
+        r_mean = filtered['rating'].mean()
+        r_min = filtered['rating'].min()
+        r_max = filtered['rating'].max()
+        s_mean = filtered['sentiment_score'].mean()
+        print(f"[Consumer-Diag] Total: {total_count}, Rating: mean={r_mean:.2f} (min={r_min}, max={r_max}), Sentiment: mean={s_mean:.2f}", flush=True)
+
         # 1. Impact Score (Rating Lift)
-        avg_rating = filtered['rating'].mean()
+        avg_rating = r_mean
         if pd.isna(avg_rating): avg_rating = 3.0
         item_impact_score = round(avg_rating - 3.0, 2)
         
         # 2. Relative Sentiment Z-Score
-        target_mean_sent = filtered['sentiment_score'].mean()
+        target_mean_sent = s_mean
         if pd.isna(target_mean_sent): target_mean_sent = 0.5
         
         if GLOBAL_STD_SENTIMENT > 0:
@@ -1253,6 +1260,17 @@ async def analyze_consumer(item_id: str = Query(None, description="ASIN"), item_
             top_n=8, 
             threshold=impact_threshold_val
         )
+
+        # [Logic Fix] 긍정 키워드가 없지만 분석된 키워드 중 Impact Score 양수인 것이 있다면 "Soft Fallback"
+        if not diverging_keywords["positive"] and keywords_analysis:
+            # 0.02 이상인 것들을 찾아서 추가 (Impact Score가 아주 미세하게라도 양수인 것)
+            soft_positives = [k for k in keywords_analysis if k['impact_score'] > 0.02]
+            if soft_positives:
+                print(f"[Consumer] Soft Fallback: Found {len(soft_positives)} positive keywords (0.02 < score < {impact_threshold_val})", flush=True)
+                diverging_keywords["positive"] = sorted(
+                    soft_positives[:8],
+                    key=lambda x: -x["impact_score"]
+                )
         
         # ★ 긍정 키워드 보완: impact_score 방식으로 긍정이 안 나올 때
         #   -> 4-5점 리뷰에서만 별도 Bigram 추출하여 채움
