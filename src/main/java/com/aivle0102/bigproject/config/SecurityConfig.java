@@ -55,7 +55,7 @@ public class SecurityConfig {
                                                 .csrfTokenRequestHandler(requestHandler)
                                                 .ignoringRequestMatchers("/login/oauth2/code/**",
                                                                 "/oauth2/authorization/**", "/api/auth/**",
-                                                                "/ws/**"))
+                                                                "/ws/**", "/api/recipes"))
                                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                                 .sessionManagement(session -> session
                                                 .sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED))
