@@ -5,6 +5,10 @@ import com.aivle0102.bigproject.domain.ConsumerFeedback;
 import com.aivle0102.bigproject.domain.MarketReport;
 import com.aivle0102.bigproject.domain.VirtualConsumer;
 import com.aivle0102.bigproject.repository.ConsumerFeedbackRepository;
+import jakarta.annotation.PostConstruct;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
 import tools.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -18,12 +22,12 @@ public class EvaluationService {
     private final OpenAiClient openAiClient;
     private final ObjectMapper objectMapper;
     private final ConsumerFeedbackRepository consumerFeedbackRepository;
-    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(EvaluationService.class);
+    private static final Logger log = LoggerFactory.getLogger(EvaluationService.class);
 
-    @org.springframework.beans.factory.annotation.Value("${google.maps.api-key:dummy-google-maps-key}")
+    @Value("${google.maps.api-key:dummy-google-maps-key}")
     private String googleMapsApiKey;
 
-    @jakarta.annotation.PostConstruct
+    @PostConstruct
     public void init() {
         if (googleMapsApiKey == null || googleMapsApiKey.isEmpty() || googleMapsApiKey.contains("dummy")) {
             log.warn(
