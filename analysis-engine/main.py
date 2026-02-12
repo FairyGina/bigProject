@@ -675,53 +675,9 @@ def load_data_background():
             time.sleep(5)
     
     # [Fallback] If DB failed, try loading from local CSV
-    if df is None or df.empty:
-        print("⚠️ DB Load failed. Attempting to load from local CSV (Fallback)...", flush=True)
-        csv_path = 'cleaned_merged_export_trends.csv'
-        if not os.path.exists(csv_path):
-            parent_path = os.path.join('..', csv_path)
-            if os.path.exists(parent_path):
-                csv_path = parent_path
-        
-        if os.path.exists(csv_path):
-             try:
-                print(f"Fallback: Loading {csv_path}...", flush=True)
-                df = pd.read_csv(csv_path, low_memory=False, dtype={'period': str})
-                
-                # Basic Preprocessing for CSV
-                if 'period' in df.columns:
-                    def convert_period(val):
-                        try:
-                            if pd.isna(val) or val == '': return ''
-                            s = str(val).strip()
-                            parts = s.split('.')
-                            year = parts[0]
-                            if len(parts) > 1:
-                                month_part = parts[1]
-                                if len(month_part) == 2: month = month_part
-                                elif len(month_part) == 1: month = str(int(month_part) + 9).zfill(2)  # 1->10, 2->11, 3->12
-                                else: month = str(month_part)[:2].zfill(2)
-                            else: month = '01'
-                            return f"{year}-{month}"
-                        except: return ''
-                    df['period_str'] = df['period'].apply(convert_period)
-                    df = df.sort_values(by=['country_name', 'item_name', 'period_str'])
-                
-                numeric_targets = ['export_value', 'export_weight', 'unit_price', 'exchange_rate', 'gdp_level', 'cpi']
-                for col in numeric_targets:
-                    if col in df.columns:
-                        df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0)
-                        
-                print("Fallback CSV Loaded successfully.", flush=True)
-                
-                # Calculate Growth Matrix for CSV data too
-                growth_summary_df = calculate_growth_matrix(df)
-                print("Fallback Growth Matrix Calculated.", flush=True)
-             except Exception as e:
-                 print(f"Fallback CSV Load Failed: {e}", flush=True)
-
+    # [Fallback] Removed as per user request
     if df is None or df.empty: 
-        print("❌ Final: Could not load data after retries. App will run with empty state.", flush=True)
+        print("❌ Final: Could not load data after retries. App will run with empty state (No CSV Fallback).", flush=True)
         df = pd.DataFrame()
         growth_summary_df = pd.DataFrame()
 
