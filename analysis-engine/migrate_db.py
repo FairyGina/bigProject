@@ -186,7 +186,9 @@ def load_amazon_reviews():
             dietary_keywords JSONB,
             delivery_issues_semantic JSONB,
             repurchase_intent_hybrid BOOLEAN,
-            recommendation_intent_hybrid BOOLEAN
+            recommendation_intent_hybrid BOOLEAN,
+            price_sensitive NUMERIC,
+            semantic_top_dimension TEXT
         );
         CREATE INDEX IF NOT EXISTS idx_amazon_reviews_asin ON amazon_reviews (asin);
         CREATE INDEX IF NOT EXISTS idx_amazon_reviews_sentiment ON amazon_reviews (sentiment_score);
@@ -266,7 +268,9 @@ def load_amazon_reviews():
                 clean_json_field(row.get('dietary_keywords')),
                 clean_json_field(row.get('delivery_issues_semantic')),
                 repurchase,
-                recommend
+                recommend,
+                pd.to_numeric(row.get('price_sensitive'), errors='coerce'),
+                row.get('semantic_top_dimension')
             ))
             
         # [Diagnostic Log] 현재 청크의 데이터 분포 확인
@@ -282,7 +286,8 @@ def load_amazon_reviews():
         (asin, title, rating, original_text, cleaned_text, sentiment_score, 
          quality_issues_semantic, packaging_keywords, texture_terms, ingredients, 
          health_keywords, dietary_keywords, delivery_issues_semantic, 
-         repurchase_intent_hybrid, recommendation_intent_hybrid)
+         repurchase_intent_hybrid, recommendation_intent_hybrid,
+         price_sensitive, semantic_top_dimension)
         VALUES %s
         """
         execute_values(cur, insert_query, data_to_insert)

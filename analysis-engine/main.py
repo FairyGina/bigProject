@@ -1105,6 +1105,125 @@ async def analyze(country: str = Query(...), item: str = Query(...)):
         }
     }
 
+def generate_business_insights(df):
+    """
+    검색된 데이터(df)를 기반으로 비즈니스 의사결정용 심화 차트 4종을 생성합니다.
+    """
+    charts = {}
+
+    # [Chart 1] 평점 vs 실제 감성 점수 비교 (Review Reliability)
+    if 'sentiment_score' in df.columns and 'rating' in df.columns:
+        try:
+            sentiment_by_rating = df.groupby('rating')['sentiment_score'].mean().reset_index()
+            fig1 = px.bar(sentiment_by_rating, x='rating', y='sentiment_score',
+                          title="평점 대비 실제 감성 점수 (진정성 분석)",
+                          labels={'rating': '별점', 'sentiment_score': '평균 감성 점수'},
+                          color='sentiment_score', color_continuous_scale='Blues')
+            fig1.update_layout(template="plotly_white")
+            charts['sentiment_analysis'] = json.loads(fig1.to_json())
+        except Exception as e:
+            print(f"[Insights] Chart 1 Error: {e}")
+
+    # [Chart 2] 재구매 의도 저해 요인 분석 (Churn Drivers)
+    metrics = ['quality_issues_semantic', 'delivery_issues_semantic', 'price_sensitive']
+    metric_labels = {'quality_issues_semantic': '품질 이슈', 
+                     'delivery_issues_semantic': '배송 이슈', 
+                     'price_sensitive': '가격 민감도'}
+    
+    repurchase_data = []
+    for m in metrics:
+        if m in df.columns:
+            try:
+                # 리스트 컬럼(이슈 등)은 "이슈 유무"로 변환하여 그룹화
+                if m in ['quality_issues_semantic', 'delivery_issues_semantic']:
+                    def has_issue(x):
+                        if isinstance(x, list): return len(x) > 0
+                        if isinstance(x, str): return bool(x)
+                        return False
+                    condition = df[m].apply(has_issue)
+                else:
+                    condition = df[m].fillna(0).astype(bool)
+                
+                temp_df = pd.DataFrame({
+                    'Condition': condition,
+                    'repurchase_intent_hybrid': df['repurchase_intent_hybrid']
+                })
+                
+                group = temp_df.groupby('Condition')['repurchase_intent_hybrid'].mean().reset_index()
+                group.columns = ['Condition', 'Rate']
+                group['Factor'] = metric_labels[m]
+                
+                # True/False 매핑
+                group['Condition'] = group['Condition'].map({True: '이슈 있음', False: '이슈 없음'})
+                repurchase_data.append(group)
+            except Exception as e:
+                print(f"[Insights] Chart 2 Loop Error ({m}): {e}")
+    
+    if repurchase_data:
+        try:
+            rep_df = pd.concat(repurchase_data)
+            fig2 = px.bar(rep_df, x='Factor', y='Rate', color='Condition', barmode='group',
+                          title="이슈별 재구매 의도 변화 (이탈 요인 분석)",
+                          labels={'Rate': '재구매 의도 확률', 'Factor': '주요 요인'},
+                          color_discrete_map={'이슈 있음': '#EF553B', '이슈 없음': '#636EFA'})
+            fig2.update_layout(template="plotly_white")
+            charts['repurchase_drivers'] = json.loads(fig2.to_json())
+        except Exception as e:
+            print(f"[Insights] Chart 2 Build Error: {e}")
+
+
+    # [Chart 3] 주요 불만 유형별 평점 타격 (Rating Impact)
+    if 'semantic_top_dimension' in df.columns and 'rating' in df.columns:
+        try:
+            # None 제거
+            valid_df = df.dropna(subset=['semantic_top_dimension'])
+            if not valid_df.empty:
+                top_issues = valid_df['semantic_top_dimension'].value_counts().head(5).index
+                issue_ratings = valid_df[valid_df['semantic_top_dimension'].isin(top_issues)].groupby('semantic_top_dimension')['rating'].mean().reset_index().sort_values('rating')
+                
+                fig3 = px.bar(issue_ratings, x='rating', y='semantic_top_dimension', orientation='h',
+                              title="주요 이슈 유형별 평균 평점 (리스크 요인)",
+                              labels={'rating': '평균 별점', 'semantic_top_dimension': '이슈 유형'},
+                              color='rating', color_continuous_scale='Reds_r')
+                fig3.update_layout(template="plotly_white")
+                charts['issue_impact'] = json.loads(fig3.to_json())
+        except Exception as e:
+            print(f"[Insights] Chart 3 Error: {e}")
+
+    # [Chart 4] 긍정적 식감 키워드 TOP 10 (Texture Analysis)
+    def safe_parse(x):
+        try: 
+            if isinstance(x, list): return x
+            return ast.literal_eval(x)
+        except: return []
+
+    if 'texture_terms' in df.columns:
+        try:
+            temp_df = df.copy()
+            temp_df['texture_list'] = temp_df['texture_terms'].apply(safe_parse)
+            exploded = temp_df.explode('texture_list').dropna(subset=['texture_list'])
+            
+            if not exploded.empty:
+                texture_stats = exploded.groupby('texture_list').agg(
+                    count=('sentiment_score', 'count'),
+                    avg_sentiment=('sentiment_score', 'mean')
+                ).reset_index()
+                
+                # 빈도수 3회 이상인 것 중 (데이터 적을 수 있으므로 5->3 완화)
+                top_textures = texture_stats[texture_stats['count'] >= 3].sort_values('avg_sentiment', ascending=False).head(10)
+                
+                if not top_textures.empty:
+                    fig4 = px.bar(top_textures, x='avg_sentiment', y='texture_list', orientation='h',
+                                  title="고객이 선호하는 식감 키워드 Top 10",
+                                  labels={'avg_sentiment': '감성 점수', 'texture_list': '식감 표현'},
+                                  color='avg_sentiment', color_continuous_scale='Greens')
+                    fig4.update_layout(template="plotly_white")
+                    charts['texture_keywords'] = json.loads(fig4.to_json())
+        except Exception as e:
+            print(f"[Insights] Chart 4 Error: {e}")
+
+    return charts
+
 @app.get("/analyze/consumer")
 async def analyze_consumer(item_id: str = Query(None, description="ASIN"), item_name: str = Query(None, description="제품명/키워드")):
     
@@ -1790,7 +1909,7 @@ async def analyze_consumer(item_id: str = Query(None, description="ASIN"), item_
         text_pairing = []
         text_texture = []
 
-    return {
+    result = {
         "has_data": True,
         "search_term": item_name if item_name else item_id,
         "insights": insights_data,
@@ -1832,6 +1951,16 @@ async def analyze_consumer(item_id: str = Query(None, description="ASIN"), item_
             "marketing_matrix": json.loads(fig_marketing.to_json())
         }
     }
+
+    # [Added] Business Insights Charts Integration
+    try:
+        business_insights = generate_business_insights(filtered)
+        if "charts" in result:
+             result["charts"].update(business_insights)
+    except Exception as e:
+        print(f"Business Insights Generation Failed: {e}")
+
+    return result
 
 @app.get("/dashboard")
 async def dashboard():
