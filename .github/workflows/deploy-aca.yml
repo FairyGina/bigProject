@@ -65,7 +65,7 @@ jobs:
           docker build \
             --build-arg VITE_API_URL=/api \
             --build-arg VITE_CHATBOT_URL=https://bp-chatbot-app.wittysand-a0f4e87e.centralindia.azurecontainerapps.io \
-            --build-arg VITE_GOOGLE_MAPS_API_KEY=${{ secrets.GOOGLE_MAPS_API }} \
+            --build-arg VITE_GOOGLE_MAPS_API_KEY=${{ secrets.GOOGLE_MAPS_API_KEY }} \
             -t ${{ env.FRONTEND_ACR }}.azurecr.io/${{ env.FRONTEND_IMAGE_NAME }}:${{ github.sha }} \
             ./frontend
           docker push ${{ env.FRONTEND_ACR }}.azurecr.io/${{ env.FRONTEND_IMAGE_NAME }}:${{ github.sha }}
@@ -82,8 +82,7 @@ jobs:
           az containerapp update \
             --name ${{ env.BACKEND_APP_NAME }} \
             --resource-group ${{ env.RESOURCE_GROUP }} \
-            --image ${{ env.BACKEND_ACR }}.azurecr.io/${{ env.BACKEND_IMAGE_NAME }}:${{ github.sha }} \
-            --set-env-vars OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }} GOOGLE_MAPS_API=${{ secrets.GOOGLE_MAPS_API }}
+            --image ${{ env.BACKEND_ACR }}.azurecr.io/${{ env.BACKEND_IMAGE_NAME }}:${{ github.sha }}
 
       # 7. Frontend Container App 업데이트
       - name: Deploy Frontend to ACA
@@ -99,8 +98,7 @@ jobs:
           az containerapp update \
             --name ${{ env.ANALYSIS_APP_NAME }} \
             --resource-group ${{ env.RESOURCE_GROUP }} \
-            --image ${{ env.ANALYSIS_ACR }}.azurecr.io/${{ env.ANALYSIS_IMAGE_NAME }}:${{ github.sha }} \
-            --set-env-vars OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }} SERPAPI_API_KEY=${{ secrets.SERPAPI_API_KEY }}
+            --image ${{ env.ANALYSIS_ACR }}.azurecr.io/${{ env.ANALYSIS_IMAGE_NAME }}:${{ github.sha }}
 
       # 9. AI Chatbot 이미지 빌드 및 푸시
       - name: ACR Login for Chatbot
@@ -119,5 +117,4 @@ jobs:
           az containerapp update \
             --name ${{ env.CHATBOT_APP_NAME }} \
             --resource-group ${{ env.RESOURCE_GROUP }} \
-            --image ${{ env.CHATBOT_ACR }}.azurecr.io/${{ env.CHATBOT_IMAGE_NAME }}:${{ github.sha }} \
-            --set-env-vars OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }} API_BASE_URL=https://bp-backend-app.wittysand-a0f4e87e.centralindia.azurecontainerapps.io
+            --image ${{ env.CHATBOT_ACR }}.azurecr.io/${{ env.CHATBOT_IMAGE_NAME }}:${{ github.sha }}
