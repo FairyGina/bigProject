@@ -51,6 +51,9 @@ SPRING_URL = os.environ.get("SPRING_DATASOURCE_URL", "")
 _parsed_host, _parsed_port, _parsed_db = parse_spring_datasource_url(SPRING_URL)
 
 DB_HOST = _parsed_host or os.environ.get("DB_HOST", "db")
+if DB_HOST.startswith("@"):
+    print(f"⚠️ DB_HOST '{DB_HOST}' starts with '@'. Removing it to force TCP connection.", flush=True)
+    DB_HOST = DB_HOST.lstrip("@")
 DB_PORT = _parsed_port or os.environ.get("DB_PORT", "5432")
 DB_NAME = _parsed_db or os.environ.get("POSTGRES_DB", "bigproject")
 DB_USER = os.environ.get("SPRING_DATASOURCE_USERNAME") or os.environ.get("POSTGRES_USER", "postgres")
