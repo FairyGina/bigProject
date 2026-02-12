@@ -175,10 +175,38 @@ def parse_spring_datasource_url(url):
     """Parse jdbc:postgresql://host:port/database?params format"""
     if not url:
         return None, None, None
-    # Pattern: jdbc:postgresql://host:port/database
-    match = re.match(r'jdbc:postgresql://([^:]+):(\d+)/([^?]+)', url)
-    if match:
-        return match.group(1), match.group(2), match.group(3)
+    
+    # Remove jdbc: prefix if present
+    if url.startswith("jdbc:"):
+        url = url[5:]
+        
+    # Handle postgresql://host:port/database
+    if url.startswith("postgresql://"):
+        try:
+            # Pattern: postgresql://host:port/database
+            # Using simple string splitting to avoid complex regex issues
+            without_protocol = url.replace("postgresql://", "")
+            
+            # Split host:port and path
+            if "/" in without_protocol:
+                authority, path = without_protocol.split("/", 1)
+                db_name = path.split("?")[0] # Remove query params
+            else:
+                authority = without_protocol
+                db_name = "postgres" # Default
+
+            # Split host and port
+            if ":" in authority:
+                host, port = authority.split(":")
+            else:
+                host = authority
+                port = "5432"
+                
+            return host, port, db_name
+        except Exception as e:
+            print(f"⚠️ Failed to parse Spring URL '{url}': {e}")
+            return None, None, None
+            
     return None, None, None
 
 # Try Spring format first, fall back to legacy format
@@ -485,6 +513,61 @@ def get_diverging_keywords(keywords_analysis: List[Dict], top_n: int = 10, thres
     
     return {"negative": negative, "positive": positive}
 
+def calculate_growth_matrix(target_df):
+    """
+    Calculate Growth Matrix Summary from DataFrame
+    Returns a DataFrame with columns: ['country', 'item_csv_name', 'weight_growth', 'price_growth', 'total_value']
+    """
+    if target_df is None or target_df.empty:
+        return pd.DataFrame(columns=['country', 'item_csv_name', 'weight_growth', 'price_growth', 'total_value'])
+
+    print("Calculating Growth Matrix...", flush=True)
+    summaries = []
+    group_cols = ['country_code', 'item_name']
+    if 'country_code' not in target_df.columns:
+            group_cols = ['country_name', 'item_name']
+            
+    try:
+        grouped = target_df.groupby(group_cols)
+        for name, group in grouped:
+            if len(group) < 24: continue
+            group = group.sort_values('period_str')
+            recent_12 = group.tail(12)
+            prev_12 = group.iloc[-24:-12]
+            
+            weight_col = 'export_weight' if 'export_weight' in group.columns else None
+            if weight_col:
+                w_curr = recent_12[weight_col].sum()
+                w_prev = prev_12[weight_col].sum()
+            else: 
+                    w_curr = recent_12['export_value'].sum()
+                    w_prev = prev_12['export_value'].sum()
+
+            weight_growth = ((w_curr - w_prev) / w_prev * 100) if w_prev > 0 else 0
+            
+            p_curr = recent_12['unit_price'].mean()
+            p_prev = prev_12['unit_price'].mean()
+            price_growth = ((p_curr - p_prev) / p_prev * 100) if p_prev > 0 else 0
+            
+            total_value = recent_12['export_value'].sum()
+            
+            country_val = name[0]
+            # Try to map country code to name if possible for consistency, or vice versa
+            # The original code logic was a bit mixed. Let's standardize on storing what we have.
+            
+            summaries.append({
+                'country': country_val,
+                'item_csv_name': name[1],
+                'weight_growth': round(weight_growth, 1),
+                'price_growth': round(price_growth, 1),
+                'total_value': total_value
+            })
+        
+        return pd.DataFrame(summaries)
+    except Exception as e:
+        print(f"❌ Growth Matrix Calculation Failed: {e}", flush=True)
+        return pd.DataFrame(columns=['country', 'item_csv_name', 'weight_growth', 'price_growth', 'total_value'])
+
 import threading
 import time
 
@@ -547,44 +630,11 @@ def load_data_background():
                     numeric_cols = df.select_dtypes(include=[np.number]).columns
                     df[numeric_cols] = df[numeric_cols].fillna(0)
                     
+                    numeric_cols = df.select_dtypes(include=[np.number]).columns
+                    df[numeric_cols] = df[numeric_cols].fillna(0)
+                    
                     # Growth Matrix Calculation
-                    print("Calculating Growth Matrix...", flush=True)
-                    summaries = []
-                    group_cols = ['country_code', 'item_name']
-                    if 'country_code' not in df.columns:
-                            group_cols = ['country_name', 'item_name']
-                            
-                    grouped = df.groupby(group_cols)
-                    for name, group in grouped:
-                        if len(group) < 24: continue
-                        group = group.sort_values('period_str')
-                        recent_12 = group.tail(12)
-                        prev_12 = group.iloc[-24:-12]
-                        
-                        weight_col = 'export_weight' if 'export_weight' in group.columns else None
-                        if weight_col:
-                            w_curr = recent_12[weight_col].sum()
-                            w_prev = prev_12[weight_col].sum()
-                        else: 
-                                w_curr = recent_12['export_value'].sum()
-                                w_prev = prev_12['export_value'].sum()
-        
-                        weight_growth = ((w_curr - w_prev) / w_prev * 100) if w_prev > 0 else 0
-                        
-                        p_curr = recent_12['unit_price'].mean()
-                        p_prev = prev_12['unit_price'].mean()
-                        price_growth = ((p_curr - p_prev) / p_prev * 100) if p_prev > 0 else 0
-                        
-                        total_value = recent_12['export_value'].sum()
-                        
-                        summaries.append({
-                            'country': name[0] if 'country_code' in df.columns else COUNTRY_MAPPING.get(name[0], name[0]),
-                            'item_csv_name': name[1],
-                            'weight_growth': round(weight_growth, 1),
-                            'price_growth': round(price_growth, 1),
-                            'total_value': total_value
-                        })
-                    growth_summary_df = pd.DataFrame(summaries)
+                    growth_summary_df = calculate_growth_matrix(df)
                     print("Export Trends Loaded & Matrix Calculated.", flush=True)
                     
                     # 2. Global Consumer Stats (Only if step 1 success)
@@ -657,7 +707,11 @@ def load_data_background():
                     if col in df.columns:
                         df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0)
                         
-                print("Fallback CSV Loaded successfully. (Note: Growth Matrix not recalculated)", flush=True)
+                print("Fallback CSV Loaded successfully.", flush=True)
+                
+                # Calculate Growth Matrix for CSV data too
+                growth_summary_df = calculate_growth_matrix(df)
+                print("Fallback Growth Matrix Calculated.", flush=True)
              except Exception as e:
                  print(f"Fallback CSV Load Failed: {e}", flush=True)
 

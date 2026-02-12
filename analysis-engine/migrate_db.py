@@ -12,9 +12,38 @@ def parse_spring_datasource_url(url):
     """Parse jdbc:postgresql://host:port/database?params format"""
     if not url:
         return None, None, None
-    match = re.match(r'jdbc:postgresql://([^:]+):(\d+)/([^?]+)', url)
-    if match:
-        return match.group(1), match.group(2), match.group(3)
+    
+    # Remove jdbc: prefix if present
+    if url.startswith("jdbc:"):
+        url = url[5:]
+        
+    # Handle postgresql://host:port/database
+    if url.startswith("postgresql://"):
+        try:
+            # Pattern: postgresql://host:port/database
+            # Using simple string splitting to avoid complex regex issues
+            without_protocol = url.replace("postgresql://", "")
+            
+            # Split host:port and path
+            if "/" in without_protocol:
+                authority, path = without_protocol.split("/", 1)
+                db_name = path.split("?")[0] # Remove query params
+            else:
+                authority = without_protocol
+                db_name = "postgres" # Default
+
+            # Split host and port
+            if ":" in authority:
+                host, port = authority.split(":")
+            else:
+                host = authority
+                port = "5432"
+                
+            return host, port, db_name
+        except Exception as e:
+            print(f"⚠️ Failed to parse Spring URL '{url}': {e}")
+            return None, None, None
+            
     return None, None, None
 
 # Try Spring format first, fall back to legacy format
