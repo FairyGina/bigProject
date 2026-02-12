@@ -746,6 +746,16 @@ async def analyze(country: str = Query(...), item: str = Query(...)):
          
     csv_item_name = UI_TO_CSV_ITEM_MAPPING.get(item, item)
     print(f"[Analyze] Mapped: country_name={country_name}, country_code={country_code}, csv_item={csv_item_name}", flush=True)
+
+    # [Robustness] Check if data is loaded
+    if df is None or df.empty:
+         print("❌ [Analyze] Error: Data not loaded (df is empty or None).", flush=True)
+         raise HTTPException(status_code=503, detail="Analysis data is not available yet. System is retrying connection.")
+
+    # [Diagnostic] Check required columns
+    if 'country_name' not in df.columns or 'item_name' not in df.columns:
+        print(f"❌ [Analyze] Error: Missing required columns in df. Columns: {list(df.columns)}", flush=True)
+        raise HTTPException(status_code=500, detail="Server Data Error: Invalid Data Schema")
     
     # 데이터 필터링
     filtered = df[
