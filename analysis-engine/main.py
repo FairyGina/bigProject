@@ -191,6 +191,21 @@ DB_NAME = _parsed_db or os.environ.get("POSTGRES_DB", "bigproject")
 DB_USER = os.environ.get("SPRING_DATASOURCE_USERNAME") or os.environ.get("POSTGRES_USER", "postgres")
 DB_PASS = os.environ.get("SPRING_DATASOURCE_PASSWORD") or os.environ.get("POSTGRES_PASSWORD", "postgres")
 
+# ==========================================
+# [DIAGNOSTIC] Log Startup Configuration
+# ==========================================
+print("="*60)
+print(f"🚀 [Startup Config] Analysis Engine Starting...")
+print(f"   DB_HOST: {DB_HOST}")
+print(f"   DB_PORT: {DB_PORT}")
+print(f"   DB_NAME: {DB_NAME}")
+print(f"   DB_USER: {DB_USER}")
+# Mask Password
+masked_pass = "*" * len(DB_PASS) if DB_PASS else "NONE"
+print(f"   DB_PASS: {masked_pass}")
+print(f"   SSL_MODE: {os.environ.get('DB_SSLMODE', 'require')}")
+print("="*60)
+
 # SQLAlchemy Engine for pooled and stable connections
 def create_db_engine():
     try:
@@ -207,7 +222,8 @@ def create_db_engine():
         )
         return engine
     except Exception as e:
-        print(f"Failed to create DB engine: {e}")
+        print(f"❌ Failed to create DB engine: {e}")
+        print(f"   Params: host={DB_HOST}, port={DB_PORT}, db={DB_NAME}, user={DB_USER}")
         return None
 
 db_engine = create_db_engine()
@@ -224,7 +240,8 @@ def get_db_connection():
         )
         return conn
     except Exception as e:
-        print(f"DB Connection Failed: {e}")
+        print(f"❌ DB Connection Failed: {e}")
+        print(f"   Params: host={DB_HOST}, port={DB_PORT}, db={DB_NAME}, user={DB_USER}")
         return None
 
 # 국가 매핑
@@ -1997,7 +2014,10 @@ async def analyze_consumer(item_id: str = Query(None, description="ASIN"), item_
         if "charts" in result:
              result["charts"].update(business_insights)
     except Exception as e:
-        print(f"Business Insights Generation Failed: {e}")
+        if "charts" in result:
+             result["charts"].update(business_insights)
+    except Exception as e:
+        print(f"Business Insights Generation Failed: {e}", flush=True)
 
     return result
 

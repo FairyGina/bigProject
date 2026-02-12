@@ -37,6 +37,20 @@ def get_db_connection():
         sslmode=os.environ.get("DB_SSLMODE", "require")
     )
 
+# ==========================================
+# [DIAGNOSTIC] Log Migration Configuration
+# ==========================================
+print("="*60)
+print(f"🚀 [Migration Config] Starting Migration...")
+print(f"   DB_HOST: {DB_HOST}")
+print(f"   DB_PORT: {DB_PORT}")
+print(f"   DB_NAME: {DB_NAME}")
+print(f"   DB_USER: {DB_USER}")
+# Mask Password
+masked_pass = "*" * len(DB_PASS) if DB_PASS else "NONE"
+print(f"   DB_PASS: {masked_pass}")
+print("="*60)
+
 def load_export_trends():
     csv_path = "cleaned_merged_export_trends.csv"
     if not os.path.exists(csv_path):
@@ -303,4 +317,5 @@ if __name__ == "__main__":
         load_export_trends()
         load_amazon_reviews()
     except Exception as e:
-        print(f"Migration failed: {e}")
+        print(f"❌ Migration failed: {e}")
+        print(f"   Connection Details: host={DB_HOST}, port={DB_PORT}, db={DB_NAME}, user={DB_USER}")
