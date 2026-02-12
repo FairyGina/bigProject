@@ -6,3 +6,5 @@ scikit-learn==1.4.0
 numpy
 python-multipart
 psycopg2-binary==2.9.9
+sqlalchemy==2.0.25
+

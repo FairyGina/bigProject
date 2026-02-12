@@ -15,6 +15,8 @@ from contextlib import asynccontextmanager
 import os
 from sklearn.feature_extraction.text import CountVectorizer, ENGLISH_STOP_WORDS
 import psycopg2
+from sqlalchemy import create_engine, text
+
 
 # =========================================================
 # Insight Filtering Constants
@@ -188,6 +190,27 @@ DB_PORT = _parsed_port or os.environ.get("DB_PORT", "5432")
 DB_NAME = _parsed_db or os.environ.get("POSTGRES_DB", "bigproject")
 DB_USER = os.environ.get("SPRING_DATASOURCE_USERNAME") or os.environ.get("POSTGRES_USER", "postgres")
 DB_PASS = os.environ.get("SPRING_DATASOURCE_PASSWORD") or os.environ.get("POSTGRES_PASSWORD", "postgres")
+
+# SQLAlchemy Engine for pooled and stable connections
+def create_db_engine():
+    try:
+        # Construct SQLAlchemy URL
+        # Format: postgresql://user:password@host:port/dbname
+        conn_str = f"postgresql://{DB_USER}:{DB_PASS}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
+        
+        # Use pool_pre_ping=True to handle connection drops gracefully
+        engine = create_engine(
+            conn_str,
+            pool_pre_ping=True,
+            pool_recycle=300,
+            connect_args={"sslmode": os.environ.get("DB_SSLMODE", "require")}
+        )
+        return engine
+    except Exception as e:
+        print(f"Failed to create DB engine: {e}")
+        return None
+
+db_engine = create_db_engine()
 
 def get_db_connection():
     try:
@@ -462,17 +485,20 @@ def load_data_background():
             try:
                 # 1. Load Export Trends
                 print(f"Loading export_trends from DB (Attempt {i+1}/{max_retries})...", flush=True)
-                query = "SELECT * FROM export_trends"
-                
-                # [Fix] Use cursor directly to avoid Pandas/SQLAlchemy warning and potential hang
-                with conn.cursor() as cur:
-                    cur.execute(query)
-                    if cur.description:
-                        cols = [desc[0] for desc in cur.description]
-                        rows = cur.fetchall()
-                        temp_df = pd.DataFrame(rows, columns=cols)
-                    else:
-                        temp_df = pd.DataFrame()
+                # [Fix] Use SQLAlchemy Engine for stable loading
+                if db_engine:
+                    print(f"Loading export_trends from DB using SQLAlchemy (Attempt {i+1}/{max_retries})...", flush=True)
+                    temp_df = pd.read_sql("SELECT * FROM export_trends", db_engine)
+                else:
+                    # Fallback to plain psycopg2 if engine failed to init
+                    with conn.cursor() as cur:
+                        cur.execute(query)
+                        if cur.description:
+                            cols = [desc[0] for desc in cur.description]
+                            rows = cur.fetchall()
+                            temp_df = pd.DataFrame(rows, columns=cols)
+                        else:
+                            temp_df = pd.DataFrame()
 
                 print(f"Loaded {len(temp_df)} rows. Processing...", flush=True)
                 
@@ -1235,31 +1261,43 @@ async def analyze_consumer(item_id: str = Query(None, description="ASIN"), item_
             print(f"[Consumer] Remapping '{item_name}' to 'Kimchi' for sufficient data analysis.", flush=True)
             item_name = 'Kimchi'
     
-    conn = get_db_connection()
-    if not conn:
-         return JSONResponse(status_code=500, content={"has_data": False, "message": "Database Connection Error"})
-
+    # [Fix] Use SQLAlchemy Engine for stable search in cloud
     try:
-        # DB에서 직접 조회 (Memory Efficient)
-        if item_name:
-            query = """
-                SELECT * FROM amazon_reviews 
-                WHERE title ILIKE %s OR cleaned_text ILIKE %s OR original_text ILIKE %s
-            """
-            search_pattern = f"%{item_name}%"
-            filtered = pd.read_sql(query, conn, params=(search_pattern, search_pattern, search_pattern))
-            
-        elif item_id:
-            query = "SELECT * FROM amazon_reviews WHERE asin = %s"
-            filtered = pd.read_sql(query, conn, params=(item_id,))
+        if db_engine:
+            if item_name:
+                query = text("""
+                    SELECT * FROM amazon_reviews 
+                    WHERE title ILIKE :search OR cleaned_text ILIKE :search OR original_text ILIKE :search
+                """)
+                filtered = pd.read_sql(query, db_engine, params={"search": f"%{item_name}%"})
+            elif item_id:
+                query = text("SELECT * FROM amazon_reviews WHERE asin = :asin")
+                filtered = pd.read_sql(query, db_engine, params={"asin": item_id})
+            else:
+                filtered = pd.DataFrame()
         else:
-            filtered = pd.DataFrame()
+            # Fallback to legacy connection if engine is unavailable
+            conn = get_db_connection()
+            if not conn:
+                 return JSONResponse(status_code=500, content={"has_data": False, "message": "Database Connection Error"})
+            
+            if item_name:
+                query = """
+                    SELECT * FROM amazon_reviews 
+                    WHERE title ILIKE %s OR cleaned_text ILIKE %s OR original_text ILIKE %s
+                """
+                search_pattern = f"%{item_name}%"
+                filtered = pd.read_sql(query, conn, params=(search_pattern, search_pattern, search_pattern))
+            elif item_id:
+                query = "SELECT * FROM amazon_reviews WHERE asin = %s"
+                filtered = pd.read_sql(query, conn, params=(item_id,))
+            else:
+                filtered = pd.DataFrame()
+            conn.close()
             
     except Exception as e:
         print(f"[Consumer] Data Fetch Error: {e}", flush=True)
         filtered = pd.DataFrame()
-    finally:
-        conn.close()
 
     if filtered.empty:
         print(f"[Consumer] No data found for conditions: item_id={item_id}, item_name={item_name}", flush=True)
