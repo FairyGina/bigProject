@@ -362,87 +362,88 @@ const ConsumerAnalysisPage = () => {
                                     </div>
                                 </div>
                             </div>
+                        </div>
 
-                            {/* [Added] Business Strategy Insights Section */}
-                            {data.charts?.sentiment_analysis && (
-                                <div className="mt-8 pt-8 border-t border-[color:var(--border)]">
-                                    <h2 className="text-xl font-bold text-[color:var(--text)] mb-6 flex items-center gap-3">
-                                        <span className="p-2 bg-blue-500/10 rounded-lg text-blue-400">📊</span>
-                                        Business Strategy Insights
-                                    </h2>
-                                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                                        {/* Chart 1: Review Reliability */}
-                                        <div className="bg-[color:var(--surface)] p-6 rounded-2xl border border-[color:var(--border)] shadow-sm">
-                                            <h3 className="text-lg font-bold text-[color:var(--text)] mb-4">평점 vs 실제 감성 점수 (진정성 분석)</h3>
-                                            <div className="h-[400px]">
-                                                <Plot
-                                                    data={data.charts.sentiment_analysis?.data || []}
-                                                    layout={{ ...data.charts.sentiment_analysis?.layout, autosize: true, paper_bgcolor: 'rgba(0,0,0,0)', plot_bgcolor: 'rgba(0,0,0,0)', font: { color: 'var(--text-muted)' } }}
-                                                    style={{ width: '100%', height: '100%' }}
-                                                    config={{ responsive: true, displayModeBar: false }}
-                                                />
-                                            </div>
-                                            <p className="mt-4 text-xs text-[color:var(--text-muted)] italic">별점과 실제 리뷰 텍스트의 감성 일치도를 분석하여 허수 리뷰나 불만족 요인을 파악합니다.</p>
+                        {/* [Added] Business Strategy Insights Section */}
+                        {data.charts?.sentiment_analysis && (
+                            <div className="mt-8 pt-8 border-t border-[color:var(--border)]">
+                                <h2 className="text-xl font-bold text-[color:var(--text)] mb-6 flex items-center gap-3">
+                                    <span className="p-2 bg-blue-500/10 rounded-lg text-blue-400">📊</span>
+                                    Business Strategy Insights
+                                </h2>
+                                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                                    {/* Chart 1: Review Reliability */}
+                                    <div className="bg-[color:var(--surface)] p-6 rounded-2xl border border-[color:var(--border)] shadow-sm">
+                                        <h3 className="text-lg font-bold text-[color:var(--text)] mb-4">평점 vs 실제 감성 점수 (진정성 분석)</h3>
+                                        <div className="h-[400px]">
+                                            <Plot
+                                                data={data.charts.sentiment_analysis?.data || []}
+                                                layout={{ ...data.charts.sentiment_analysis?.layout, autosize: true, paper_bgcolor: 'rgba(0,0,0,0)', plot_bgcolor: 'rgba(0,0,0,0)', font: { color: 'var(--text-muted)' } }}
+                                                style={{ width: '100%', height: '100%' }}
+                                                config={{ responsive: true, displayModeBar: false }}
+                                            />
                                         </div>
+                                        <p className="mt-4 text-xs text-[color:var(--text-muted)] italic">별점과 실제 리뷰 텍스트의 감성 일치도를 분석하여 허수 리뷰나 불만족 요인을 파악합니다.</p>
+                                    </div>
 
-                                        {/* Chart 2: Churn Drivers */}
-                                        <div className="bg-[color:var(--surface)] p-6 rounded-2xl border border-[color:var(--border)] shadow-sm">
-                                            <h3 className="text-lg font-bold text-[color:var(--text)] mb-4">이슈별 재구매 의도 변화 (이탈 요인 분석)</h3>
-                                            <div className="h-[400px]">
-                                                <Plot
-                                                    data={data.charts.repurchase_drivers?.data || []}
-                                                    layout={{ ...data.charts.repurchase_drivers?.layout, autosize: true, paper_bgcolor: 'rgba(0,0,0,0)', plot_bgcolor: 'rgba(0,0,0,0)', font: { color: 'var(--text-muted)' } }}
-                                                    style={{ width: '100%', height: '100%' }}
-                                                    config={{ responsive: true, displayModeBar: false }}
-                                                />
-                                            </div>
-                                            <p className="mt-4 text-xs text-[color:var(--text-muted)] italic">어떤 품질/배송/가격 이슈가 고객의 재구매 심리에 가장 큰 타격을 주는지 확인합니다.</p>
+                                    {/* Chart 2: Churn Drivers */}
+                                    <div className="bg-[color:var(--surface)] p-6 rounded-2xl border border-[color:var(--border)] shadow-sm">
+                                        <h3 className="text-lg font-bold text-[color:var(--text)] mb-4">이슈별 재구매 의도 변화 (이탈 요인 분석)</h3>
+                                        <div className="h-[400px]">
+                                            <Plot
+                                                data={data.charts.repurchase_drivers?.data || []}
+                                                layout={{ ...data.charts.repurchase_drivers?.layout, autosize: true, paper_bgcolor: 'rgba(0,0,0,0)', plot_bgcolor: 'rgba(0,0,0,0)', font: { color: 'var(--text-muted)' } }}
+                                                style={{ width: '100%', height: '100%' }}
+                                                config={{ responsive: true, displayModeBar: false }}
+                                            />
                                         </div>
+                                        <p className="mt-4 text-xs text-[color:var(--text-muted)] italic">어떤 품질/배송/가격 이슈가 고객의 재구매 심리에 가장 큰 타격을 주는지 확인합니다.</p>
+                                    </div>
 
-                                        {/* Chart 3: Rating Impact */}
-                                        <div className="bg-[color:var(--surface)] p-6 rounded-2xl border border-[color:var(--border)] shadow-sm">
-                                            <h3 className="text-lg font-bold text-[color:var(--text)] mb-4">주요 이슈 유형별 평균 평점 (리스크 요인)</h3>
-                                            <div className="h-[400px]">
-                                                <Plot
-                                                    data={data.charts.issue_impact?.data || []}
-                                                    layout={{ ...data.charts.issue_impact?.layout, autosize: true, paper_bgcolor: 'rgba(0,0,0,0)', plot_bgcolor: 'rgba(0,0,0,0)', font: { color: 'var(--text-muted)' } }}
-                                                    style={{ width: '100%', height: '100%' }}
-                                                    config={{ responsive: true, displayModeBar: false }}
-                                                />
-                                            </div>
-                                            <p className="mt-4 text-xs text-[color:var(--text-muted)] italic">평균 별점을 깎아먹는 핵심 불만 유형을 시각화하여 우선순위 개선안을 도출합니다.</p>
+                                    {/* Chart 3: Rating Impact */}
+                                    <div className="bg-[color:var(--surface)] p-6 rounded-2xl border border-[color:var(--border)] shadow-sm">
+                                        <h3 className="text-lg font-bold text-[color:var(--text)] mb-4">주요 이슈 유형별 평균 평점 (리스크 요인)</h3>
+                                        <div className="h-[400px]">
+                                            <Plot
+                                                data={data.charts.issue_impact?.data || []}
+                                                layout={{ ...data.charts.issue_impact?.layout, autosize: true, paper_bgcolor: 'rgba(0,0,0,0)', plot_bgcolor: 'rgba(0,0,0,0)', font: { color: 'var(--text-muted)' } }}
+                                                style={{ width: '100%', height: '100%' }}
+                                                config={{ responsive: true, displayModeBar: false }}
+                                            />
                                         </div>
+                                        <p className="mt-4 text-xs text-[color:var(--text-muted)] italic">평균 별점을 깎아먹는 핵심 불만 유형을 시각화하여 우선순위 개선안을 도출합니다.</p>
+                                    </div>
 
-                                        {/* Chart 4: Texture Keywords */}
-                                        <div className="bg-[color:var(--surface)] p-6 rounded-2xl border border-[color:var(--border)] shadow-sm">
-                                            <h3 className="text-lg font-bold text-[color:var(--text)] mb-4">고객 선호 식감 키워드 Top 10</h3>
-                                            <div className="h-[400px]">
-                                                <Plot
-                                                    data={data.charts.texture_keywords?.data || []}
-                                                    layout={{ ...data.charts.texture_keywords?.layout, autosize: true, paper_bgcolor: 'rgba(0,0,0,0)', plot_bgcolor: 'rgba(0,0,0,0)', font: { color: 'var(--text-muted)' } }}
-                                                    style={{ width: '100%', height: '100%' }}
-                                                    config={{ responsive: true, displayModeBar: false }}
-                                                />
-                                            </div>
-                                            <p className="mt-4 text-xs text-[color:var(--text-muted)] italic">고객들이 긍정적으로 언급하는 식감 표현을 수집하여 제품 마케팅 포인트로 활용합니다.</p>
+                                    {/* Chart 4: Texture Keywords */}
+                                    <div className="bg-[color:var(--surface)] p-6 rounded-2xl border border-[color:var(--border)] shadow-sm">
+                                        <h3 className="text-lg font-bold text-[color:var(--text)] mb-4">고객 선호 식감 키워드 Top 10</h3>
+                                        <div className="h-[400px]">
+                                            <Plot
+                                                data={data.charts.texture_keywords?.data || []}
+                                                layout={{ ...data.charts.texture_keywords?.layout, autosize: true, paper_bgcolor: 'rgba(0,0,0,0)', plot_bgcolor: 'rgba(0,0,0,0)', font: { color: 'var(--text-muted)' } }}
+                                                style={{ width: '100%', height: '100%' }}
+                                                config={{ responsive: true, displayModeBar: false }}
+                                            />
                                         </div>
+                                        <p className="mt-4 text-xs text-[color:var(--text-muted)] italic">고객들이 긍정적으로 언급하는 식감 표현을 수집하여 제품 마케팅 포인트로 활용합니다.</p>
                                     </div>
                                 </div>
-                            )}
-                        </>
+                            </div>
+                        )}
+                    </>
                 )}
-                    </div>
             </div>
-            );
+        </div>
+    );
 };
 
-            // =============================================
-            // Insight Card Component
-            // =============================================
-            const InsightCard = ({type, icon, label, title, description, evidence, action, terms}) => {
+// =============================================
+// Insight Card Component
+// =============================================
+const InsightCard = ({ type, icon, label, title, description, evidence, action, terms }) => {
     const styles = {
-                critical: {
-                bg: 'bg-red-500/5',
+        critical: {
+            bg: 'bg-red-500/5',
             border: 'border-red-500/20',
             iconBg: 'bg-red-500/10',
             iconColor: 'text-red-500',
@@ -450,8 +451,8 @@ const ConsumerAnalysisPage = () => {
             termBg: 'bg-red-500/10',
             termText: 'text-red-400',
         },
-            winning: {
-                bg: 'bg-emerald-500/5',
+        winning: {
+            bg: 'bg-emerald-500/5',
             border: 'border-emerald-500/20',
             iconBg: 'bg-emerald-500/10',
             iconColor: 'text-emerald-500',
@@ -459,8 +460,8 @@ const ConsumerAnalysisPage = () => {
             termBg: 'bg-emerald-500/10',
             termText: 'text-emerald-400',
         },
-            niche: {
-                bg: 'bg-amber-500/5',
+        niche: {
+            bg: 'bg-amber-500/5',
             border: 'border-amber-500/20',
             iconBg: 'bg-amber-500/10',
             iconColor: 'text-amber-500',
@@ -470,74 +471,74 @@ const ConsumerAnalysisPage = () => {
         },
     };
 
-            const s = styles[type] || styles.niche;
+    const s = styles[type] || styles.niche;
 
-            return (
-            <div className={`${s.bg} p-5 rounded-2xl border ${s.border} flex flex-col h-full`}>
-                {/* Header */}
-                <div className="flex items-center gap-3 mb-3">
-                    <div className={`p-2 ${s.iconBg} rounded-xl ${s.iconColor}`}>{icon}</div>
-                    <span className={`text-xs font-bold uppercase tracking-wider ${s.labelColor}`}>{label}</span>
-                </div>
-                {/* Title */}
-                <h3 className="text-base font-bold text-[color:var(--text)] mb-2 leading-snug">{title}</h3>
-                {/* Description */}
-                <p className="text-sm text-[color:var(--text-muted)] mb-3 leading-relaxed">{description}</p>
-                {/* Evidence */}
-                <div className="bg-[color:var(--background)] p-3 rounded-lg mb-3">
-                    <p className="text-xs text-[color:var(--text-soft)] font-medium">📊 데이터 근거</p>
-                    <p className="text-xs text-[color:var(--text-muted)] mt-1">{evidence}</p>
-                </div>
-                {/* Action Item */}
-                {action && (
-                    <div className="bg-[color:var(--background)] p-3 rounded-lg mb-3">
-                        <p className="text-xs text-[color:var(--text-soft)] font-medium">💡 액션 아이템</p>
-                        <p className="text-xs text-[color:var(--text-muted)] mt-1">{action}</p>
-                    </div>
-                )}
-                {/* Related Terms */}
-                {terms && terms.length > 0 && (
-                    <div className="flex flex-wrap gap-1.5 mt-auto pt-2">
-                        {terms.slice(0, 5).map((t, i) => (
-                            <span key={i} className={`text-[10px] px-2 py-1 rounded-full ${s.termBg} ${s.termText} font-medium`}>
-                                {t.term || t.keyword} {t.count ? `(${t.count})` : t.mentions ? `(${t.mentions})` : ''}
-                            </span>
-                        ))}
-                    </div>
-                )}
+    return (
+        <div className={`${s.bg} p-5 rounded-2xl border ${s.border} flex flex-col h-full`}>
+            {/* Header */}
+            <div className="flex items-center gap-3 mb-3">
+                <div className={`p-2 ${s.iconBg} rounded-xl ${s.iconColor}`}>{icon}</div>
+                <span className={`text-xs font-bold uppercase tracking-wider ${s.labelColor}`}>{label}</span>
             </div>
-            );
+            {/* Title */}
+            <h3 className="text-base font-bold text-[color:var(--text)] mb-2 leading-snug">{title}</h3>
+            {/* Description */}
+            <p className="text-sm text-[color:var(--text-muted)] mb-3 leading-relaxed">{description}</p>
+            {/* Evidence */}
+            <div className="bg-[color:var(--background)] p-3 rounded-lg mb-3">
+                <p className="text-xs text-[color:var(--text-soft)] font-medium">📊 데이터 근거</p>
+                <p className="text-xs text-[color:var(--text-muted)] mt-1">{evidence}</p>
+            </div>
+            {/* Action Item */}
+            {action && (
+                <div className="bg-[color:var(--background)] p-3 rounded-lg mb-3">
+                    <p className="text-xs text-[color:var(--text-soft)] font-medium">💡 액션 아이템</p>
+                    <p className="text-xs text-[color:var(--text-muted)] mt-1">{action}</p>
+                </div>
+            )}
+            {/* Related Terms */}
+            {terms && terms.length > 0 && (
+                <div className="flex flex-wrap gap-1.5 mt-auto pt-2">
+                    {terms.slice(0, 5).map((t, i) => (
+                        <span key={i} className={`text-[10px] px-2 py-1 rounded-full ${s.termBg} ${s.termText} font-medium`}>
+                            {t.term || t.keyword} {t.count ? `(${t.count})` : t.mentions ? `(${t.mentions})` : ''}
+                        </span>
+                    ))}
+                </div>
+            )}
+        </div>
+    );
 };
 
-            // Helper Components
-            const MetricCard = ({label, value, trend, color}) => (
-            <div className="bg-[color:var(--background)] p-4 rounded-xl border border-[color:var(--border)] shadow-sm">
-                <p className="text-xs text-[color:var(--text-muted)] font-medium uppercase tracking-wider">{label}</p>
-                <p className={`text-2xl font-bold mt-1 ${color}`}>{value}</p>
-                <p className="text-[10px] text-[color:var(--text-soft)] mt-1">{trend}</p>
-            </div>
-            );
+// Helper Components
+const MetricCard = ({ label, value, trend, color }) => (
+    <div className="bg-[color:var(--background)] p-4 rounded-xl border border-[color:var(--border)] shadow-sm">
+        <p className="text-xs text-[color:var(--text-muted)] font-medium uppercase tracking-wider">{label}</p>
+        <p className={`text-2xl font-bold mt-1 ${color}`}>{value}</p>
+        <p className="text-[10px] text-[color:var(--text-soft)] mt-1">{trend}</p>
+    </div>
+);
 
-            const ChartCard = ({title, icon, children}) => (
-            <div className="bg-[color:var(--surface)] p-6 rounded-2xl shadow-lg border border-[color:var(--border)] flex flex-col h-[450px]">
-                <div className="flex items-center gap-3 mb-4">
-                    <div className="p-2 bg-[color:var(--surface-muted)] rounded-lg">
-                        {icon}
-                    </div>
-                    <h3 className="text-lg font-bold text-[color:var(--text)]">{title}</h3>
-                </div>
-                <div className="flex-1 min-h-0 relative">
-                    {children}
-                </div>
+const ChartCard = ({ title, icon, children }) => (
+    <div className="bg-[color:var(--surface)] p-6 rounded-2xl shadow-lg border border-[color:var(--border)] flex flex-col h-[450px]">
+        <div className="flex items-center gap-3 mb-4">
+            <div className="p-2 bg-[color:var(--surface-muted)] rounded-lg">
+                {icon}
             </div>
-            );
+            <h3 className="text-lg font-bold text-[color:var(--text)]">{title}</h3>
+        </div>
+        <div className="flex-1 min-h-0 relative">
+            {children}
+        </div>
+    </div>
+);
 
 const NoDataPlaceholder = () => (
-            <div className="h-[400px] flex flex-col items-center justify-center text-[color:var(--text-soft)] p-12 bg-[color:var(--surface-muted)]/30 rounded-xl border border-dashed border-[color:var(--border)]">
-                <AlertCircle size={48} className="mb-4 opacity-50" />
-                <p className="text-lg font-medium">분석할 키워드를 입력하세요.</p>
-                <p className="text-sm opacity-70">예: Gochujang, Kimchi, Ramen</p>
-            </div>
-            );
+    <div className="h-[400px] flex flex-col items-center justify-center text-[color:var(--text-soft)] p-12 bg-[color:var(--surface-muted)]/30 rounded-xl border border-dashed border-[color:var(--border)]">
+        <AlertCircle size={48} className="mb-4 opacity-50" />
+        <p className="text-lg font-medium">분석할 키워드를 입력하세요.</p>
+        <p className="text-sm opacity-70">예: Gochujang, Kimchi, Ramen</p>
+    </div>
+);
 
-            export default ConsumerAnalysisPage;
+export default ConsumerAnalysisPage;

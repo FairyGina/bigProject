@@ -486,9 +486,10 @@ def load_data_background():
                 # 1. Load Export Trends
                 print(f"Loading export_trends from DB (Attempt {i+1}/{max_retries})...", flush=True)
                 # [Fix] Use SQLAlchemy Engine for stable loading
+                query = "SELECT * FROM export_trends"
                 if db_engine:
                     print(f"Loading export_trends from DB using SQLAlchemy (Attempt {i+1}/{max_retries})...", flush=True)
-                    temp_df = pd.read_sql("SELECT * FROM export_trends", db_engine)
+                    temp_df = pd.read_sql(query, db_engine)
                 else:
                     # Fallback to plain psycopg2 if engine failed to init
                     with conn.cursor() as cur:
