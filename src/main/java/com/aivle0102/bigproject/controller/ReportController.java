@@ -174,6 +174,11 @@ public class ReportController {
         if (reports == null || reports.isEmpty()) {
             return null;
         }
+        String recommendedTitle = extractRecommendedTitle(content);
+        MarketReport matched = findReportByTitle(reports, recommendedTitle);
+        if (matched != null) {
+            return matched;
+        }
         String haystack = content == null ? "" : content.toLowerCase();
         for (MarketReport report : reports) {
             if (report == null || report.getRecipe() == null) {
@@ -188,6 +193,75 @@ public class ReportController {
                 .filter(r -> r != null && r.getRecipe() != null)
                 .findFirst()
                 .orElse(null);
+    }
+
+    private MarketReport findReportByTitle(List<MarketReport> reports, String title) {
+        if (reports == null || reports.isEmpty() || title == null || title.isBlank()) {
+            return null;
+        }
+        String normalizedTarget = normalizeTitle(title);
+        if (normalizedTarget.isBlank()) {
+            return null;
+        }
+        for (MarketReport report : reports) {
+            if (report == null || report.getRecipe() == null) {
+                continue;
+            }
+            String candidate = report.getRecipe().getRecipeName();
+            if (candidate == null || candidate.isBlank()) {
+                continue;
+            }
+            String normalizedCandidate = normalizeTitle(candidate);
+            if (normalizedCandidate.isBlank()) {
+                continue;
+            }
+            if (normalizedTarget.equals(normalizedCandidate)
+                    || normalizedTarget.contains(normalizedCandidate)
+                    || normalizedCandidate.contains(normalizedTarget)) {
+                return report;
+            }
+        }
+        return null;
+    }
+
+    private String normalizeTitle(String value) {
+        if (value == null) {
+            return "";
+        }
+        String trimmed = value.trim();
+        if (trimmed.isEmpty()) {
+            return "";
+        }
+        String normalized = trimmed.toLowerCase();
+        normalized = normalized.replaceAll("[\\s\\\"'\\[\\]\\(\\)]+", "");
+        return normalized;
+    }
+
+    private String extractRecommendedTitle(String content) {
+        if (content == null || content.isBlank()) {
+            return null;
+        }
+        String raw = content;
+        java.util.regex.Pattern pattern = java.util.regex.Pattern.compile(
+                "(?m)^\\s*1\\)\\s*최종\\s*추천\\s*레시피\\s*[:\\-]?\\s*(.+)$");
+        java.util.regex.Matcher matcher = pattern.matcher(raw);
+        if (!matcher.find()) {
+            return null;
+        }
+        String extracted = matcher.group(1);
+        if (extracted == null) {
+            return null;
+        }
+        String cleaned = extracted.trim();
+        if (cleaned.isEmpty()) {
+            return null;
+        }
+        cleaned = cleaned.replaceAll("\\s*\\(([^)]*)\\)\\s*$", "").trim();
+        cleaned = cleaned.replaceAll("^[-:\\s]+", "").trim();
+        if (cleaned.equalsIgnoreCase("n/a") || cleaned.equalsIgnoreCase("na") || cleaned.equalsIgnoreCase("없음")) {
+            return null;
+        }
+        return cleaned;
     }
 
     private String buildFinalSummary(List<MarketReport> reports) {

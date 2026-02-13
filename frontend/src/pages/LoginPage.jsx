@@ -126,7 +126,7 @@ const LoginPage = () => {
                         animate={{ opacity: 1, scale: 1 }}
                         className="w-full max-w-sm"
                     >
-                        <GlassCard className="p-8 text-center">
+                        <div className="p-8 text-center rounded-[2.5rem] bg-[color:var(--surface)] border border-[color:var(--border)] shadow-[0_30px_80px_var(--shadow-strong)]">
                             <h3 className="text-xl font-bold mb-3">로그인 제한</h3>
                             <p className="text-[color:var(--text-muted)] mb-6">
                                 로그인 실패가 5회 이상입니다. 비밀번호를 재설정해 주세요.
@@ -145,7 +145,7 @@ const LoginPage = () => {
                                     비밀번호 재설정
                                 </button>
                             </div>
-                        </GlassCard>
+                        </div>
                     </motion.div>
                 </div>
             )}
@@ -156,7 +156,7 @@ const LoginPage = () => {
                         animate={{ opacity: 1, scale: 1 }}
                         className="w-full max-w-sm"
                     >
-                        <GlassCard className="p-8 text-center">
+                        <div className="p-8 text-center rounded-[2.5rem] bg-[color:var(--surface)] border border-[color:var(--border)] shadow-[0_30px_80px_var(--shadow-strong)]">
                             <h3 className="text-xl font-bold mb-3">로그인 경고</h3>
                             <p className="text-[color:var(--text-muted)] mb-6">
                                 로그인 오류 횟수 {warningCount ?? 0}회 / 5회
@@ -177,7 +177,7 @@ const LoginPage = () => {
                                     확인
                                 </button>
                             </div>
-                        </GlassCard>
+                        </div>
                     </motion.div>
                 </div>
             )}

@@ -1,19 +1,23 @@
 package com.aivle0102.bigproject.service;
 
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Service;
+
 import com.aivle0102.bigproject.client.OpenAiClient;
 import com.aivle0102.bigproject.domain.ConsumerFeedback;
 import com.aivle0102.bigproject.domain.MarketReport;
 import com.aivle0102.bigproject.domain.VirtualConsumer;
 import com.aivle0102.bigproject.repository.ConsumerFeedbackRepository;
-import jakarta.annotation.PostConstruct;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Value;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import lombok.RequiredArgsConstructor;
-import org.springframework.stereotype.Service;
 
-import java.util.*;
+import jakarta.annotation.PostConstruct;
+import lombok.RequiredArgsConstructor;
 
 @Service
 @RequiredArgsConstructor
@@ -158,6 +162,10 @@ public class EvaluationService {
                 - 보고서에 근거한 평가만 작성
                 - 중요: 모든 국가에 대해 동일한 totalScore를 반환하지 마세요.
                 - 국가/연령대 차이를 반영해 점수를 다르게 주세요(가능하면 최소 5~15점 차이).
+                - 중요: 국가/페르소나별 점수 차이가 뚜렷하게 나도록 하세요. 60~80 구간에 몰리지 않게 합니다.
+                - 정당한 경우 넓은 범위를 사용하세요(예: 30~90). 적합도가 낮으면 20~40도 허용하고, 매우 높으면 80~95도 허용합니다.
+                - 네 가지 점수가 5점 이내로 다 비슷하게 나오지 않도록 하고, 페르소나의 우선순위에 따라 항목별 점수를 차등하세요.
+                - totalScore는 페르소나별 가중치를 반영해야 합니다(예: 가격 민감형이면 priceScore 비중을 더 크게, 건강 중시형이면 healthScore 비중을 더 크게).
                 """
 
                 .formatted(

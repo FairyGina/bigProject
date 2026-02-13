@@ -3,217 +3,19 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import axiosInstance from '../axiosConfig';
 
 const PALETTE = [
-    '#8a8075',
-    '#4f7c8a',
-    '#8a4f5f',
-    '#5f7a4f',
-    '#8a6f4f',
-    '#4f5f8a',
-    '#7a4f8a',
+    '#2ECC40', // green
+    '#0055CC', // blue
+    '#D62728', // red
+    '#9467BD', // purple
+    '#E67E22', // amber
+    '#E91E63', // pink/magenta
+    '#8C564B', // brown
+    '#7A9B00', // olive
+    '#7F7F7F', // gray
+    '#111111', // black
 ];
 
-const buildRadarPoints = (values, radius, center) => {
-    const angleStep = (Math.PI * 2) / values.length;
-    return values
-        .map((value, index) => {
-            const angle = -Math.PI / 2 + angleStep * index;
-            const r = (value / 100) * radius;
-            const x = center + r * Math.cos(angle);
-            const y = center + r * Math.sin(angle);
-            return `${x.toFixed(1)},${y.toFixed(1)}`;
-        })
-        .join(' ');
-};
-
-const buildLinePath = (values, xScale, yScale) => {
-    let path = '';
-    let started = false;
-    values.forEach((value, index) => {
-        if (!Number.isFinite(value)) {
-            started = false;
-            return;
-        }
-        const x = xScale(index);
-        const y = yScale(value);
-        if (!started) {
-            path += `M ${x} ${y}`;
-            started = true;
-        } else {
-            path += ` L ${x} ${y}`;
-        }
-    });
-    return path;
-};
-
-const normalizeReportContent = (value) => {
-    if (typeof value === 'string') {
-        return value.trim();
-    }
-    if (value == null) {
-        return '';
-    }
-    if (Array.isArray(value)) {
-        return value
-            .map((item) => normalizeReportContent(item))
-            .filter(Boolean)
-            .join('\n');
-    }
-    if (typeof value === 'object') {
-        if (typeof value.content === 'string') {
-            return value.content.trim();
-        }
-        if (typeof value.text === 'string') {
-            return value.text.trim();
-        }
-        if (typeof value.report === 'string') {
-            return value.report.trim();
-        }
-        if (value.report && typeof value.report.content === 'string') {
-            return value.report.content.trim();
-        }
-        try {
-            return JSON.stringify(value, null, 2);
-        } catch (err) {
-            return String(value);
-        }
-    }
-    return String(value);
-};
-
-const BarChart = ({ title, categories, series }) => {
-    const width = 520;
-    const height = 220;
-    const padding = { top: 18, right: 16, bottom: 42, left: 40 };
-    const plotWidth = width - padding.left - padding.right;
-    const plotHeight = height - padding.top - padding.bottom;
-    const allValues = series.flatMap((line) =>
-        line.values.filter((value) => Number.isFinite(value))
-    );
-    const rawMin = allValues.length ? Math.min(...allValues) : 0;
-    const rawMax = allValues.length ? Math.max(...allValues) : 100;
-    const pad = Math.max(2, Math.round((rawMax - rawMin) * 0.08));
-    const minY = Math.max(0, rawMin - pad);
-    const maxY = Math.min(100, rawMax + pad);
-    const yRange = Math.max(1, maxY - minY);
-    const yScale = (value) =>
-        padding.top + plotHeight - ((value - minY) / yRange) * plotHeight;
-    const xScale = (index) => {
-        if (categories.length <= 1) {
-            return padding.left + plotWidth / 2;
-        }
-        return padding.left + (index / (categories.length - 1)) * plotWidth;
-    };
-    const yTicks = Array.from({ length: 5 }, (_, i) =>
-        Math.round(minY + (yRange / 4) * i)
-    );
-    const groupWidth = categories.length ? plotWidth / categories.length : plotWidth;
-    const barGap = 6;
-    const barWidth = Math.max(
-        6,
-        Math.min(22, (groupWidth - barGap * 2) / Math.max(1, series.length))
-    );
-
-    return (
-        <div className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface-muted)] p-4">
-            <div className="flex flex-col gap-2 mb-3">
-                <p className="text-sm font-semibold text-[color:var(--text)]">{title}</p>
-                <div className="flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-[color:var(--text-muted)]">
-                    {series.map((line) => (
-                        <div key={`${line.key}-legend`} className="flex items-center gap-1.5">
-                            <span
-                                className="inline-block h-2 w-2 rounded-full"
-                                style={{ background: line.color }}
-                            />
-                            <span className="truncate max-w-[140px]">{line.name}</span>
-                        </div>
-                    ))}
-                </div>
-            </div>
-            {categories.length === 0 ? (
-                <p className="text-xs text-[color:var(--text-muted)]">국가별 점수 데이터가 없습니다.</p>
-            ) : (
-                <div className="w-full">
-                    <svg viewBox={`0 0 ${width} ${height}`} className="w-full h-auto">
-                        {yTicks.map((tick) => {
-                            const y = yScale(tick);
-                            return (
-                                <g key={tick}>
-                                    <line
-                                        x1={padding.left}
-                                        y1={y}
-                                        x2={width - padding.right}
-                                        y2={y}
-                                        stroke="rgba(0,0,0,0.08)"
-                                    />
-                                    <text
-                                        x={padding.left - 8}
-                                        y={y}
-                                        textAnchor="end"
-                                        dominantBaseline="middle"
-                                        fontSize="10"
-                                        fill="var(--text-muted)"
-                                    >
-                                        {tick}
-                                    </text>
-                                </g>
-                            );
-                        })}
-                        {categories.map((label, index) => {
-                            const x = xScale(index);
-                            return (
-                                <g key={label}>
-                                    <line
-                                        x1={x}
-                                        y1={padding.top}
-                                        x2={x}
-                                        y2={height - padding.bottom}
-                                        stroke="rgba(0,0,0,0.05)"
-                                    />
-                                    <text
-                                        x={x}
-                                        y={height - padding.bottom + 18}
-                                        textAnchor="middle"
-                                        dominantBaseline="middle"
-                                        fontSize="10"
-                                        fill="var(--text-muted)"
-                                    >
-                                        {label}
-                                    </text>
-                                </g>
-                            );
-                        })}
-                        {series.map((line, lineIndex) => (
-                            <g key={line.key}>
-                                {line.values.map((value, index) => {
-                                    if (!Number.isFinite(value)) {
-                                        return null;
-                                    }
-                                    const groupStart = padding.left + index * groupWidth + barGap;
-                                    const x = groupStart + lineIndex * barWidth;
-                                    const y = yScale(value);
-                                    const h = padding.top + plotHeight - y;
-                                    return (
-                                        <rect
-                                            key={`${line.key}-${index}`}
-                                            x={x}
-                                            y={y}
-                                            width={barWidth}
-                                            height={h}
-                                            rx="3"
-                                            fill={line.color}
-                                            opacity="0.9"
-                                        />
-                                    );
-                                })}
-                            </g>
-                        ))}
-                    </svg>
-                </div>
-            )}
-        </div>
-    );
-};
-
+// UI components
 const FinalEvaluationPage = () => {
     const location = useLocation();
     const navigate = useNavigate();
@@ -593,9 +395,11 @@ const FinalEvaluationPage = () => {
                                                 <polygon
                                                     key={item.recipeId || item.title}
                                                     points={buildRadarPoints(item.scores, 120, 160)}
-                                                    fill={`${PALETTE[index % PALETTE.length]}33`}
+                                                    fill={PALETTE[index % PALETTE.length]}
+                                                    fillOpacity="0.18"
                                                     stroke={PALETTE[index % PALETTE.length]}
                                                     strokeWidth="2"
+                                                    strokeLinejoin="round"
                                                 />
                                             ))}
                                         </svg>
@@ -655,6 +459,229 @@ const FinalEvaluationPage = () => {
             </div>
         </div>
     );
+};
+
+// Utilities
+const BAR_CHART_WIDTH = 520;
+const BAR_CHART_HEIGHT = 220;
+const BAR_CHART_PADDING = { top: 18, right: 16, bottom: 42, left: 40 };
+const BAR_CHART_TICK_COUNT = 5;
+const BAR_CHART_BAR_GAP = 6;
+const BAR_CHART_MIN_BAR = 6;
+const BAR_CHART_MAX_BAR = 22;
+const BAR_CHART_PAD_RATIO = 0.08;
+const BAR_CHART_MIN_PAD = 2;
+const BAR_CHART_DEFAULT_MIN = 0;
+const BAR_CHART_DEFAULT_MAX = 100;
+
+const RADAR_START_ANGLE = -Math.PI / 2;
+const PERCENT_DENOMINATOR = 100;
+const RADAR_POINT_DECIMALS = 1;
+
+const BarChart = ({ title, categories, series }) => {
+    const width = BAR_CHART_WIDTH;
+    const height = BAR_CHART_HEIGHT;
+    const padding = BAR_CHART_PADDING;
+    const plotWidth = width - padding.left - padding.right;
+    const plotHeight = height - padding.top - padding.bottom;
+    const allValues = series.flatMap((line) =>
+        line.values.filter((value) => Number.isFinite(value))
+    );
+    const rawMin = allValues.length ? Math.min(...allValues) : BAR_CHART_DEFAULT_MIN;
+    const rawMax = allValues.length ? Math.max(...allValues) : BAR_CHART_DEFAULT_MAX;
+    const pad = Math.max(BAR_CHART_MIN_PAD, Math.round((rawMax - rawMin) * BAR_CHART_PAD_RATIO));
+    const minY = Math.max(BAR_CHART_DEFAULT_MIN, rawMin - pad);
+    const maxY = Math.min(BAR_CHART_DEFAULT_MAX, rawMax + pad);
+    const yRange = Math.max(1, maxY - minY);
+    const yScale = (value) =>
+        padding.top + plotHeight - ((value - minY) / yRange) * plotHeight;
+    const xScale = (index) => {
+        if (categories.length <= 1) {
+            return padding.left + plotWidth / 2;
+        }
+        return padding.left + (index / (categories.length - 1)) * plotWidth;
+    };
+    const yTicks = Array.from({ length: BAR_CHART_TICK_COUNT }, (_, i) =>
+        Math.round(minY + (yRange / (BAR_CHART_TICK_COUNT - 1)) * i)
+    );
+    const groupWidth = categories.length ? plotWidth / categories.length : plotWidth;
+    const barGap = BAR_CHART_BAR_GAP;
+    const barWidth = Math.max(
+        BAR_CHART_MIN_BAR,
+        Math.min(
+            BAR_CHART_MAX_BAR,
+            (groupWidth - barGap * 2) / Math.max(1, series.length)
+        )
+    );
+
+    return (
+        <div className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface-muted)] p-4">
+            <div className="flex flex-col gap-2 mb-3">
+                <p className="text-sm font-semibold text-[color:var(--text)]">{title}</p>
+                <div className="flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-[color:var(--text-muted)]">
+                    {series.map((line) => (
+                        <div key={`${line.key}-legend`} className="flex items-center gap-1.5">
+                            <span
+                                className="inline-block h-2 w-2 rounded-full"
+                                style={{ background: line.color }}
+                            />
+                            <span className="truncate max-w-[140px]">{line.name}</span>
+                        </div>
+                    ))}
+                </div>
+            </div>
+            {categories.length === 0 ? (
+                <p className="text-xs text-[color:var(--text-muted)]">국가별 점수 데이터가 없습니다.</p>
+            ) : (
+                <div className="w-full">
+                    <svg viewBox={`0 0 ${width} ${height}`} className="w-full h-auto">
+                        {yTicks.map((tick) => {
+                            const y = yScale(tick);
+                            return (
+                                <g key={tick}>
+                                    <line
+                                        x1={padding.left}
+                                        y1={y}
+                                        x2={width - padding.right}
+                                        y2={y}
+                                        stroke="rgba(0,0,0,0.08)"
+                                    />
+                                    <text
+                                        x={padding.left - 8}
+                                        y={y}
+                                        textAnchor="end"
+                                        dominantBaseline="middle"
+                                        fontSize="10"
+                                        fill="var(--text-muted)"
+                                    >
+                                        {tick}
+                                    </text>
+                                </g>
+                            );
+                        })}
+                        {categories.map((label, index) => {
+                            const x = xScale(index);
+                            return (
+                                <g key={label}>
+                                    <line
+                                        x1={x}
+                                        y1={padding.top}
+                                        x2={x}
+                                        y2={height - padding.bottom}
+                                        stroke="rgba(0,0,0,0.05)"
+                                    />
+                                    <text
+                                        x={x}
+                                        y={height - padding.bottom + 18}
+                                        textAnchor="middle"
+                                        dominantBaseline="middle"
+                                        fontSize="10"
+                                        fill="var(--text-muted)"
+                                    >
+                                        {label}
+                                    </text>
+                                </g>
+                            );
+                        })}
+                        {series.map((line, lineIndex) => (
+                            <g key={line.key}>
+                                {line.values.map((value, index) => {
+                                    if (!Number.isFinite(value)) {
+                                        return null;
+                                    }
+                                    const groupStart = padding.left + index * groupWidth + barGap;
+                                    const x = groupStart + lineIndex * barWidth;
+                                    const y = yScale(value);
+                                    const h = padding.top + plotHeight - y;
+                                    return (
+                                        <rect
+                                            key={`${line.key}-${index}`}
+                                            x={x}
+                                            y={y}
+                                            width={barWidth}
+                                            height={h}
+                                            rx="3"
+                                            fill={line.color}
+                                            opacity="0.9"
+                                        />
+                                    );
+                                })}
+                            </g>
+                        ))}
+                    </svg>
+                </div>
+            )}
+        </div>
+    );
+};
+
+const buildRadarPoints = (values, radius, center) => {
+    const angleStep = (Math.PI * 2) / values.length;
+    return values
+        .map((value, index) => {
+            const angle = RADAR_START_ANGLE + angleStep * index;
+            const r = (value / PERCENT_DENOMINATOR) * radius;
+            const x = center + r * Math.cos(angle);
+            const y = center + r * Math.sin(angle);
+            return `${x.toFixed(RADAR_POINT_DECIMALS)},${y.toFixed(RADAR_POINT_DECIMALS)}`;
+        })
+        .join(' ');
+};
+
+const buildLinePath = (values, xScale, yScale) => {
+    let path = '';
+    let started = false;
+    values.forEach((value, index) => {
+        if (!Number.isFinite(value)) {
+            started = false;
+            return;
+        }
+        const x = xScale(index);
+        const y = yScale(value);
+        if (!started) {
+            path += `M ${x} ${y}`;
+            started = true;
+        } else {
+            path += ` L ${x} ${y}`;
+        }
+    });
+    return path;
+};
+
+const normalizeReportContent = (value) => {
+    if (value == null) {
+        return '';
+    }
+    if (typeof value === 'string') {
+        return value.trim();
+    }
+    if (Array.isArray(value)) {
+        return value
+            .map((item) => normalizeReportContent(item))
+            .filter(Boolean)
+            .join('\n');
+    }
+    if (typeof value === 'object') {
+        // Backend 응답 포맷이 섞여 들어오는 경우를 흡수
+        if (typeof value.content === 'string') {
+            return value.content.trim();
+        }
+        if (typeof value.text === 'string') {
+            return value.text.trim();
+        }
+        if (typeof value.report === 'string') {
+            return value.report.trim();
+        }
+        if (value.report && typeof value.report.content === 'string') {
+            return value.report.content.trim();
+        }
+        try {
+            return JSON.stringify(value, null, 2);
+        } catch (err) {
+            return String(value);
+        }
+    }
+    return String(value);
 };
 
 export default FinalEvaluationPage;
