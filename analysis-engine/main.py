@@ -2102,6 +2102,36 @@ async def analyze_consumer(item_id: str = Query(None, description="ASIN"), item_
 
     return result
 
+@app.get("/debug/db-check")
+async def debug_db_check():
+    """브라우저에서 DB 테이블과 데이터 개수를 즉시 확인"""
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+        
+        # 1. 테이블 존재 여부 확인
+        cur.execute("SELECT table_name FROM information_schema.tables WHERE table_schema = 'public'")
+        tables = [r[0] for r in cur.fetchall()]
+        
+        # 2. 데이터 개수 확인
+        data_counts = {}
+        for table in tables:
+            cur.execute(f"SELECT count(*) FROM {table}")
+            data_counts[table] = cur.fetchone()[0]
+        
+        # 3. Kimchi 데이터가 실제로 있는지 확인
+        cur.execute("SELECT count(*) FROM amazon_reviews WHERE title ILIKE '%Kimchi%'")
+        kimchi_count = cur.fetchone()[0]
+        
+        conn.close()
+        return {
+            "tables": tables,
+            "counts": data_counts,
+            "kimchi_search_test": f"{kimchi_count} rows found for 'Kimchi'"
+        }
+    except Exception as e:
+        return {"error": str(e)}
+
 @app.get("/dashboard")
 async def dashboard():
     if df is None or df.empty:
