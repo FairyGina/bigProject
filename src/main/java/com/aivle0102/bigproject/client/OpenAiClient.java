@@ -23,7 +23,7 @@ public class OpenAiClient {
 
     @SuppressWarnings("unchecked")
     public String chatCompletion(Map<String, Object> body) {
-        log.debug("Calling OpenAI API with body: {}", body);
+        // log.debug("Calling OpenAI API with body: {}", body);
 
         return openAiWebClient.post()
                 .uri("/chat/completions")
@@ -49,7 +49,8 @@ public class OpenAiClient {
                     Map<String, Object> message = (Map<String, Object>) choices.get(0).get("message");
 
                     String content = message.get("content").toString();
-                    log.debug("OpenAI API Response content received (length: {})", content.length());
+                    // log.debug("OpenAI API Response content received (length: {})",
+                    // content.length());
                     return content;
                 })
                 .block();

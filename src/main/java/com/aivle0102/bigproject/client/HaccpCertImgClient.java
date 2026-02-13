@@ -40,7 +40,7 @@ public class HaccpCertImgClient {
                 .build()
                 .toUriString();
 
-        System.out.println("[HACCP 주소] " + maskServiceKey(url));
+        // System.out.println("[HACCP 주소] " + maskServiceKey(url));
 
         ResponseEntity<String> resp = restTemplate.getForEntity(url, String.class);
 
@@ -67,7 +67,7 @@ public class HaccpCertImgClient {
                 .build()
                 .toUriString();
 
-        System.out.println("[HACCP 주소] " + maskServiceKey(url));
+        // System.out.println("[HACCP 주소] " + maskServiceKey(url));
 
         ResponseEntity<String> resp = restTemplate.getForEntity(url, String.class);
 
@@ -85,7 +85,8 @@ public class HaccpCertImgClient {
 
     private String maskServiceKey(String url) {
         int idx = url.indexOf("ServiceKey=");
-        if (idx < 0) return url;
+        if (idx < 0)
+            return url;
         return url.substring(0, idx + "ServiceKey=".length()) + "***";
     }
 }

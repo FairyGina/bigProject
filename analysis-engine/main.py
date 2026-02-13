@@ -743,7 +743,7 @@ async def get_items():
 async def analyze(country: str = Query(...), item: str = Query(...)):
     
     # [Debug] Log incoming request
-    print(f"[Analyze] Request: country={country}, item={item}", flush=True)
+    # print(f"[Analyze] Request: country={country}, item={item}", flush=True)
     
     # 1. 매핑 및 유효성 검사
     country_name = REVERSE_MAPPING.get(country, country) # 코드(US) -> 이름(미국)
@@ -754,7 +754,7 @@ async def analyze(country: str = Query(...), item: str = Query(...)):
          country_code = country # 입력이 코드(US)면 그대로
          
     csv_item_name = UI_TO_CSV_ITEM_MAPPING.get(item, item)
-    print(f"[Analyze] Mapped: country_name={country_name}, country_code={country_code}, csv_item={csv_item_name}", flush=True)
+    # print(f"[Analyze] Mapped: country_name={country_name}, country_code={country_code}, csv_item={csv_item_name}", flush=True)
 
     # [Robustness] Check if data is loaded
     if df is None or df.empty:
@@ -772,10 +772,10 @@ async def analyze(country: str = Query(...), item: str = Query(...)):
         (df['item_name'] == csv_item_name)
     ].copy()
     
-    print(f"[Analyze] Filtered rows: {len(filtered)}", flush=True)
+    # print(f"[Analyze] Filtered rows: {len(filtered)}", flush=True)
     
     if filtered.empty or (filtered['export_value'].sum() == 0):
-        print(f"[Analyze] No data found for {country_name} - {csv_item_name}", flush=True)
+        # print(f"[Analyze] No data found for {country_name} - {csv_item_name}", flush=True)
         return {"has_data": False}
 
     # 날짜순 정렬 (period_str: 2022.01, 2022.1 등 혼용 대응)
@@ -1408,7 +1408,7 @@ async def analyze_consumer(item_id: str = Query(None, description="ASIN"), item_
         print(f"[Consumer] No data found for conditions: item_id={item_id}, item_name={item_name}", flush=True)
         return {"has_data": False, "message": "해당 조건의 데이터가 없습니다."}
     
-    print(f"[Consumer] Found {len(filtered)} rows", flush=True)
+    # print(f"[Consumer] Found {len(filtered)} rows", flush=True)
 
     try:
         # === [중요] 데이터 결측치 처리 및 대체 로직 ===
@@ -1460,8 +1460,8 @@ async def analyze_consumer(item_id: str = Query(None, description="ASIN"), item_
         s_mean = filtered['sentiment_score'].mean()
         s_std = filtered['sentiment_score'].std()
         
-        print(f"[Consumer-Diag] Total: {total_count}, Rating: mean={r_mean:.2f}, std={r_std:.2f}, min={r_min}, max={r_max}", flush=True)
-        print(f"[Consumer-Diag] Sentiment: mean={s_mean:.2f}, std={s_std:.2f}", flush=True)
+        # print(f"[Consumer-Diag] Total: {total_count}, Rating: mean={r_mean:.2f}, std={r_std:.2f}, min={r_min}, max={r_max}", flush=True)
+        # print(f"[Consumer-Diag] Sentiment: mean={s_mean:.2f}, std={s_std:.2f}", flush=True)
 
         # [Self-Healing] Detect invalid ratings (e.g., all 3.0 or 0 variance despite sentiment variance)
         # If rating variance is near 0 but sentiment variance is healthy, backfill rating from sentiment.
