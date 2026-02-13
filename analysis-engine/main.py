@@ -1192,7 +1192,7 @@ def generate_business_insights(df):
     # [Chart 1] 평점 vs 실제 감성 점수 비교 (Review Reliability)
     if 'sentiment_score' in df.columns and 'rating' in df.columns:
         try:
-            sentiment_by_rating = df.groupby('rating')['sentiment_score'].mean().reset_index()
+            sentiment_by_rating = df.groupby('rating')['sentiment_score'].mean().round(2).reset_index()
             fig1 = px.bar(sentiment_by_rating, x='rating', y='sentiment_score',
                           title="평점 대비 실제 감성 점수 (진정성 분석)",
                           labels={'rating': '별점', 'sentiment_score': '평균 감성 점수'},
@@ -1215,10 +1215,19 @@ def generate_business_insights(df):
                 # 리스트 컬럼(이슈 등)은 "이슈 유무"로 변환하여 그룹화
                 if m in ['quality_issues_semantic', 'delivery_issues_semantic']:
                     def has_issue(x):
-                        if isinstance(x, bool): return x 
+                        # 1. 결측치(None, NaN) 체크
+                        if x is None or pd.isna(x): return False
+                        
+                        # 2. 리스트 타입 체크 (빈 리스트면 False)
                         if isinstance(x, list): return len(x) > 0
-                        if isinstance(x, str): return bool(x)
-                        return False
+                        
+                        # 3. 문자열 타입 체크 ('False'라는 텍스트면 False)
+                        if isinstance(x, str):
+                            if x.lower() == 'false': return False
+                            return bool(x)
+                            
+                        # 4. 그 외(Boolean, Numpy Bool, Int 등)는 파이썬 기본 로직으로 판별
+                        return bool(x)
                     condition = df[m].apply(has_issue)
                 else:
                     condition = df[m].fillna(0).astype(bool)
@@ -1228,7 +1237,7 @@ def generate_business_insights(df):
                     'repurchase_intent_hybrid': df['repurchase_intent_hybrid']
                 })
                 
-                group = temp_df.groupby('Condition')['repurchase_intent_hybrid'].mean().reset_index()
+                group = temp_df.groupby('Condition')['repurchase_intent_hybrid'].mean().round(2).reset_index()
                 group.columns = ['Condition', 'Rate']
                 group['Factor'] = metric_labels[m]
                 
@@ -1258,7 +1267,7 @@ def generate_business_insights(df):
             valid_df = df.dropna(subset=['semantic_top_dimension'])
             if not valid_df.empty:
                 top_issues = valid_df['semantic_top_dimension'].value_counts().head(5).index
-                issue_ratings = valid_df[valid_df['semantic_top_dimension'].isin(top_issues)].groupby('semantic_top_dimension')['rating'].mean().reset_index().sort_values('rating')
+                issue_ratings = valid_df[valid_df['semantic_top_dimension'].isin(top_issues)].groupby('semantic_top_dimension')['rating'].mean().round(2).reset_index().sort_values('rating')
                 
                 fig3 = px.bar(issue_ratings, x='rating', y='semantic_top_dimension', orientation='h',
                               title="주요 이슈 유형별 평균 평점 (리스크 요인)",
@@ -1289,7 +1298,7 @@ def generate_business_insights(df):
                 ).reset_index()
                 
                 # 빈도수 3회 이상인 것 중 (데이터 적을 수 있으므로 5->3 완화)
-                top_textures = texture_stats[texture_stats['count'] >= 3].sort_values('avg_sentiment', ascending=False).head(10)
+                top_textures = texture_stats[texture_stats['count'] >= 3].sort_values('avg_sentiment', ascending=False).head(10).round(2)
                 
                 if not top_textures.empty:
                     fig4 = px.bar(top_textures, x='avg_sentiment', y='texture_list', orientation='h',
