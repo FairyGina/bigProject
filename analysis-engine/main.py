@@ -16,6 +16,7 @@ import os
 from sklearn.feature_extraction.text import CountVectorizer, ENGLISH_STOP_WORDS
 import psycopg2
 from sqlalchemy import create_engine, text
+from urllib.parse import quote_plus
 
 
 # =========================================================
@@ -220,7 +221,18 @@ if DB_HOST.startswith("@"):
     DB_HOST = DB_HOST.lstrip("@")
 
 DB_PORT = _parsed_port or os.environ.get("DB_PORT", "5432")
-DB_NAME = _parsed_db or os.environ.get("POSTGRES_DB", "bigproject")
+
+# [Azure Fix] Prefer POSTGRES_DB env var if parsed DB is default 'postgres'
+# This handles the case where Azure sets SPRING_DATASOURCE_URL to .../postgres but we need .../bigproject
+env_db_name = os.environ.get("POSTGRES_DB", "bigproject")
+if _parsed_db and _parsed_db != 'postgres':
+    DB_NAME = _parsed_db
+else:
+    DB_NAME = env_db_name
+
+if _parsed_db == 'postgres' and DB_NAME != 'postgres':
+    print(f"⚠️ Overriding parsed DB name 'postgres' with '{DB_NAME}' from POSTGRES_DB environment variable.", flush=True)
+
 DB_USER = os.environ.get("SPRING_DATASOURCE_USERNAME") or os.environ.get("POSTGRES_USER", "postgres")
 DB_PASS = os.environ.get("SPRING_DATASOURCE_PASSWORD") or os.environ.get("POSTGRES_PASSWORD", "postgres")
 
@@ -244,7 +256,10 @@ def create_db_engine():
     try:
         # Construct SQLAlchemy URL
         # Format: postgresql://user:password@host:port/dbname
-        conn_str = f"postgresql://{DB_USER}:{DB_PASS}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
+        # [Fix] URL encode credentials to handle special characters (e.g. '@')
+        encoded_user = quote_plus(DB_USER)
+        encoded_pass = quote_plus(DB_PASS)
+        conn_str = f"postgresql://{encoded_user}:{encoded_pass}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
         
         # Use pool_pre_ping=True to handle connection drops gracefully
         engine = create_engine(
