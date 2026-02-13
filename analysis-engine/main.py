@@ -1215,6 +1215,7 @@ def generate_business_insights(df):
                 # 리스트 컬럼(이슈 등)은 "이슈 유무"로 변환하여 그룹화
                 if m in ['quality_issues_semantic', 'delivery_issues_semantic']:
                     def has_issue(x):
+                        if isinstance(x, bool): return x 
                         if isinstance(x, list): return len(x) > 0
                         if isinstance(x, str): return bool(x)
                         return False

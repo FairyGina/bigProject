@@ -515,7 +515,7 @@ const BarChart = ({ title, categories, series }) => {
     );
 
     return (
-        <div className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface-muted)] p-4">
+        <div className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface)] p-4">
             <div className="flex flex-col gap-2 mb-3">
                 <p className="text-sm font-semibold text-[color:var(--text)]">{title}</p>
                 <div className="flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-[color:var(--text-muted)]">
@@ -602,7 +602,7 @@ const BarChart = ({ title, categories, series }) => {
                                             height={h}
                                             rx="3"
                                             fill={line.color}
-                                            opacity="0.9"
+                                            opacity="1.0"
                                         />
                                     );
                                 })}

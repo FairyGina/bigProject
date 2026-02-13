@@ -10,7 +10,7 @@ const Skeleton = ({ className }) => (
 const ConsumerAnalysisPage = () => {
     const [loading, setLoading] = useState(false);
     const [data, setData] = useState(null);
-    const [searchTerm, setSearchTerm] = useState('Kimchi');
+    const [searchTerm, setSearchTerm] = useState('Pizza');
     const [error, setError] = useState(null);
     const [showMetrics, setShowMetrics] = useState(false);
     const [showDetailCharts, setShowDetailCharts] = useState(false);
@@ -79,7 +79,7 @@ const ConsumerAnalysisPage = () => {
                                     type="text"
                                     value={searchTerm}
                                     onChange={(e) => setSearchTerm(e.target.value)}
-                                    placeholder="e.g., Gochujang, Kimchi, Ramen (키워드 검색)"
+                                    placeholder="e.g., Pizza, Gochujang, Ramen (키워드 검색)"
                                     className="w-full pl-4 pr-4 py-3 bg-[color:var(--background)] border border-[color:var(--border)] rounded-xl focus:ring-2 focus:ring-pink-500 focus:border-pink-500 transition-all text-[color:var(--text)] outline-none"
                                 />
                             </div>
@@ -537,7 +537,7 @@ const NoDataPlaceholder = () => (
     <div className="h-[400px] flex flex-col items-center justify-center text-[color:var(--text-soft)] p-12 bg-[color:var(--surface-muted)]/30 rounded-xl border border-dashed border-[color:var(--border)]">
         <AlertCircle size={48} className="mb-4 opacity-50" />
         <p className="text-lg font-medium">분석할 키워드를 입력하세요.</p>
-        <p className="text-sm opacity-70">예: Gochujang, Kimchi, Ramen</p>
+        <p className="text-sm opacity-70">예: Pizza, Gochujang, Ramen</p>
     </div>
 );
 
