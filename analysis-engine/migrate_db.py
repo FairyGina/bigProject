@@ -267,7 +267,16 @@ def load_amazon_reviews():
         """)
         conn.commit()
         
-        # Check Force Migrate
+        # [Schema Update] Ensure new columns exist for existing tables
+        try:
+            cur.execute("ALTER TABLE amazon_reviews ADD COLUMN IF NOT EXISTS price_sensitive NUMERIC;")
+            cur.execute("ALTER TABLE amazon_reviews ADD COLUMN IF NOT EXISTS semantic_top_dimension TEXT;")
+            conn.commit()
+        except Exception as e:
+            print(f"⚠️ Schema update warning: {e}")
+            conn.rollback()
+
+        # Check existing data
         FORCE_MIGRATE = os.environ.get("FORCE_MIGRATE", "false").lower() == "true"
         cur.execute("SELECT COUNT(*) FROM amazon_reviews")
         count = cur.fetchone()[0]
