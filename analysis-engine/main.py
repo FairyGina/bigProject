@@ -222,16 +222,10 @@ if DB_HOST.startswith("@"):
 
 DB_PORT = _parsed_port or os.environ.get("DB_PORT", "5432")
 
-# [Azure Fix] Prefer POSTGRES_DB env var if parsed DB is default 'postgres'
-# This handles the case where Azure sets SPRING_DATASOURCE_URL to .../postgres but we need .../bigproject
-env_db_name = os.environ.get("POSTGRES_DB", "bigproject")
-if _parsed_db and _parsed_db != 'postgres':
-    DB_NAME = _parsed_db
-else:
-    DB_NAME = env_db_name
 
-if _parsed_db == 'postgres' and DB_NAME != 'postgres':
-    print(f"⚠️ Overriding parsed DB name 'postgres' with '{DB_NAME}' from POSTGRES_DB environment variable.", flush=True)
+# [Azure Fix] Prefer parsed DB name directly to respect Azure configuration
+# (Reverted forced override logic as user confirmed previous setup worked)
+DB_NAME = _parsed_db or os.environ.get("POSTGRES_DB", "bigproject")
 
 DB_USER = os.environ.get("SPRING_DATASOURCE_USERNAME") or os.environ.get("POSTGRES_USER", "postgres")
 DB_PASS = os.environ.get("SPRING_DATASOURCE_PASSWORD") or os.environ.get("POSTGRES_PASSWORD", "postgres")
