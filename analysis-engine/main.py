@@ -1302,6 +1302,41 @@ def generate_business_insights(df):
 
     return charts
 
+
+def extract_improvement_priorities(df):
+    """부정 리뷰(Rating <= 3)에서 주요 키워드 추출하여 개선 우선순위 제안"""
+    # 3점 이하를 부정으로 간주
+    negative_df = df[df['rating'] <= 3]
+    if negative_df.empty:
+        return []
+    
+    # quality_issues_semantic 컬럼 활용
+    issues = []
+    if 'quality_issues_semantic' in negative_df.columns:
+        for items in negative_df['quality_issues_semantic']:
+            try:
+                # items는 JSON string 형태일 수 있음
+                if isinstance(items, str):
+                    parsed = json.loads(items)
+                    if isinstance(parsed, list):
+                        issues.extend(parsed)
+                elif isinstance(items, list):
+                    issues.extend(items)
+            except:
+                pass
+            
+    if not issues:
+        # 컬럼 데이터가 없으면 cleaned_text에서 간단한 빈도 분석 (fallback)
+        # 하지만 여기서는 간단히 빈 리스트 반환하거나, 추후 확장
+        return []
+
+    # 빈도수 상위 5개 추출
+    counter = Counter(issues)
+    top_issues = counter.most_common(5)
+    
+    return [{"issue": issue, "count": count, "priority": "High" if i < 2 else "Medium"} 
+            for i, (issue, count) in enumerate(top_issues)]
+
 @app.get("/analyze/consumer")
 async def analyze_consumer(item_id: str = Query(None, description="ASIN"), item_name: str = Query(None, description="제품명/키워드")):
     
@@ -1315,11 +1350,15 @@ async def analyze_consumer(item_id: str = Query(None, description="ASIN"), item_
     
     # [Fix] Use SQLAlchemy Engine for stable search in cloud
     try:
+        # [Optimization] LIMIT 3000 to prevent Cloud OOM & COALESCE for NULL handling
         if db_engine:
             if item_name:
                 query = text("""
                     SELECT * FROM amazon_reviews 
-                    WHERE title ILIKE :search OR cleaned_text ILIKE :search OR original_text ILIKE :search
+                    WHERE COALESCE(title, '') ILIKE :search 
+                       OR COALESCE(cleaned_text, '') ILIKE :search 
+                       OR COALESCE(original_text, '') ILIKE :search
+                    LIMIT 3000
                 """)
                 filtered = pd.read_sql(query, db_engine, params={"search": f"%{item_name}%"})
             elif item_id:
@@ -1336,7 +1375,10 @@ async def analyze_consumer(item_id: str = Query(None, description="ASIN"), item_
             if item_name:
                 query = """
                     SELECT * FROM amazon_reviews 
-                    WHERE title ILIKE %s OR cleaned_text ILIKE %s OR original_text ILIKE %s
+                    WHERE COALESCE(title, '') ILIKE %s 
+                       OR COALESCE(cleaned_text, '') ILIKE %s 
+                       OR COALESCE(original_text, '') ILIKE %s
+                    LIMIT 3000
                 """
                 search_pattern = f"%{item_name}%"
                 filtered = pd.read_sql(query, conn, params=(search_pattern, search_pattern, search_pattern))
@@ -1349,7 +1391,8 @@ async def analyze_consumer(item_id: str = Query(None, description="ASIN"), item_
             
     except Exception as e:
         print(f"[Consumer] Data Fetch Error: {e}", flush=True)
-        filtered = pd.DataFrame()
+        # Return specific error message instead of generic "Empty"
+        return {"has_data": False, "message": f"데이터 조회 중 오류가 발생했습니다: {str(e)}"}
 
     if filtered.empty:
         print(f"[Consumer] No data found for conditions: item_id={item_id}, item_name={item_name}", flush=True)
@@ -1999,6 +2042,9 @@ async def analyze_consumer(item_id: str = Query(None, description="ASIN"), item_
         text_pairing = []
         text_texture = []
 
+    # 5. [New] 개선 우선순위 제안 (Improvement Priorities)
+    improvement_priorities = extract_improvement_priorities(filtered)
+
     result = {
         "has_data": True,
         "search_term": item_name if item_name else item_id,
@@ -2025,6 +2071,7 @@ async def analyze_consumer(item_id: str = Query(None, description="ASIN"), item_
             "text_pairing_insights": text_pairing,
             "text_texture_insights": text_texture
         },
+        "improvement_priorities": improvement_priorities,
         "diverging_summary": {
             "negative_keywords": [{"keyword": k["keyword"], "impact_score": k["impact_score"], "satisfaction_index": k.get("satisfaction_index", 0), "positivity_rate": k.get("positivity_rate", 0), "sample_reviews": k.get("sample_reviews", [])} for k in neg_keywords],
             "positive_keywords": [{"keyword": k["keyword"], "impact_score": k["impact_score"], "satisfaction_index": k.get("satisfaction_index", 0), "positivity_rate": k.get("positivity_rate", 0), "sample_reviews": k.get("sample_reviews", [])} for k in pos_keywords]
@@ -2143,3 +2190,5 @@ if __name__ == "__main__":
     for route in app.routes:
         print(f"Route: {route.path} {route.name}")
     uvicorn.run(app, host="0.0.0.0", port=8000)
+
+

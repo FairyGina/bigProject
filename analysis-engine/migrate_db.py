@@ -4,122 +4,90 @@ import psycopg2
 from psycopg2.extras import execute_values
 import json
 import numpy as np
-import re
 import ast
 import time
 import urllib.parse
+import math
 
 # ==========================================
 # [Configuration] DB Connection
 # ==========================================
 def parse_db_url(url):
-    """Safely parse Spring Datasource URL or Standard Postgres URL"""
-    if not url:
-        return {}
-    
+    if not url: return {}
     info = {}
     try:
-        # Handle jdbc:postgresql:// prefix
-        if url.startswith("jdbc:"):
-            url = url[5:]
-        
-        # Use urllib for safe parsing
+        if url.startswith("jdbc:"): url = url[5:]
         parsed = urllib.parse.urlparse(url)
-        
-        # Only process if scheme is valid
         if parsed.scheme in ('postgresql', 'postgres'):
             info['host'] = parsed.hostname
             info['port'] = parsed.port
             info['dbname'] = parsed.path.lstrip('/')
             info['user'] = parsed.username
             info['password'] = parsed.password
-            
-            # Query params for SSL etc
-            # qs = urllib.parse.parse_qs(parsed.query)
-            
     except Exception as e:
         print(f"⚠️ URL parsing failed: {e}")
-        
     return info
 
 SPRING_URL = os.environ.get("SPRING_DATASOURCE_URL", "")
 parsed_info = parse_db_url(SPRING_URL)
 
-# Priority: Env Var > Parsed URL > Default
 DB_HOST = os.environ.get("DB_HOST") or parsed_info.get('host') or "db"
-# Clean up host if needed (remove @ prefix if present)
 if DB_HOST.startswith("@"): DB_HOST = DB_HOST.lstrip("@")
-
 DB_PORT = os.environ.get("DB_PORT") or parsed_info.get('port') or "5432"
-# Priority for DB Name: Env Var (override) > Parsed URL > Default
+# Prefer Env Var for DB Name as Azure might pass a different one than URL in some cases
 DB_NAME = os.environ.get("POSTGRES_DB") or parsed_info.get('dbname') or "bigproject"
-
 DB_USER = os.environ.get("SPRING_DATASOURCE_USERNAME") or os.environ.get("POSTGRES_USER") or parsed_info.get('user') or "postgres"
 DB_PASS = os.environ.get("SPRING_DATASOURCE_PASSWORD") or os.environ.get("POSTGRES_PASSWORD") or parsed_info.get('password') or "postgres"
 
 def get_db_connection(max_retries=5, delay=5):
-    """Get DB connection with retry logic"""
     for attempt in range(max_retries):
         try:
             conn = psycopg2.connect(
-                host=DB_HOST,
-                dbname=DB_NAME,
-                user=DB_USER,
-                password=DB_PASS,
-                port=DB_PORT,
+                host=DB_HOST, dbname=DB_NAME, user=DB_USER, password=DB_PASS, port=DB_PORT,
                 sslmode=os.environ.get("DB_SSLMODE", "require")
             )
             print(f"✅ DB Connection successful (Attempt {attempt+1})")
             return conn
         except psycopg2.OperationalError as e:
             print(f"⚠️ Connection failed (Attempt {attempt+1}/{max_retries}): {e}")
-            if attempt < max_retries - 1:
-                print(f"   Retrying in {delay} seconds...")
-                time.sleep(delay)
-            else:
-                raise e
-        except Exception as e:
-            print(f"❌ Unexpected connection error: {e}")
-            raise e
+            time.sleep(delay)
+    return None
 
 # ==========================================
 # [Helpers] Data Cleaning
 # ==========================================
 def clean_bool(val):
-    if pd.isna(val): return None # Use None for SQL NULL
+    if pd.isna(val): return None
     if isinstance(val, bool): return val
     if isinstance(val, str): return val.lower() in ('true', '1', 't', 'y', 'yes')
     return bool(val)
 
 def clean_json_field(val):
-    """Safely convert value to JSON string. Handles various input formats."""
-    if pd.isna(val) or val == '' or val == '[]': 
-        return json.dumps([])
-    
+    """Safely convert value to JSON string for JSONB column."""
+    if pd.isna(val) or val == '' or val == '[]': return json.dumps([])
     if isinstance(val, str):
-        # Determine if it's already a JSON string or a Python literal string
         val = val.strip()
         if not val: return json.dumps([])
-        
         try:
-            # 1. Try standard JSON load first (standard format)
-            parsed = json.loads(val)
-            return json.dumps(parsed)
-        except json.JSONDecodeError:
+            # Check if it is already valid JSON
+            json.loads(val)
+            return val
+        except:
             try:
-                # 2. Try ast.literal_eval (Python literal format with single quotes, True/False)
-                parsed = ast.literal_eval(val)
-                return json.dumps(parsed)
-            except (ValueError, SyntaxError) as e:
-                # Log bad data but don't crash
-                # print(f"⚠️ JSON Parse Error for value: {val[:50]}... -> {e}")
-                return json.dumps([]) # Fallback to empty list/object
-            
-    # Already a list or dict
+                # Handle python string representation of list/dict
+                return json.dumps(ast.literal_eval(val))
+            except:
+                return json.dumps([])
     try:
         return json.dumps(val)
-    except TypeError:
+    except:
         return json.dumps([])
+
+def clean_period(val):
+    if pd.isna(val): return ''
+    parts = str(val).split('.')
+    if len(parts) > 1: return f"{parts[0]}-{parts[1].zfill(2)}"
+    return f"{parts[0]}-01"
 
 # ==========================================
 # [Task] Load Export Trends
@@ -131,11 +99,11 @@ def load_export_trends():
         return
 
     print(f"📂 Processing {csv_path}...")
+    conn = get_db_connection()
+    if not conn: return
+    
     try:
-        conn = get_db_connection()
         cur = conn.cursor()
-        
-        # Schema definition
         cur.execute("""
             CREATE TABLE IF NOT EXISTS export_trends (
                 id SERIAL PRIMARY KEY,
@@ -152,62 +120,37 @@ def load_export_trends():
                 trend_data JSONB
             );
             CREATE INDEX IF NOT EXISTS idx_export_trends_search ON export_trends (country_name, item_name);
-            CREATE INDEX IF NOT EXISTS idx_export_trends_period ON export_trends (period_str);
         """)
         conn.commit()
         
-        # Check existing data
         cur.execute("SELECT COUNT(*) FROM export_trends")
-        count = cur.fetchone()[0]
-        if count > 0:
-            print(f"✅ export_trends already has {count} rows. Skipping.")
-            cur.close()
-            conn.close()
+        if cur.fetchone()[0] > 0:
+            print("✅ export_trends already has data. Skipping.")
             return
 
         print("🚀 Loading export_trends data...")
         df = pd.read_csv(csv_path)
-        
-        # Define processing logic
-        std_cols = ['period', 'item_name', 'country_code', 'country_name', 'export_value', 
-                    'export_weight', 'unit_price', 'exchange_rate', 'gdp_level']
-        technical_cols = ['hs_code', 'date', 'month', 'year', 'month_sin', 'month_cos', 
-                          'export_value_ma3', 'export_value_ema3', 'exchange_rate_ma3', 
-                          'exchange_rate_ema3', 'cpi_monthly_idx_ma3', 'cpi_monthly_idx_ema3', 
-                          'gdp_growth_ma3', 'gdp_growth_ema3', 'gdp_level_ma3', 'gdp_level_ema3', 'year_month']
-        
-        all_cols = df.columns.tolist()
-        pack_cols = [c for c in all_cols if c not in std_cols and c not in technical_cols and c != 'period_str']
-
-        # Period cleaner
-        def clean_period(val):
-            if pd.isna(val) or val == '': return ''
-            s = str(val).strip()
-            parts = s.split('.')
-            year = parts[0]
-            if len(parts) > 1:
-                month = parts[1].zfill(2)
-                if len(month) == 1: month = f"0{month}" # simple fix
-            else:
-                month = '01'
-            return f"{year}-{month}"
-
         df['period_str'] = df['period'].apply(clean_period)
+        
+        technical_cols = ['hs_code', 'date', 'month', 'year', 'month_sin', 'month_cos']
+        pack_cols = [c for c in df.columns if c not in technical_cols and c not in ['period_str']]
         
         data_to_insert = []
         for _, row in df.iterrows():
             trend_dict = {k: row[k] for k in pack_cols if k in row and pd.notna(row[k])}
+            
+            # Helper for explicit float conversion for numeric fields
+            def to_float(x):
+                try: 
+                    return float(x) if pd.notna(x) else None
+                except: return None
+
             data_to_insert.append((
-                row.get('country_name'),
-                row.get('country_code'),
-                row.get('item_name'),
-                str(row.get('period')),
-                row.get('period_str'),
-                row.get('export_value'),
-                row.get('export_weight'),
-                row.get('unit_price'),
-                row.get('exchange_rate'),
-                row.get('gdp_level'),
+                row.get('country_name'), row.get('country_code'), row.get('item_name'),
+                str(row.get('period')), row.get('period_str'),
+                to_float(row.get('export_value')), to_float(row.get('export_weight')), 
+                to_float(row.get('unit_price')), to_float(row.get('exchange_rate')), 
+                to_float(row.get('gdp_level')),
                 json.dumps(trend_dict)
             ))
             
@@ -216,14 +159,15 @@ def load_export_trends():
         (country_name, country_code, item_name, period, period_str, export_value, export_weight, unit_price, exchange_rate, gdp_level, trend_data)
         VALUES %s
         """
-        execute_values(cur, insert_query, data_to_insert, page_size=1000)
+        # JSONB explicit cast
+        execute_values(cur, insert_query, data_to_insert, template="(%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s::jsonb)", page_size=1000)
         conn.commit()
-        print(f"✅ Successfully loaded {len(data_to_insert)} rows into export_trends.")
+        print(f"✅ Successfully loaded {len(data_to_insert)} rows.")
         
     except Exception as e:
         print(f"❌ Failed to load export_trends: {e}")
     finally:
-        if 'conn' in locals() and conn: conn.close()
+        if conn: conn.close()
 
 # ==========================================
 # [Task] Load Amazon Reviews
@@ -235,11 +179,11 @@ def load_amazon_reviews():
         return
 
     print(f"📂 Processing {csv_path}...")
-    conn = None
+    conn = get_db_connection()
+    if not conn: return
+
     try:
-        conn = get_db_connection()
         cur = conn.cursor()
-        
         cur.execute("""
             CREATE TABLE IF NOT EXISTS amazon_reviews (
                 id SERIAL PRIMARY KEY,
@@ -262,12 +206,12 @@ def load_amazon_reviews():
                 semantic_top_dimension TEXT
             );
             CREATE INDEX IF NOT EXISTS idx_amazon_reviews_asin ON amazon_reviews (asin);
-            CREATE INDEX IF NOT EXISTS idx_amazon_reviews_sentiment ON amazon_reviews (sentiment_score);
-            CREATE INDEX IF NOT EXISTS idx_amazon_reviews_rating ON amazon_reviews (rating);
+            -- GIN Index for faster text search
+            CREATE INDEX IF NOT EXISTS idx_amazon_reviews_text_gin ON amazon_reviews USING gin(to_tsvector('english', coalesce(title, '') || ' ' || coalesce(cleaned_text, '')));
         """)
         conn.commit()
-        
-        # [Schema Update] Ensure new columns exist for existing tables
+
+        # Update schema if needed
         try:
             cur.execute("ALTER TABLE amazon_reviews ADD COLUMN IF NOT EXISTS price_sensitive NUMERIC;")
             cur.execute("ALTER TABLE amazon_reviews ADD COLUMN IF NOT EXISTS semantic_top_dimension TEXT;")
@@ -276,37 +220,49 @@ def load_amazon_reviews():
             print(f"⚠️ Schema update warning: {e}")
             conn.rollback()
 
-        # Check existing data
         FORCE_MIGRATE = os.environ.get("FORCE_MIGRATE", "false").lower() == "true"
         cur.execute("SELECT COUNT(*) FROM amazon_reviews")
         count = cur.fetchone()[0]
-        
         if count > 0 and not FORCE_MIGRATE:
-             print(f"✅ amazon_reviews already has {count} rows. Skipping. (Set FORCE_MIGRATE=true to reload)")
+             print("✅ amazon_reviews already has data. Skipping.")
              return
         
-        if FORCE_MIGRATE and count > 0:
-            print(f"♻️ FORCE_MIGRATE=true: Truncating amazon_reviews ({count} rows found)...")
+        if FORCE_MIGRATE:
+            print("Force Migrating: Truncating amazon_reviews...")
             cur.execute("TRUNCATE TABLE amazon_reviews")
             conn.commit()
 
         print("🚀 Loading amazon_reviews data (Chunked)...")
-        chunk_size = 1000 # Reduced from 5000 for safety
+        chunk_size = 1000
         total_inserted = 0
         
-        # Read CSV in chunks
+        insert_query = """
+        INSERT INTO amazon_reviews 
+        (asin, title, rating, original_text, cleaned_text, sentiment_score, 
+         quality_issues_semantic, packaging_keywords, texture_terms, ingredients, 
+         health_keywords, dietary_keywords, delivery_issues_semantic, 
+         repurchase_intent_hybrid, recommendation_intent_hybrid,
+         price_sensitive, semantic_top_dimension)
+        VALUES %s
+        """
+        
+        # Explicit Casting Template for JSONB
+        # Columns 7, 8, 9, 10, 11, 12, 13 are JSONB (Indices 6 to 12 in 0-based tuple)
+        # Template matches the count of columns (17 cols)
+        # Python Indices:
+        # 0: asin, 1: title, 2: rating, 3: orig, 4: clean, 5: sent
+        # 6: quality (jsonb), 7: pack (jsonb), 8: text (jsonb), 9: ingr (jsonb), 10: health (jsonb), 11: diet (jsonb), 12: deliv (jsonb)
+        # 13: repur, 14: recom, 15: price, 16: semantic
+        
+        tpl = "(%s, %s, %s, %s, %s, %s, %s::jsonb, %s::jsonb, %s::jsonb, %s::jsonb, %s::jsonb, %s::jsonb, %s::jsonb, %s, %s, %s, %s)"
+
         for i, chunk in enumerate(pd.read_csv(csv_path, chunksize=chunk_size)):
             data_to_insert = []
             for _, row in chunk.iterrows():
                 try:
-                    # Safe handling for numeric
                     rating = pd.to_numeric(row.get('rating'), errors='coerce')
                     sentiment = pd.to_numeric(row.get('sentiment_score'), errors='coerce')
                     price_sens = pd.to_numeric(row.get('price_sensitive'), errors='coerce')
-                    
-                    # Safe boolean
-                    repurchase = clean_bool(row.get('repurchase_intent_hybrid'))
-                    recommend = clean_bool(row.get('recommendation_intent_hybrid'))
                     
                     # Title fallback
                     title = row.get('title')
@@ -328,59 +284,36 @@ def load_amazon_reviews():
                         clean_json_field(row.get('health_keywords')),
                         clean_json_field(row.get('dietary_keywords')),
                         clean_json_field(row.get('delivery_issues_semantic')),
-                        repurchase,
-                        recommend,
+                        clean_bool(row.get('repurchase_intent_hybrid')),
+                        clean_bool(row.get('recommendation_intent_hybrid')),
                         price_sens if pd.notna(price_sens) else None,
                         row.get('semantic_top_dimension')
                     ))
-                except Exception as row_e:
-                    print(f"⚠️ Row error (Skipping row): {row_e}")
+                except Exception as row_e: 
+                    # Consider logging row error if needed, but for bulk speed we might skip or minimal log
                     continue
 
-            # Skip empty chunks
-            if not data_to_insert:
-                print(f"⚠️ Chunk {i+1} was empty after processing.")
-                continue
+            if not data_to_insert: continue
 
-            # Insert chunk
             try:
-                insert_query = """
-                INSERT INTO amazon_reviews 
-                (asin, title, rating, original_text, cleaned_text, sentiment_score, 
-                 quality_issues_semantic, packaging_keywords, texture_terms, ingredients, 
-                 health_keywords, dietary_keywords, delivery_issues_semantic, 
-                 repurchase_intent_hybrid, recommendation_intent_hybrid,
-                 price_sensitive, semantic_top_dimension)
-                VALUES %s
-                """
-                execute_values(cur, insert_query, data_to_insert)
+                execute_values(cur, insert_query, data_to_insert, template=tpl)
                 conn.commit()
                 total_inserted += len(data_to_insert)
                 print(f"   Processed Chunk {i+1}: +{len(data_to_insert)} rows (Total: {total_inserted})")
-            except Exception as chunk_e:
-                print(f"❌ Chunk {i+1} insertion failed: {chunk_e}")
-                conn.rollback() 
-                # Optional: try simple loop fallback if bulk fails? 
-                # For now just log.
-        
-        print(f"✅ Finished loading amazon_reviews. Total rows: {total_inserted}")
-                
+            except Exception as e:
+                print(f"❌ Chunk {i+1} failed: {e}")
+                conn.rollback()
+
+        print(f"✅ Finished. Total: {total_inserted}")
+
     except Exception as e:
-        print(f"❌ Failed to load amazon_reviews top-level error: {e}")
+        print(f"❌ Failed to load amazon_reviews: {e}")
     finally:
         if conn: conn.close()
 
 if __name__ == "__main__":
     print("="*60)
-    print("🏁 Starting Data Migration Script v2.0")
-    print(f"   DB Target: {DB_HOST}:{DB_PORT}/{DB_NAME}")
+    print("🚀 Starting Data Migration Script v3.0 (Optimized)")
     print("="*60)
-    
-    try:
-        load_export_trends()
-        load_amazon_reviews()
-        print("🎉 Migration Completed Successfully.")
-    except Exception as e:
-        print(f"💥 Migration Script Crashed: {e}")
-    
-    # End of script
+    load_export_trends()
+    load_amazon_reviews()
