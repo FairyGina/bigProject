@@ -980,6 +980,17 @@ def on_option_change(choice: str, state: Dict[str, Any], request: gr.Request | N
             gr.update(choices=state.get("options") or [], value=None, visible=should_show_options(state)),
             gr.update(value="", interactive=not should_disable_textbox(state), visible=should_show_textbox(state)),
         )
+    
+    # [Robustness] 현재 유효한 옵션이 아닐 경우(예: 중복 클릭 등) 무시합니다.
+    current_options = state.get("options") or []
+    if choice not in current_options:
+        return (
+            state,
+            messages_to_chatbot(state.get("messages", [])),
+            gr.update(choices=current_options, value=None, visible=should_show_options(state)),
+            gr.update(value="", interactive=not should_disable_textbox(state), visible=should_show_textbox(state)),
+        )
+
     return on_text_submit(choice, state, request)
 
 def on_clear(request: gr.Request | None = None):
@@ -1000,7 +1011,13 @@ with gr.Blocks(css=CUSTOM_CSS) as demo:
     gr.Markdown("원하시는 조건에 맞게, 혹은 랜덤으로 레시피를 생성할 수 있습니다.")
 
     chatbot = gr.Chatbot()
-    options = gr.Radio(choices=[], label="옵션 선택")
+    # Gradio Radio의 'Value not in list of choices: []' 에러를 방지하기 위해 
+    # 자주 사용되는 옵션들을 미리 choices에 넣어 초기화합니다.
+    options = gr.Radio(
+        choices=[REGEN_OPTION, SAVE_OPTION, SAVE_DONE_OPTION, SAVE_PUBLIC_OPTION, SAVE_PRIVATE_OPTION], 
+        label="옵션 선택",
+        visible=False
+    )
     textbox = gr.Textbox(label="메시지 입력")
     clear_btn = gr.Button("대화 초기화")
 
