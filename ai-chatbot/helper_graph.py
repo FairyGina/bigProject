@@ -19,6 +19,16 @@ except Exception:
 
 KB_PATH = Path(__file__).resolve().parent / "kb" / "flow.md"
 
+# [DEBUG] Start-up check for KB file
+try:
+    if KB_PATH.exists():
+        size = KB_PATH.stat().st_size
+        print(f"[HelperBot] KB found at: {KB_PATH} (size={size} bytes)")
+    else:
+        print(f"[HelperBot] KB NOT found at: {KB_PATH}")
+except Exception as e:
+    print(f"[HelperBot] Error checking KB path: {e}")
+
 
 class HelperState(TypedDict, total=False):
     history: List[Tuple[str | None, str | None]]  # Gradio Chatbot: list of (user, bot)

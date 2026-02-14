@@ -38,6 +38,12 @@ import java.util.HashMap;
 import java.util.function.BiConsumer;
 import java.util.function.ToIntFunction;
 import java.util.stream.Collectors;
+import javax.imageio.ImageIO;
+import java.awt.Graphics2D;
+import java.awt.image.BufferedImage;
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.util.Base64;
 
 @Service
 @RequiredArgsConstructor
@@ -333,6 +339,91 @@ public class RecipeService {
     }
 
     @Transactional(readOnly = true)
+    public List<RecipeListResponse> getAllForList(String requesterId) {
+        Long companyId = requesterId == null ? null : resolveCompanyId(requesterId);
+        List<Recipe> recipes = companyId == null
+                ? recipeRepository.findAllByOrderByCreatedAtDesc()
+                : recipeRepository.findByCompanyIdOrderByCreatedAtDesc(companyId);
+
+        return recipes.stream()
+                .filter(this::isRecipeVisibleForHub)
+                .map(this::toRecipeListResponse)
+                .toList();
+    }
+
+    private RecipeListResponse toRecipeListResponse(Recipe recipe) {
+        String authorName = resolveUserName(recipe.getUserId());
+        String resizedImage = resizeImageIfNeeded(recipe.getImageBase64());
+
+        List<RecipeIngredient> ingredients = recipeIngredientRepository.findByRecipe_IdOrderByIdAsc(recipe.getId());
+        List<String> ingredientNames = ingredients.stream()
+                .map(RecipeIngredient::getIngredientName)
+                .toList();
+
+        return new RecipeListResponse(
+                recipe.getId(),
+                recipe.getRecipeName(),
+                resizedImage,
+                recipe.getDescription(),
+                recipe.getUserId(),
+                authorName,
+                recipe.getCreatedAt(),
+                recipe.getStatus(),
+                resolveRecipeOpenYn(recipe),
+                ingredientNames,
+                splitSteps(recipe.getSteps()));
+    }
+
+    private String resizeImageIfNeeded(String originalBase64) {
+        if (originalBase64 == null || originalBase64.isBlank()) {
+            return null;
+        }
+        // If smaller than 100KB, return as is to save CPU
+        if (originalBase64.length() < 100 * 1024) {
+            return originalBase64;
+        }
+
+        try {
+            String base64Data = originalBase64;
+            String header = "";
+            if (originalBase64.contains(",")) {
+                String[] parts = originalBase64.split(",");
+                header = parts[0] + ",";
+                base64Data = parts[1];
+            }
+
+            byte[] imageBytes = Base64.getDecoder().decode(base64Data);
+            ByteArrayInputStream bis = new ByteArrayInputStream(imageBytes);
+            BufferedImage originalImage = ImageIO.read(bis);
+
+            if (originalImage == null) {
+                return originalBase64;
+            }
+
+            int targetWidth = 300; // Thumbnail width
+            if (originalImage.getWidth() <= targetWidth) {
+                return originalBase64;
+            }
+
+            int targetHeight = (int) (originalImage.getHeight() * ((double) targetWidth / originalImage.getWidth()));
+            BufferedImage resizedImage = new BufferedImage(targetWidth, targetHeight, BufferedImage.TYPE_INT_RGB);
+            Graphics2D g = resizedImage.createGraphics();
+            g.drawImage(originalImage, 0, 0, targetWidth, targetHeight, null);
+            g.dispose();
+
+            ByteArrayOutputStream bos = new ByteArrayOutputStream();
+            ImageIO.write(resizedImage, "jpg", bos); // Convert to JPEG for size
+            String resizedBase64 = Base64.getEncoder().encodeToString(bos.toByteArray());
+
+            return "data:image/jpeg;base64," + resizedBase64;
+        } catch (Exception e) {
+            // In case of any error, fallback to original
+            System.err.println("Image resizing failed: " + e.getMessage());
+            return originalBase64;
+        }
+    }
+
+    @Transactional(readOnly = true)
     public List<RecipeResponse> getAll(String requesterId) {
         Long companyId = requesterId == null ? null : resolveCompanyId(requesterId);
         List<Recipe> recipes = companyId == null
@@ -341,6 +432,14 @@ public class RecipeService {
         return recipes.stream()
                 .filter(this::isRecipeVisibleForHub)
                 .map(this::toResponse)
+                .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public List<RecipeListResponse> getByAuthorForList(String authorId) {
+        return recipeRepository.findByUserIdOrderByCreatedAtDesc(authorId)
+                .stream()
+                .map(this::toRecipeListResponse)
                 .toList();
     }
 

@@ -335,7 +335,7 @@ const UserCreateRecipe = () => {
         }
     };
 
-    const applyLoadedRecipe = (data) => {
+    const applyLoadedRecipe = async (data) => {
         if (!data) return;
         if (isDirty && hasUserEdits && shouldBlockRef.current) {
             const confirmed = window.confirm(labels.confirmLeave);
@@ -343,13 +343,25 @@ const UserCreateRecipe = () => {
                 return;
             }
         }
+
+        let recipeToLoad = data;
+        try {
+            // 상세 정보를 조회하여 고화질 이미지와 추가 정보를 확보합니다.
+            const res = await axiosInstance.get(`/recipes/${data.id}`);
+            if (res.data) {
+                recipeToLoad = res.data;
+            }
+        } catch (err) {
+            console.error('상세 레시피 로딩 실패, 목록 데이터 사용:', err);
+        }
+
         applyInitialState({
-            title: data.title || '',
-            description: data.description || '',
-            ingredients: Array.isArray(data.ingredients) && data.ingredients.length ? data.ingredients : [''],
-            steps: Array.isArray(data.steps) && data.steps.length ? data.steps : [''],
-            imageBase64: data.imageBase64 || '',
-            openYn: data.openYn || 'N',
+            title: recipeToLoad.title || '',
+            description: recipeToLoad.description || '',
+            ingredients: Array.isArray(recipeToLoad.ingredients) && recipeToLoad.ingredients.length ? recipeToLoad.ingredients : [''],
+            steps: Array.isArray(recipeToLoad.steps) && recipeToLoad.steps.length ? recipeToLoad.steps : [''],
+            imageBase64: recipeToLoad.imageBase64 || '',
+            openYn: recipeToLoad.openYn || 'N',
         });
         applyTargetMeta(readTargetMeta(data.id));
         setLoadModalOpen(false);
