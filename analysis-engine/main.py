@@ -255,9 +255,17 @@ def create_db_engine():
         encoded_pass = quote_plus(DB_PASS)
         conn_str = f"postgresql://{encoded_user}:{encoded_pass}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
         
-        # Use pool_pre_ping=True to handle connection drops gracefully
+        # [Optimization] Use smaller pool size per instance to avoid exhausting Azure DB slots
+        # Default: pool_size=5, max_overflow=10 (Total 15 per replica)
+        # Reduced to pool_size=3, max_overflow=2 (Total 5 per replica) to support scaling.
+        pool_size = int(os.environ.get("DB_POOL_SIZE", 3))
+        max_overflow = int(os.environ.get("DB_MAX_OVERFLOW", 2))
+        
         engine = create_engine(
             conn_str,
+            pool_size=pool_size,
+            max_overflow=max_overflow,
+            pool_timeout=30,
             pool_pre_ping=True,
             pool_recycle=300,
             connect_args={"sslmode": os.environ.get("DB_SSLMODE", "require")}
@@ -1347,8 +1355,22 @@ def extract_improvement_priorities(df):
     return [{"issue": issue, "count": count, "priority": "High" if i < 2 else "Medium"} 
             for i, (issue, count) in enumerate(top_issues)]
 
+# [Optimization] Global cache for consumer analysis results to reduce DB load
+CONSUMER_CACHE = {}
+CACHE_TTL = 300 # 5 minutes
+
 @app.get("/analyze/consumer")
 async def analyze_consumer(item_id: str = Query(None, description="ASIN"), item_name: str = Query(None, description="제품명/키워드")):
+    
+    # 0. Cache Lookup
+    cache_key = f"{item_id}_{item_name}"
+    current_time = time.time()
+    
+    if cache_key in CONSUMER_CACHE:
+        cached_val, timestamp = CONSUMER_CACHE[cache_key]
+        if current_time - timestamp < CACHE_TTL:
+            # print(f"[Consumer] Returning cached results for {cache_key}", flush=True)
+            return cached_val
     
     # 0. 키워드 치환 (검색량 부족 이슈 해결)
     if item_name:
@@ -1401,12 +1423,18 @@ async def analyze_consumer(item_id: str = Query(None, description="ASIN"), item_
             
     except Exception as e:
         print(f"[Consumer] Data Fetch Error: {e}", flush=True)
-        # Return specific error message instead of generic "Empty"
-        return {"has_data": False, "message": f"데이터 조회 중 오류가 발생했습니다: {str(e)}"}
+        # Handle "Connection slots reserved" specifically to provide better user feedback
+        error_msg = str(e)
+        if "remaining connection slots" in error_msg.lower():
+            error_msg = "실시간 분석 세션이 너무 많습니다. 잠시 후 다시 시도해주세요. (DB Connection Full)"
+            
+        return {"has_data": False, "message": f"데이터 조회 중 오류가 발생했습니다: {error_msg}"}
 
     if filtered.empty:
         print(f"[Consumer] No data found for conditions: item_id={item_id}, item_name={item_name}", flush=True)
-        return {"has_data": False, "message": "해당 조건의 데이터가 없습니다."}
+        res = {"has_data": False, "message": "해당 조건의 데이터가 없습니다."}
+        CONSUMER_CACHE[cache_key] = (res, current_time) # Cache empty results too
+        return res
     
     # print(f"[Consumer] Found {len(filtered)} rows", flush=True)
 
@@ -2105,11 +2133,11 @@ async def analyze_consumer(item_id: str = Query(None, description="ASIN"), item_
         if "charts" in result:
              result["charts"].update(business_insights)
     except Exception as e:
-        if "charts" in result:
-             result["charts"].update(business_insights)
-    except Exception as e:
         print(f"Business Insights Generation Failed: {e}", flush=True)
 
+    # [Optimization] Store in cache
+    CONSUMER_CACHE[cache_key] = (result, current_time)
+    
     return result
 
 @app.get("/debug/db-check")
