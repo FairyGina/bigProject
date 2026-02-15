@@ -1377,27 +1377,9 @@ async def analyze_consumer(item_id: str = Query(None, description="ASIN"), item_
             else:
                 filtered = pd.DataFrame()
         else:
-            # Fallback to legacy connection if engine is unavailable
-            conn = get_db_connection()
-            if not conn:
-                 return JSONResponse(status_code=500, content={"has_data": False, "message": "Database Connection Error"})
-            
-            if item_name:
-                query = """
-                    SELECT * FROM amazon_reviews 
-                    WHERE COALESCE(title, '') ILIKE %s 
-                       OR COALESCE(cleaned_text, '') ILIKE %s 
-                       OR COALESCE(original_text, '') ILIKE %s
-                    LIMIT 3000
-                """
-                search_pattern = f"%{item_name}%"
-                filtered = pd.read_sql(query, conn, params=(search_pattern, search_pattern, search_pattern))
-            elif item_id:
-                query = "SELECT * FROM amazon_reviews WHERE asin = %s"
-                filtered = pd.read_sql(query, conn, params=(item_id,))
-            else:
-                filtered = pd.DataFrame()
-            conn.close()
+            # [Refactor] Legacy fallback removed as get_db_connection is deprecated
+            print("❌ DB Engine not initialized in consumer analysis.", flush=True)
+            return JSONResponse(status_code=500, content={"has_data": False, "message": "Database Connection Error (Engine Not Init)"})
             
     except Exception as e:
         print(f"[Consumer] Data Fetch Error: {e}", flush=True)
@@ -2122,29 +2104,31 @@ async def analyze_consumer(item_id: str = Query(None, description="ASIN"), item_
 async def debug_db_check():
     """브라우저에서 DB 테이블과 데이터 개수를 즉시 확인"""
     try:
-        conn = get_db_connection()
-        cur = conn.cursor()
-        
-        # 1. 테이블 존재 여부 확인
-        cur.execute("SELECT table_name FROM information_schema.tables WHERE table_schema = 'public'")
-        tables = [r[0] for r in cur.fetchall()]
-        
-        # 2. 데이터 개수 확인
-        data_counts = {}
-        for table in tables:
-            cur.execute(f"SELECT count(*) FROM {table}")
-            data_counts[table] = cur.fetchone()[0]
-        
-        # 3. Kimchi 데이터가 실제로 있는지 확인
-        cur.execute("SELECT count(*) FROM amazon_reviews WHERE title ILIKE '%Kimchi%'")
-        kimchi_count = cur.fetchone()[0]
-        
-        conn.close()
-        return {
-            "tables": tables,
-            "counts": data_counts,
-            "kimchi_search_test": f"{kimchi_count} rows found for 'Kimchi'"
-        }
+        # [Refactor] Use SQLAlchemy Engine instead of raw psycopg2
+        if not db_engine:
+             return {"error": "DB Engine Not Initialized"}
+
+        with db_engine.connect() as conn:
+            # 1. 테이블 존재 여부 확인
+            result = conn.execute(text("SELECT table_name FROM information_schema.tables WHERE table_schema = 'public'"))
+            tables = [r[0] for r in result.fetchall()]
+            
+            # 2. 데이터 개수 확인
+            data_counts = {}
+            for table in tables:
+                # Use text() for safe execution, though table name is from schema query
+                res = conn.execute(text(f"SELECT count(*) FROM {table}")).fetchone()
+                data_counts[table] = res[0]
+            
+            # 3. Kimchi 데이터가 실제로 있는지 확인
+            kimchi_res = conn.execute(text("SELECT count(*) FROM amazon_reviews WHERE title ILIKE '%Kimchi%'")).fetchone()
+            kimchi_count = kimchi_res[0]
+            
+            return {
+                "tables": tables,
+                "counts": data_counts,
+                "kimchi_search_test": f"{kimchi_count} rows found for 'Kimchi'"
+            }
     except Exception as e:
         return {"error": str(e)}
 
