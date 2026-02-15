@@ -170,7 +170,10 @@ const RemoteMeetingPage = () => {
                         {messages.map((msg) => (
                             <div key={msg.messageId || `${msg.userId}-${msg.createdAt}`} className="flex flex-col gap-1">
                                 <div className="text-xs text-[color:var(--text-soft)]">
-                                    {msg.userName || msg.userId || '익명'} · {msg.createdAt ? new Date(msg.createdAt).toLocaleTimeString('ko-KR') : ''}
+                                    {(msg.userName || msg.userId || '익명').length > 1 
+                                        ? (msg.userName || msg.userId || '익명').substring(0, (msg.userName || msg.userId || '익명').length - 1) + '*'
+                                        : (msg.userName || msg.userId || '익명')
+                                    } · {msg.createdAt ? new Date(msg.createdAt).toLocaleTimeString('ko-KR') : ''}
                                 </div>
                                 <div className="rounded-xl bg-[color:var(--surface)] border border-[color:var(--border)] px-3 py-2">
                                     {msg.content}
