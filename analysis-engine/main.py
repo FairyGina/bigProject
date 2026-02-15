@@ -257,8 +257,8 @@ def create_db_engine():
         
         # [Optimization] Use smaller pool size per instance to avoid exhausting Azure DB slots
         # Default: pool_size=5, max_overflow=10 (Total 15 per replica)
-        # Reduced to pool_size=3, max_overflow=2 (Total 5 per replica) to support scaling.
-        pool_size = int(os.environ.get("DB_POOL_SIZE", 3))
+        # Strict Mode: pool_size=1, max_overflow=2 (Total 3 per replica) to support scaling.
+        pool_size = int(os.environ.get("DB_POOL_SIZE", 1))
         max_overflow = int(os.environ.get("DB_MAX_OVERFLOW", 2))
         
         engine = create_engine(
@@ -268,7 +268,10 @@ def create_db_engine():
             pool_timeout=30,
             pool_pre_ping=True,
             pool_recycle=300,
-            connect_args={"sslmode": os.environ.get("DB_SSLMODE", "require")}
+            connect_args={
+                "sslmode": os.environ.get("DB_SSLMODE", "require"),
+                "connect_timeout": 10
+            }
         )
         return engine
     except Exception as e:
@@ -278,21 +281,9 @@ def create_db_engine():
 
 db_engine = create_db_engine()
 
-def get_db_connection():
-    try:
-        conn = psycopg2.connect(
-            host=DB_HOST,
-            dbname=DB_NAME,
-            user=DB_USER,
-            password=DB_PASS,
-            port=DB_PORT,
-            sslmode=os.environ.get("DB_SSLMODE", "require")
-        )
-        return conn
-    except Exception as e:
-        print(f"❌ DB Connection Failed: {e}")
-        print(f"   Params: host={DB_HOST}, port={DB_PORT}, db={DB_NAME}, user={DB_USER}")
-        return None
+# [Refactor] Removed redundant raw psycopg2 connection logic (get_db_connection)
+# All DB access should use the shared SQLAlchemy engine 'db_engine'
+
 
 # 국가 매핑
 COUNTRY_MAPPING = {
@@ -593,35 +584,33 @@ def calculate_growth_matrix(target_df):
 import threading
 import time
 
-def load_data_background():
+def load_data_background(max_retries=3):
     global df, growth_summary_df
     global GLOBAL_MEAN_SENTIMENT, GLOBAL_STD_SENTIMENT, GLOBAL_MEAN_RATING
 
-    print("🚀 [Background] Starting Data Loading...", flush=True)
+    print(f"🚀 [Background] Starting Data Loading (Retries: {max_retries})...", flush=True)
     
-    # Retry mechanism: Wait for DB migration if needed (Up to 5 minutes)
-    max_retries = 60 
+    if not db_engine:
+        print("❌ DB Engine not initialized. Skipping data load.", flush=True)
+        return
+
+    # Retry mechanism: Wait for DB migration if needed
     for i in range(max_retries):
-        conn = get_db_connection()
-        if conn:
-            try:
+        try:
+            # Use SQLAlchemy connection management
+            with db_engine.connect() as conn:
                 # 1. Load Export Trends
                 print(f"Loading export_trends from DB (Attempt {i+1}/{max_retries})...", flush=True)
-                # [Fix] Use SQLAlchemy Engine for stable loading
-                query = "SELECT * FROM export_trends"
-                if db_engine:
-                    print(f"Loading export_trends from DB using SQLAlchemy (Attempt {i+1}/{max_retries})...", flush=True)
-                    temp_df = pd.read_sql(query, db_engine)
-                else:
-                    # Fallback to plain psycopg2 if engine failed to init
-                    with conn.cursor() as cur:
-                        cur.execute(query)
-                        if cur.description:
-                            cols = [desc[0] for desc in cur.description]
-                            rows = cur.fetchall()
-                            temp_df = pd.DataFrame(rows, columns=cols)
-                        else:
-                            temp_df = pd.DataFrame()
+                query = text("SELECT * FROM export_trends")
+                
+                try:
+                    temp_df = pd.read_sql(query, conn)
+                except Exception as e:
+                    # [Lazy Loading] If DB is full, stop trying to load at startup
+                    if "remaining connection slots" in str(e) or "too many clients" in str(e):
+                        print("⚠️ DB Connection Full (Slots Reserved). Skipping initial data load for Lazy Loading.", flush=True)
+                        return # Exit function, server starts with empty data
+                    raise e 
 
                 print(f"Loaded {len(temp_df)} rows. Processing...", flush=True)
                 
@@ -652,51 +641,40 @@ def load_data_background():
                     numeric_cols = df.select_dtypes(include=[np.number]).columns
                     df[numeric_cols] = df[numeric_cols].fillna(0)
                     
-                    numeric_cols = df.select_dtypes(include=[np.number]).columns
-                    df[numeric_cols] = df[numeric_cols].fillna(0)
-                    
                     # Growth Matrix Calculation
                     growth_summary_df = calculate_growth_matrix(df)
                     print("Export Trends Loaded & Matrix Calculated.", flush=True)
                     
                     # 2. Global Consumer Stats (Only if step 1 success)
                     print("Calculating Global Consumer Stats from DB...", flush=True)
-                    with conn.cursor() as cur:
-                        try:
-                            cur.execute("SELECT AVG(sentiment_score), STDDEV(sentiment_score), AVG(rating) FROM amazon_reviews")
-                            row = cur.fetchone()
-                            if row and row[0] is not None:
-                                    GLOBAL_MEAN_SENTIMENT = float(row[0])
-                                    GLOBAL_STD_SENTIMENT = float(row[1]) if row[1] is not None else 0.3
-                                    GLOBAL_MEAN_RATING = float(row[2])
-                                    print(f"Global Stats: Sent={GLOBAL_MEAN_SENTIMENT:.2f}, Std={GLOBAL_STD_SENTIMENT:.2f}, Rating={GLOBAL_MEAN_RATING:.2f}", flush=True)
-                            else:
-                                    print("⚠️ amazon_reviews table empty or stats unavailable.", flush=True)
-                        except Exception as ex:
-                            print(f"Global Stats calculation failed: {ex}", flush=True)
+                    try:
+                        result = conn.execute(text("SELECT AVG(sentiment_score), STDDEV(sentiment_score), AVG(rating) FROM amazon_reviews")).fetchone()
+                        if result and result[0] is not None:
+                                GLOBAL_MEAN_SENTIMENT = float(result[0])
+                                GLOBAL_STD_SENTIMENT = float(result[1]) if result[1] is not None else 0.3
+                                GLOBAL_MEAN_RATING = float(result[2])
+                                print(f"Global Stats: Sent={GLOBAL_MEAN_SENTIMENT:.2f}, Std={GLOBAL_STD_SENTIMENT:.2f}, Rating={GLOBAL_MEAN_RATING:.2f}", flush=True)
+                        else:
+                                print("⚠️ amazon_reviews table empty or stats unavailable.", flush=True)
+                    except Exception as ex:
+                        print(f"Global Stats calculation failed: {ex}", flush=True)
                     
-                    conn.close()
                     break # Success, exit retry loop
                     
                 else:
                     print(f"⚠️ export_trends table is empty. Migration might be in progress... (Attempt {i+1}/{max_retries})", flush=True)
-                    conn.close()
                     time.sleep(5) # Wait for migration
 
-            except Exception as e:
-                print(f"DB Load Failed (Attempt {i+1}/{max_retries}): {e}", flush=True)
-                if conn: conn.close()
-                time.sleep(5) # Wait before retry
-        else:
-            print(f"DB Connection Failed (Attempt {i+1}/{max_retries}). Retrying in 5s...", flush=True)
-            time.sleep(5)
+        except Exception as e:
+            print(f"DB Load Failed (Attempt {i+1}/{max_retries}): {e}", flush=True)
+            time.sleep(5) # Wait before retry
     
     # [Fallback] If DB failed, try loading from local CSV
-    # [Fallback] Removed as per user request
     if df is None or df.empty: 
-        print("❌ Final: Could not load data after retries. App will run with empty state (No CSV Fallback).", flush=True)
+        print("❌ Final: Could not load data after retries. App will run with empty state.", flush=True)
         df = pd.DataFrame()
         growth_summary_df = pd.DataFrame()
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -707,9 +685,9 @@ async def lifespan(app: FastAPI):
 
     print("🚀 Server Starting... Triggering Background Data Load.", flush=True)
     
-    # Start background thread for data loading
+    # Start background thread for data loading (Lazy Loading Mode)
     # This prevents blocking the startup, so Readiness Probe can pass immediately.
-    loader_thread = threading.Thread(target=load_data_background, daemon=True)
+    loader_thread = threading.Thread(target=load_data_background, args=(3,), daemon=True)
     loader_thread.start()
 
     yield
@@ -2172,8 +2150,13 @@ async def debug_db_check():
 
 @app.get("/dashboard")
 async def dashboard():
+    # [Lazy Loading] If data is empty, try to load it on-demand
     if df is None or df.empty:
-        return {"has_data": False}
+        print("⚠️ Data empty on /dashboard request. Attempting On-Demand Load...", flush=True)
+        load_data_background(max_retries=1)
+
+    if df is None or df.empty:
+        return {"has_data": False, "message": "데이터 로드 실패 (DB 연결 지연)"}
         
     try:
         # 1. Top 5 국가 수출 추세 (Line)

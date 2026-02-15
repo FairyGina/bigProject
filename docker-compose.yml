@@ -42,6 +42,8 @@ services:
       SPRING_JPA_HIBERNATE_DDL_AUTO: ${DDL_AUTO:-update}
       JWT_SECRET: ${JWT_SECRET}
       JWT_EXPIRATION: ${JWT_EXPIRATION:-86400000}
+      # [Optimization] Limit connection pool to avoid exhaustion
+      SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE: ${SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE:-3}
       # External APIs
       OPENAI_API_KEY: ${OPENAI_API_KEY}
       SERPAPI_API_KEY: ${SERPAPI_API_KEY}
@@ -126,6 +128,9 @@ services:
       - DB_HOST=db
       - DB_PORT=5432
       - DB_SSLMODE=${DB_SSLMODE:-disable}
+      # [Optimization] Limit connection pool
+      - DB_POOL_SIZE=${DB_POOL_SIZE:-2}
+      - DB_MAX_OVERFLOW=${DB_MAX_OVERFLOW:-1}
     ports:
       - "8000:8000"
     networks:
