@@ -69,7 +69,30 @@ const RemoteMeetingPage = () => {
 
         connectSocket();
 
+        // [Fallback] Polling mechanism (every 3 seconds) ensures data sync even if WebSocket fails or backend scales out
+        const pollInterval = setInterval(async () => {
+            if (activeReport?.reportId) {
+                try {
+                    const res = await axiosInstance.get(`/chat/report/${activeReport.reportId}/messages`);
+                    if (res.data) {
+                        // Simple deduplication/update strategy
+                        // If new data has more items, update the state.
+                        setMessages((prev) => {
+                            if (res.data.length > prev.length) {
+                                return res.data;
+                            }
+                            return prev;
+                        });
+                    }
+                } catch (err) {
+                    console.error('채팅 폴링 중 오류 발생', err);
+                }
+            }
+        }, 3000);
+
         return () => {
+            clearInterval(pollInterval); // Cleanup polling
+
             if (subscriptionRef.current) {
                 subscriptionRef.current.unsubscribe();
                 subscriptionRef.current = null;
@@ -170,7 +193,7 @@ const RemoteMeetingPage = () => {
                         {messages.map((msg) => (
                             <div key={msg.messageId || `${msg.userId}-${msg.createdAt}`} className="flex flex-col gap-1">
                                 <div className="text-xs text-[color:var(--text-soft)]">
-                                    {(msg.userName || msg.userId || '익명').length > 1 
+                                    {(msg.userName || msg.userId || '익명').length > 1
                                         ? (msg.userName || msg.userId || '익명').substring(0, (msg.userName || msg.userId || '익명').length - 1) + '*'
                                         : (msg.userName || msg.userId || '익명')
                                     } · {msg.createdAt ? new Date(msg.createdAt).toLocaleTimeString('ko-KR') : ''}
