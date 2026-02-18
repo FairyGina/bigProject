@@ -356,9 +356,9 @@ ITEM_TO_TREND_MAPPING = {
     "표고버섯": "KFood"
 }
 
-# 전역 변수 (데이터 프레임 제거, 통계값만 유지)
-# df = None  <-- Removed global dataframe
-# growth_summary_df = None <-- Removed global dataframe
+df = None
+growth_summary_df = None
+df_consumer = None
 GLOBAL_MEAN_SENTIMENT = 0.5
 GLOBAL_STD_SENTIMENT = 0.3
 GLOBAL_MEAN_RATING = 3.0
@@ -584,31 +584,114 @@ def calculate_growth_matrix(target_df):
         print(f"❌ Growth Matrix Calculation Failed: {e}", flush=True)
         return pd.DataFrame(columns=['country', 'item_csv_name', 'weight_growth', 'price_growth', 'total_value'])
 
-# [Refactor] load_data_background removed. Data is now queried on-demand.
+import threading
+import time
 
+def load_data_background(max_retries=3):
+    global df, growth_summary_df
+    global GLOBAL_MEAN_SENTIMENT, GLOBAL_STD_SENTIMENT, GLOBAL_MEAN_RATING
+
+    print(f"🚀 [백그라운드] 데이터 로딩 시작 (재시도: {max_retries})...", flush=True)
+    
+    if not db_engine:
+        print("❌ DB 엔진이 초기화되지 않았습니다. 데이터 로드를 건너뜁니다.", flush=True)
+        return
+
+    # 재시도 메커니즘: 필요한 경우 DB 마이그레이션 대기
+    for i in range(max_retries):
+        try:
+            # SQLAlchemy 연결 관리 사용
+            with db_engine.connect() as conn:
+                # 1. Load Export Trends
+                print(f"DB에서 export_trends 로딩 중 (시도 {i+1}/{max_retries})...", flush=True)
+                query = text("SELECT * FROM export_trends")
+                
+                try:
+                    temp_df = pd.read_sql(query, conn)
+                except Exception as e:
+                    # [지연 로딩] DB가 가득 찬 경우 시작 시 로딩 중단
+                    if "remaining connection slots" in str(e) or "too many clients" in str(e):
+                        print("⚠️ DB 연결 가득 참 (슬롯 예약됨). 지연 로딩을 위해 초기 데이터 로드를 건너뜁니다.", flush=True)
+                        return # 함수 종료, 서버는 빈 데이터로 시작
+                    raise e 
+
+                print(f"Loaded {len(temp_df)} rows. Processing...", flush=True)
+                
+                if not temp_df.empty:
+                    # [최적화] 시작 시 trend_data JSONB를 전체적으로 확장하지 않음
+                    df = temp_df
+
+                    # Ensure trend_data is parsed as dict (if it comes as string)
+                    if 'trend_data' in df.columns:
+                        print("Processing trend_data column...", flush=True)
+                        def ensure_dict(x):
+                            if isinstance(x, dict): return x
+                            if isinstance(x, str):
+                                try: return json.loads(x)
+                                except: return {}
+                            return {}
+                        df['trend_data'] = df['trend_data'].apply(ensure_dict)
+
+                    # Numeric Cleanups (메모리 최적화: float64 -> float32)
+                    print("Performing numeric cleanup (float32 downcast)...", flush=True)
+                    
+                    # Explicit type conversion for critical columns to avoid object dtype issues
+                    numeric_targets = ['export_value', 'export_weight', 'unit_price', 'exchange_rate', 'gdp_level', 'cpi']
+                    for col in numeric_targets:
+                        if col in df.columns:
+                            df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0).astype(np.float32)
+
+                    numeric_cols = df.select_dtypes(include=[np.number]).columns
+                    df[numeric_cols] = df[numeric_cols].fillna(0)
+                    
+                    # Growth Matrix Calculation
+                    growth_summary_df = calculate_growth_matrix(df)
+                    print("Export Trends Loaded & Matrix Calculated.", flush=True)
+                    
+                    # 2. 글로벌 소비자 통계 (1단계 성공 시에만)
+                    print("Calculating Global Consumer Stats from DB...", flush=True)
+                    try:
+                        result = conn.execute(text("SELECT AVG(sentiment_score), STDDEV(sentiment_score), AVG(rating) FROM amazon_reviews")).fetchone()
+                        if result and result[0] is not None:
+                                GLOBAL_MEAN_SENTIMENT = float(result[0])
+                                GLOBAL_STD_SENTIMENT = float(result[1]) if result[1] is not None else 0.3
+                                GLOBAL_MEAN_RATING = float(result[2])
+                                print(f"Global Stats: Sent={GLOBAL_MEAN_SENTIMENT:.2f}, Std={GLOBAL_STD_SENTIMENT:.2f}, Rating={GLOBAL_MEAN_RATING:.2f}", flush=True)
+                        else:
+                                print("⚠️ amazon_reviews table empty or stats unavailable.", flush=True)
+                    except Exception as ex:
+                        print(f"Global Stats calculation failed: {ex}", flush=True)
+                    
+                    break # 성공, 재시도 루프 종료
+                    
+                else:
+                    print(f"⚠️ export_trends table is empty. Migration might be in progress... (Attempt {i+1}/{max_retries})", flush=True)
+                    time.sleep(5) # 마이그레이션 대기
+
+        except Exception as e:
+            print(f"DB Load Failed (Attempt {i+1}/{max_retries}): {e}", flush=True)
+            time.sleep(5) # 재시도 전 대기
+    
+    # [Fallback] If DB failed, try loading from local CSV
+    if df is None or df.empty: 
+        print("❌ 최종: 재시도 후에도 데이터를 로드할 수 없습니다. 앱이 빈 상태로 실행됩니다.", flush=True)
+        df = pd.DataFrame()
+        growth_summary_df = pd.DataFrame()
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    global GLOBAL_MEAN_SENTIMENT, GLOBAL_STD_SENTIMENT, GLOBAL_MEAN_RATING
+    # 데이터 로드 전 요청이 들어올 경우 오류를 방지하기 위해 먼저 빈 데이터로 초기화
+    global df, growth_summary_df
+    df = pd.DataFrame()
+    growth_summary_df = pd.DataFrame()
+
+    print("🚀 서버 시작 중... 백그라운드 데이터 로드 트리거.", flush=True)
     
-    print("🚀 [Startup] Analysis Engine Starting (On-Demand Mode)...", flush=True)
-    
-    # [Optimization] Load only lightweight global stats at startup
-    try:
-        if db_engine:
-            with db_engine.connect() as conn:
-                print("Fetching Global Consumer Stats from DB...", flush=True)
-                result = conn.execute(text("SELECT AVG(sentiment_score), STDDEV(sentiment_score), AVG(rating) FROM amazon_reviews")).fetchone()
-                if result and result[0] is not None:
-                    GLOBAL_MEAN_SENTIMENT = float(result[0])
-                    GLOBAL_STD_SENTIMENT = float(result[1]) if result[1] is not None else 0.3
-                    GLOBAL_MEAN_RATING = float(result[2])
-                    print(f"Global Stats Loaded: Sent={GLOBAL_MEAN_SENTIMENT:.2f}, Std={GLOBAL_STD_SENTIMENT:.2f}, Rating={GLOBAL_MEAN_RATING:.2f}", flush=True)
-                else:
-                    print("⚠️ Global stats unavailable (table empty?). Using defaults.", flush=True)
-    except Exception as e:
-        print(f"⚠️ Global Stats Load Failed: {e}. Using defaults.", flush=True)
+    # 데이터 로딩을 위한 백그라운드 스레드 시작 (지연 로딩 모드)
+    # 서버 기동을 방해하지 않으므로 Readiness Probe가 즉시 통과될 수 있음.
+    loader_thread = threading.Thread(target=load_data_background, args=(3,), daemon=True)
+    loader_thread.start()
 
     yield
     print("서버 종료 중...", flush=True)
@@ -628,22 +711,11 @@ async def root():
 
 @app.get("/health/data")
 async def health_data():
-    """Check if DB is accessible"""
-    is_connected = False
-    row_count = 0
-    try:
-        if db_engine:
-            with db_engine.connect() as conn:
-                # Lightweight check
-                result = conn.execute(text("SELECT COUNT(*) FROM export_trends")).scalar()
-                row_count = result if result else 0
-                is_connected = True
-    except:
-        is_connected = False
-        
+    """Check if data is loaded"""
     return {
-        "db_connected": is_connected,
-        "export_trends_rows": row_count,
+        "data_loaded": not (df is None or df.empty),
+        "rows": len(df) if df is not None else 0,
+        "growth_matrix_rows": len(growth_summary_df) if growth_summary_df is not None else 0,
         "global_stats": {
             "sentiment": GLOBAL_MEAN_SENTIMENT,
             "rating": GLOBAL_MEAN_RATING
@@ -652,22 +724,12 @@ async def health_data():
 
 @app.get("/items")
 async def get_items():
-    if not db_engine:
-        return {"items": []}
-    
+    if df is None or df.empty: return {"items": []}
     try:
-        # [On-Demand] Query distinct items from DB
-        with db_engine.connect() as conn:
-            # Get distinct item_name
-            result = conn.execute(text("SELECT DISTINCT item_name FROM export_trends ORDER BY item_name")).fetchall()
-            csv_items = [row[0] for row in result if row[0]]
-            
-            # Map to UI names
-            ui_items = sorted(list(set([CSV_TO_UI_ITEM_MAPPING.get(i, i) for i in csv_items])))
-            return {"items": ui_items}
-    except Exception as e:
-        print(f"Error fetching items: {e}")
-        return {"items": []}
+        csv_items = df['item_name'].dropna().unique().tolist()
+        ui_items = sorted(list(set([CSV_TO_UI_ITEM_MAPPING.get(i, i) for i in csv_items])))
+        return {"items": ui_items}
+    except: return {"items": []}
 
 @app.get("/analyze")
 async def analyze(country: str = Query(...), item: str = Query(...)):
@@ -686,43 +748,21 @@ async def analyze(country: str = Query(...), item: str = Query(...)):
     csv_item_name = UI_TO_CSV_ITEM_MAPPING.get(item, item)
     # print(f"[Analyze] Mapped: country_name={country_name}, country_code={country_code}, csv_item={csv_item_name}", flush=True)
 
-    # [On-Demand] 데이터베이스에서 직접 조회
-    if not db_engine:
-         print("❌ [Analyze] Error: Database engine not initialized.", flush=True)
-         raise HTTPException(status_code=503, detail="Database connection unavailable.")
+    # [강건성] 데이터 로드 여부 확인
+    if df is None or df.empty:
+         print("❌ [Analyze] Error: Data not loaded (df is empty or None).", flush=True)
+         raise HTTPException(status_code=503, detail="Analysis data is not available yet. System is retrying connection.")
 
-    try:
-        filtered = pd.DataFrame()
-        growth_summary_df = pd.DataFrame() # Local growth matrix context
-        
-        with db_engine.connect() as conn:
-            # Query 1: Specific Item Data (Full Columns for Charts)
-            # Fetch essential columns for charts: period_str, export_value, exchange_rate, gdp_level, trend_data
-            query_item = text("""
-                SELECT * FROM export_trends 
-                WHERE country_name = :country AND item_name = :item 
-                ORDER BY period_str ASC
-            """)
-            filtered = pd.read_sql(query_item, conn, params={"country": country_name, "item": csv_item_name})
-            
-            # Query 2: Country Context for Growth Matrix (All items in this country)
-            # Only need columns for growth calculation: item_name, period_str, export_value, export_weight, unit_price
-            query_country = text("""
-                SELECT item_name, period_str, export_value, export_weight, unit_price 
-                FROM export_trends 
-                WHERE country_name = :country
-            """)
-            country_df = pd.read_sql(query_country, conn, params={"country": country_name})
-            
-            # Calculate Growth Matrix for this country context
-            if not country_df.empty:
-                # Add temporary country_code column for compatibility with calculation function
-                country_df['country_code'] = country_code 
-                growth_summary_df = calculate_growth_matrix(country_df)
-
-    except Exception as e:
-        print(f"❌ [Analyze] DB Query Error: {e}", flush=True)
-        raise HTTPException(status_code=500, detail=f"Database Query Error: {str(e)}")
+    # [진단] 필수 컬럼 확인
+    if 'country_name' not in df.columns or 'item_name' not in df.columns:
+        print(f"❌ [Analyze] Error: Missing required columns in df. Columns: {list(df.columns)}", flush=True)
+        raise HTTPException(status_code=500, detail="Server Data Error: Invalid Data Schema")
+    
+    # 데이터 필터링
+    filtered = df[
+        (df['country_name'] == country_name) & 
+        (df['item_name'] == csv_item_name)
+    ].copy()
     
     # print(f"[Analyze] Filtered rows: {len(filtered)}", flush=True)
     
@@ -833,19 +873,22 @@ async def analyze(country: str = Query(...), item: str = Query(...)):
     # Row 3: GDP 증감률 수정
     if rows == 3:
         # [수정] 품목 필터링과 무관하게 해당 국가의 전체 GDP 시계열 확보 (2025년 끊김 방지)
-        # filtered 데이터에는 이미 gdp_level이 있으나, 해당 품목이 특정 월에 없을 수도 있음.
-        # on-demand 모드에서는 filtered가 이미 DB에서 쿼리된 결과이므로, 별도로 GDP 전체 데이터를 쿼리하지 않으면
-        # 누락된 기간이 있을 수 있음. 하지만 SQL에서 period_str 순으로 가져왔으므로 기본적으로는 연속적일 것임.
-        # 만약 전체 기간 GDP가 필요하다면 별도 쿼리가 필요하나, 여기서는 filtered 내의 정보로 우선 처리.
-        # (개선: 필요시 별도 쿼리)
+        gdp_full = df[df['country_name'] == country_name][['period_str', 'gdp_level']].drop_duplicates('period_str').sort_values('period_str')
         
-        gdp_series = filtered['gdp_level'].replace(to_replace=0, method='ffill')
+        # 1. 중복 값(계단)을 NaN으로 마스킹하여 "점"으로 만듦
+        # 0 제거 및 정규화된 period_str 기반 정렬
+        gdp_full['period_str'] = gdp_full['period_str'].apply(normalize_period)
+        gdp_full = gdp_full.sort_values('period_str')
         
-        # 선형 보간 (Linear Interpolation)
-        gdp_interpolated = gdp_series.interpolate(method='linear', limit_direction='both')
+        gdp_series = gdp_full['gdp_level'].replace(to_replace=0, method='ffill')
+        mask = gdp_series != gdp_series.shift(1)
+        gdp_masked = gdp_series.where(mask)
+        
+        # 2. 선형 보간 (Linear Interpolation)으로 "선"으로 이음 -> 월별 부드러운 성장
+        gdp_interpolated = gdp_masked.interpolate(method='linear', limit_direction='both')
 
         fig_stack.add_trace(go.Scatter(
-            x=filtered['period_str'], 
+            x=gdp_full['period_str'], 
             y=gdp_interpolated, 
             name="GDP",
             line=dict(color='#10b981', width=2, dash='dot'),
@@ -871,10 +914,6 @@ async def analyze(country: str = Query(...), item: str = Query(...)):
     # 딕셔너리에서 값을 안전하게 가져오기 위한 헬퍼
     def get_trend_val(row, key):
         td = row.get('trend_data', {})
-        # JSONB from DB might be dict or str depending on driver? Usually dict with SQLAlchemy + psycopg2
-        if isinstance(td, str):
-            try: td = json.loads(td)
-            except: pass
         if not isinstance(td, dict): return None
         return td.get(key)
 
@@ -882,10 +921,6 @@ async def analyze(country: str = Query(...), item: str = Query(...)):
     # 첫 번째 행에 이 키의 데이터가 있는지 확인 (샘플로서)
     has_common = False
     first_trend_data = filtered.iloc[0].get('trend_data', {}) if not filtered.empty else {}
-    if isinstance(first_trend_data, str):
-        try: first_trend_data = json.loads(first_trend_data)
-        except: pass
-        
     if isinstance(first_trend_data, dict) and common_trend_key in first_trend_data:
         has_common = True
         
@@ -1012,8 +1047,7 @@ async def analyze(country: str = Query(...), item: str = Query(...)):
     # ---------------------------------------------------------
     # Chart 3: Growth Matrix (Scatter Plot)
     # ---------------------------------------------------------
-    # Use locally calculated growth_summary_df
-    country_matrix = growth_summary_df  # Already filtered by country in DB query
+    country_matrix = growth_summary_df[growth_summary_df['country'] == country_code].copy()
     fig_scatter = go.Figure()
     growth_diagnosis = ""
     
