@@ -1,0 +1,23 @@
+# 대용량 데이터 파일 (DB에서 로드하므로 Docker 이미지에 포함 불필요)
+*.csv
+amz_insight_data.csv
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+
+# IDE / OS
+.vscode/
+.idea/
+*.swp
+.DS_Store
+Thumbs.db
+
+# Git
+.git/
+.gitignore
+
+# Docker
+Dockerfile
+docker-compose*.yml

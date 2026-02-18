@@ -1,12 +1,14 @@
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.gzip import GZipMiddleware
 import pandas as pd
 import numpy as np
 import json
 import re
 import ast
-from collections import Counter
+import gc
+from collections import Counter, OrderedDict
 import plotly.express as px
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
@@ -630,14 +632,14 @@ def load_data_background(max_retries=3):
                             return {}
                         df['trend_data'] = df['trend_data'].apply(ensure_dict)
 
-                    # Numeric Cleanups
-                    print("Performing numeric cleanup...", flush=True)
+                    # Numeric Cleanups (메모리 최적화: float64 -> float32)
+                    print("Performing numeric cleanup (float32 downcast)...", flush=True)
                     
                     # Explicit type conversion for critical columns to avoid object dtype issues
                     numeric_targets = ['export_value', 'export_weight', 'unit_price', 'exchange_rate', 'gdp_level', 'cpi']
                     for col in numeric_targets:
                         if col in df.columns:
-                            df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0)
+                            df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0).astype(np.float32)
 
                     numeric_cols = df.select_dtypes(include=[np.number]).columns
                     df[numeric_cols] = df[numeric_cols].fillna(0)
@@ -695,6 +697,9 @@ async def lifespan(app: FastAPI):
     print("서버 종료 중...", flush=True)
 
 app = FastAPI(title="K-Food Export Analysis Engine", lifespan=lifespan)
+
+# [Phase 1] GZip 압축 미들웨어 — 응답 데이터 1KB 이상이면 자동 gzip 압축
+app.add_middleware(GZipMiddleware, minimum_size=1000)
 
 app.add_middleware(
     CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"]
@@ -1329,26 +1334,43 @@ def extract_improvement_priorities(df):
     # 빈도수 상위 5개 추출
     counter = Counter(issues)
     top_issues = counter.most_common(5)
-    
-    return [{"issue": issue, "count": count, "priority": "High" if i < 2 else "Medium"} 
+
+    return [{"issue": issue, "count": count, "priority": "High" if i < 2 else "Medium"}
             for i, (issue, count) in enumerate(top_issues)]
 
-# [최적화] DB 부하를 줄이기 위한 소비자 분석 결과용 글로벌 캐시
-CONSUMER_CACHE = {}
-CACHE_TTL = 300 # 5 minutes
+# [Phase 1] LRU 캠시 도입 — 무한 성장 방지 (OrderedDict 기반, 최대 50개)
+MAX_CACHE_SIZE = 50
+CONSUMER_CACHE = OrderedDict()
+CACHE_TTL = 300  # 5 minutes
+
+def set_cache(key, value):
+    """LRU 캠시 설정: 최대 크기 초과 시 가장 오래된 항목 삭제"""
+    if key in CONSUMER_CACHE:
+        CONSUMER_CACHE.move_to_end(key)
+    elif len(CONSUMER_CACHE) >= MAX_CACHE_SIZE:
+        CONSUMER_CACHE.popitem(last=False)  # 가장 오래된 항목 삭제
+    CONSUMER_CACHE[key] = (value, time.time())
+
+def get_cache(key):
+    """캠시 조회: TTL 만료 시 None 반환 및 자동 삭제"""
+    if key in CONSUMER_CACHE:
+        cached_val, timestamp = CONSUMER_CACHE[key]
+        if time.time() - timestamp < CACHE_TTL:
+            CONSUMER_CACHE.move_to_end(key)  # LRU 갱신
+            return cached_val
+        else:
+            del CONSUMER_CACHE[key]  # TTL 만료 삭제
+    return None
 
 @app.get("/analyze/consumer")
 async def analyze_consumer(item_id: str = Query(None, description="ASIN"), item_name: str = Query(None, description="제품명/키워드")):
-    
-    # 0. 캐시 조회
+
+    # 0. LRU 캐시 조회
     cache_key = f"{item_id}_{item_name}"
-    current_time = time.time()
     
-    if cache_key in CONSUMER_CACHE:
-        cached_val, timestamp = CONSUMER_CACHE[cache_key]
-        if current_time - timestamp < CACHE_TTL:
-            # print(f"[Consumer] Returning cached results for {cache_key}", flush=True)
-            return cached_val
+    cached_result = get_cache(cache_key)
+    if cached_result is not None:
+        return cached_result
     
     # 0. 키워드 치환 (검색량 부족 이슈 해결)
     if item_name:
@@ -1360,11 +1382,12 @@ async def analyze_consumer(item_id: str = Query(None, description="ASIN"), item_
     
     # [Fix] 클라우드에서의 안정적인 검색을 위해 SQLAlchemy 엔진 사용
     try:
-        # [최적화] 클라우드 OOM 방지를 위한 3000개 제한 및 NULL 처리를 위한 COALESCE 사용
+        # [Phase 2] SELECT * 대신 분석에 필요한 컬럼만 명시적으로 요청하여 메모리 절감
+        SELECTED_COLUMNS = "asin, title, rating, sentiment_score, cleaned_text, original_text, texture_terms, ingredients, quality_issues_semantic, delivery_issues_semantic, packaging_keywords, repurchase_intent_hybrid, recommendation_intent_hybrid, value_perception_hybrid, price_sensitive, sensory_conflict, review_text_keywords, title_keywords, flavor_terms, price"
         if db_engine:
             if item_name:
-                query = text("""
-                    SELECT * FROM amazon_reviews 
+                query = text(f"""
+                    SELECT {SELECTED_COLUMNS} FROM amazon_reviews 
                     WHERE COALESCE(title, '') ILIKE :search 
                        OR COALESCE(cleaned_text, '') ILIKE :search 
                        OR COALESCE(original_text, '') ILIKE :search
@@ -1372,7 +1395,7 @@ async def analyze_consumer(item_id: str = Query(None, description="ASIN"), item_
                 """)
                 filtered = pd.read_sql(query, db_engine, params={"search": f"%{item_name}%"})
             elif item_id:
-                query = text("SELECT * FROM amazon_reviews WHERE asin = :asin")
+                query = text(f"SELECT {SELECTED_COLUMNS} FROM amazon_reviews WHERE asin = :asin")
                 filtered = pd.read_sql(query, db_engine, params={"asin": item_id})
             else:
                 filtered = pd.DataFrame()
@@ -1393,7 +1416,7 @@ async def analyze_consumer(item_id: str = Query(None, description="ASIN"), item_
     if filtered.empty:
         print(f"[Consumer] No data found for conditions: item_id={item_id}, item_name={item_name}", flush=True)
         res = {"has_data": False, "message": "해당 조건의 데이터가 없습니다."}
-        CONSUMER_CACHE[cache_key] = (res, current_time) # Cache empty results too
+        set_cache(cache_key, res)  # 빈 결과도 캐시
         return res
     
     # print(f"[Consumer] Found {len(filtered)} rows", flush=True)
@@ -1402,7 +1425,7 @@ async def analyze_consumer(item_id: str = Query(None, description="ASIN"), item_
         # === [중요] 데이터 결측치 처리 및 대체 로직 ===
         # 평점 데이터 숫자 변환
         if 'rating' in filtered.columns:
-            filtered['rating'] = pd.to_numeric(filtered['rating'], errors='coerce').fillna(3.0)
+            filtered['rating'] = pd.to_numeric(filtered['rating'], errors='coerce').fillna(3.0).astype(np.float32)
 
         # 1. 감성 점수 (sentiment_score 없을 경우 평점 기반 생성)
         if 'sentiment_score' not in filtered.columns:
@@ -1573,20 +1596,30 @@ async def analyze_consumer(item_id: str = Query(None, description="ASIN"), item_
     
     # =========================================================
     # 3-1. 전략 인사이트 자동 생성 (Critical Issue / Winning Point / Niche Opportunity)
+    # [Phase 2] 중복 CountVectorizer 제거 — neg_cleaned 1회 계산 후 재사용
     # =========================================================
     insights_data = {"critical_issue": None, "winning_point": None, "niche_opportunity": None}
     try:
         neg_reviews = filtered[filtered['rating'] <= 2]
         pos_reviews = filtered[filtered['rating'] >= 4]
         
-        # --- 🚨 Critical Issue: 부정 리뷰에서 가장 많이 언급되는 Pain Point ---
+        # [Phase 2] 부정 리뷰 텍스트 전처리 및 벡터화를 1회만 수행 (Critical Issue + Winning Point 공유)
+        neg_cleaned = pd.Series(dtype=str)
+        neg_freq_map = {}  # Winning Point에서 재사용
+        
         if not neg_reviews.empty and 'cleaned_text' in filtered.columns:
             neg_cleaned = neg_reviews['cleaned_text'].apply(remove_pos_tags).fillna('')
+        
+        # --- 🚨 Critical Issue: 부정 리뷰에서 가장 많이 언급되는 Pain Point ---
+        if not neg_cleaned.empty:
             try:
                 neg_vec = CountVectorizer(ngram_range=(1, 2), min_df=1, max_features=500, stop_words='english', token_pattern=r'\b[a-zA-Z]{3,}\b')
                 neg_matrix = neg_vec.fit_transform(neg_cleaned)
                 neg_words_raw = neg_vec.get_feature_names_out()
                 neg_counts_raw = neg_matrix.sum(axis=0).A1
+                
+                # [Phase 2] Winning Point에서 재사용할 빈도 맵 생성 (중복 벡터화 방지)
+                neg_freq_map = dict(zip(neg_words_raw, [int(c) for c in neg_counts_raw]))
                 
                 # 범용 단어 필터링
                 neg_terms_filtered = []
@@ -1617,10 +1650,14 @@ async def analyze_consumer(item_id: str = Query(None, description="ASIN"), item_
                     "action_item": f"'{top_term}' 문제 해결이 최우선 과제입니다. 상세페이지에 개선 사항을 명시하세요.",
                     "top_terms": [{'term': t, 'count': c} for t, c in top_neg_terms]
                 }
+                
+                # 메모리 해제
+                del neg_matrix, neg_vec
             except Exception as e:
                 print(f"[Insight] Critical Issue extraction error: {e}", flush=True)
         
         # --- 👍 Winning Point: 긍정 리뷰에서만 두드러지는 키워드 ---
+        # [Phase 2] neg_freq_map을 Critical Issue에서 이미 계산한 것을 재사용 (중복 CountVectorizer 제거)
         if not pos_reviews.empty and 'cleaned_text' in filtered.columns:
             pos_cleaned = pos_reviews['cleaned_text'].apply(remove_pos_tags).fillna('')
             try:
@@ -1629,20 +1666,7 @@ async def analyze_consumer(item_id: str = Query(None, description="ASIN"), item_
                 pos_words = pos_vec.get_feature_names_out()
                 pos_counts_arr = pos_matrix.sum(axis=0).A1
                 
-                # 부정에서의 빈도 계산
-                neg_cleaned_all = neg_reviews['cleaned_text'].apply(remove_pos_tags).fillna('') if not neg_reviews.empty else pd.Series(dtype=str)
-                neg_freq_map = {}
-                if not neg_cleaned_all.empty:
-                    try:
-                        neg_vec2 = CountVectorizer(ngram_range=(1, 2), min_df=1, max_features=500, stop_words='english', token_pattern=r'\b[a-zA-Z]{3,}\b')
-                        neg_matrix2 = neg_vec2.fit_transform(neg_cleaned_all)
-                        neg_words2 = neg_vec2.get_feature_names_out()
-                        neg_counts2 = neg_matrix2.sum(axis=0).A1
-                        neg_freq_map = dict(zip(neg_words2, neg_counts2))
-                    except:
-                        pass
-                
-                # 긍정 전용 gap이 큰 키워드 찾기
+                # 긍정 전용 gap이 큰 키워드 찾기 (neg_freq_map은 위에서 이미 계산됨)
                 gap_scores = []
                 for i, word in enumerate(pos_words):
                     if is_generic_term(word):
@@ -1668,6 +1692,9 @@ async def analyze_consumer(item_id: str = Query(None, description="ASIN"), item_
                         "marketing_msg": f"'{best['term']}'을(를) 메인 카피로 활용하세요.",
                         "top_terms": top_winning
                     }
+                
+                # 메모리 해제
+                del pos_matrix, pos_vec
             except Exception as e:
                 print(f"[Insight] Winning Point extraction error: {e}", flush=True)
         
@@ -2095,8 +2122,12 @@ async def analyze_consumer(item_id: str = Query(None, description="ASIN"), item_
     except Exception as e:
         print(f"Business Insights Generation Failed: {e}", flush=True)
 
-    # [최적화] 캐시에 저장
-    CONSUMER_CACHE[cache_key] = (result, current_time)
+    # [Phase 1] LRU 캐시에 저장
+    set_cache(cache_key, result)
+    
+    # [Phase 2] 명시적 가비지 컬렉션 — 대규모 분석 후 메모리 즉시 반환
+    del filtered
+    gc.collect()
     
     return result
 
