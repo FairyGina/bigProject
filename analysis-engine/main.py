@@ -15,6 +15,7 @@ from plotly.subplots import make_subplots
 from typing import Optional, List, Dict, Any
 from contextlib import asynccontextmanager
 import os
+import time
 from sklearn.feature_extraction.text import CountVectorizer, ENGLISH_STOP_WORDS
 import psycopg2
 from sqlalchemy import create_engine, text
@@ -357,8 +358,8 @@ ITEM_TO_TREND_MAPPING = {
 }
 
 # 전역 변수 (데이터 프레임 제거, 통계값만 유지)
-# df = None  <-- Removed global dataframe
-# growth_summary_df = None <-- Removed global dataframe
+df = pd.DataFrame()  # [Stability] 정의되어 있어야 NameError 방지
+growth_summary_df = pd.DataFrame() 
 GLOBAL_MEAN_SENTIMENT = 0.5
 GLOBAL_STD_SENTIMENT = 0.3
 GLOBAL_MEAN_RATING = 3.0
@@ -598,8 +599,13 @@ async def lifespan(app: FastAPI):
     try:
         if db_engine:
             with db_engine.connect() as conn:
-                print("Fetching Global Consumer Stats from DB...", flush=True)
-                result = conn.execute(text("SELECT AVG(sentiment_score), STDDEV(sentiment_score), AVG(rating) FROM amazon_reviews")).fetchone()
+                print("Fetching Global Consumer Stats from DB (Sampled for Speed)...", flush=True)
+                # [Phase 2] 대규모 테이블에서 전체 평균 계산 시 지연 방지를 위해 샘플링(최근 5만건) 사용
+                query = text("""
+                    SELECT AVG(sentiment_score), STDDEV(sentiment_score), AVG(rating) 
+                    FROM (SELECT sentiment_score, rating FROM amazon_reviews LIMIT 50000) as sub
+                """)
+                result = conn.execute(query).fetchone()
                 if result and result[0] is not None:
                     GLOBAL_MEAN_SENTIMENT = float(result[0])
                     GLOBAL_STD_SENTIMENT = float(result[1]) if result[1] is not None else 0.3
@@ -2149,96 +2155,125 @@ async def debug_db_check():
 
 @app.get("/dashboard")
 async def dashboard():
-    # [지연 로딩] 데이터가 비어 있는 경우 요청 시 로딩 시도
-    if df is None or df.empty:
-        print("⚠️ Data empty on /dashboard request. Attempting On-Demand Load...", flush=True)
-        load_data_background(max_retries=1)
+    """
+    [On-Demand] 데이터베이스 집계(SQL GROUP BY)를 사용하여 대시보드 데이터를 실시간으로 생성합니다.
+    글로벌 DataFrame 메모리 점유 없이 메모리 효율적으로 대형 데이터를 처리합니다.
+    """
+    if not db_engine:
+        return {"has_data": False, "error": "DB Engine Not Initialized"}
 
-    if df is None or df.empty:
-        return {"has_data": False, "message": "데이터 로드 실패 (DB 연결 지연)"}
-        
     try:
-        # 1. Top 5 국가 수출 추세 (마켓 트렌드)
-        # 국가별, 월별 합산
-        country_trend = df.groupby(['period_str', 'country_name'])['export_value'].sum().reset_index()
-        # 총 수출액 기준 Top 5 국가 선정
-        top_countries = df.groupby('country_name')['export_value'].sum().nlargest(5).index.tolist()
-        country_trend_top = country_trend[country_trend['country_name'].isin(top_countries)]
-        
-        fig1 = px.line(country_trend_top, x='period_str', y='export_value', color='country_name',
-                       title="1. Top 5 국가 수출 추세 (Market Trend)")
-        fig1.update_layout(template="plotly_white", margin=dict(l=20, r=20, t=40, b=20), xaxis_title="기간", yaxis_title="수출액 ($)")
+        with db_engine.connect() as conn:
+            # 1. Top 5 국가 및 트렌드 데이터 조회
+            # 먼저 총 수출액 기준 상위 5개 국가를 선정
+            top_countries_query = text("""
+                SELECT country_name FROM export_trends 
+                GROUP BY country_name ORDER BY SUM(export_value) DESC LIMIT 5
+            """)
+            top_countries = [r[0] for r in conn.execute(top_countries_query).fetchall()]
+            
+            # 상위 5개 국가의 월별 트렌드 조회
+            country_trend_query = text("""
+                SELECT period_str, country_name, SUM(export_value) as export_value
+                FROM export_trends 
+                WHERE country_name IN :countries
+                GROUP BY period_str, country_name
+                ORDER BY period_str ASC
+            """)
+            country_trend_df = pd.read_sql(country_trend_query, conn, params={"countries": tuple(top_countries)})
+            
+            fig1 = px.line(country_trend_df, x='period_str', y='export_value', color='country_name',
+                           title="1. Top 5 국가 수출 추세 (Market Trend)")
+            fig1.update_layout(template="plotly_white", margin=dict(l=20, r=20, t=40, b=20), xaxis_title="기간", yaxis_title="수출액 ($)")
 
-        # 2. Top 5 품목 수출 추세 (제품 라이프사이클)
-        item_trend = df.groupby(['period_str', 'item_name'])['export_value'].sum().reset_index()
-        top_items = df.groupby('item_name')['export_value'].sum().nlargest(5).index.tolist()
-        item_trend_top = item_trend[item_trend['item_name'].isin(top_items)]
-        
-        # UI 이름으로 매핑
-        item_trend_top['ui_name'] = item_trend_top['item_name'].apply(lambda x: CSV_TO_UI_ITEM_MAPPING.get(x, x))
-        
-        fig2 = px.line(item_trend_top, x='period_str', y='export_value', color='ui_name',
-                       title="2. Top 5 품목 수출 추세 (Product Lifecycle)")
-        fig2.update_layout(template="plotly_white", margin=dict(l=20, r=20, t=40, b=20), xaxis_title="기간", yaxis_title="수출액 ($)")
+            # 2. Top 5 품목 및 트렌드 데이터 조회
+            top_items_query = text("""
+                SELECT item_name FROM export_trends 
+                GROUP BY item_name ORDER BY SUM(export_value) DESC LIMIT 5
+            """)
+            top_items = [r[0] for r in conn.execute(top_items_query).fetchall()]
+            
+            item_trend_query = text("""
+                SELECT period_str, item_name, SUM(export_value) as export_value
+                FROM export_trends 
+                WHERE item_name IN :items
+                GROUP BY period_str, item_name
+                ORDER BY period_str ASC
+            """)
+            item_trend_df = pd.read_sql(item_trend_query, conn, params={"items": tuple(top_items)})
+            item_trend_df['ui_name'] = item_trend_df['item_name'].apply(lambda x: CSV_TO_UI_ITEM_MAPPING.get(x, x))
+            
+            fig2 = px.line(item_trend_df, x='period_str', y='export_value', color='ui_name',
+                           title="2. Top 5 품목 수출 추세 (Product Lifecycle)")
+            fig2.update_layout(template="plotly_white", margin=dict(l=20, r=20, t=40, b=20), xaxis_title="기간", yaxis_title="수출액 ($)")
 
-        # 3. 국가별 평균 단가 비교 (수익성 확인)
-        # 단가 = 총 수출액 / 총 중량 (중량 없으면 unit_price 평균 대용)
-        # 여기서는 간단히 unit_price의 평균을 국가별로 비교
-        profitability = df.groupby('country_name')['unit_price'].mean().sort_values(ascending=False).reset_index()
-        
-        fig3 = px.bar(profitability, x='country_name', y='unit_price', color='unit_price',
-                      title="3. 국가별 평균 단가 (Profitability Check)", color_continuous_scale='Viridis')
-        fig3.update_layout(template="plotly_white", margin=dict(l=20, r=20, t=40, b=20), xaxis_title="국가", yaxis_title="평균 단가 ($/kg)")
+            # 3. 국가별 평균 단가 비교 (Profitability)
+            profit_query = text("""
+                SELECT country_name, AVG(unit_price) as unit_price
+                FROM export_trends 
+                GROUP BY country_name
+                ORDER BY unit_price DESC
+            """)
+            profit_df = pd.read_sql(profit_query, conn)
+            
+            fig3 = px.bar(profit_df, x='country_name', y='unit_price', color='unit_price',
+                          title="3. 국가별 평균 단가 (Profitability Check)", color_continuous_scale='Viridis')
+            fig3.update_layout(template="plotly_white", margin=dict(l=20, r=20, t=40, b=20), xaxis_title="국가", yaxis_title="평균 단가 ($/kg)")
 
-        # 4. 시장 포지셔닝 맵 (물량 vs 가치)
-        # 국가별 총 수출액(Value) vs 총 중량(Volume)
-        positioning = df.groupby('country_name').agg({
-            'export_value': 'sum',
-            'export_weight': 'sum'
-        }).reset_index()
-        
-        fig4 = px.scatter(positioning, x='export_weight', y='export_value', text='country_name',
-                          size='export_value', color='country_name',
-                          title="4. 시장 포지셔닝 (Volume vs Value)")
-        fig4.update_traces(textposition='top center')
-        fig4.update_layout(template="plotly_white", margin=dict(l=20, r=20, t=40, b=20), 
-                           xaxis_title="총 물량 (Volume)", yaxis_title="총 금액 (Value)")
+            # 4. 시장 포지셔닝 맵 (Volume vs Value)
+            pos_query = text("""
+                SELECT country_name, SUM(export_value) as export_value, SUM(export_weight) as export_weight
+                FROM export_trends 
+                GROUP BY country_name
+            """)
+            pos_df = pd.read_sql(pos_query, conn)
+            
+            fig4 = px.scatter(pos_df, x='export_weight', y='export_value', text='country_name',
+                              size='export_value', color='country_name',
+                              title="4. 시장 포지셔닝 (Volume vs Value)")
+            fig4.update_traces(textposition='top center')
+            fig4.update_layout(template="plotly_white", margin=dict(l=20, r=20, t=40, b=20), 
+                               xaxis_title="총 물량 (Volume)", yaxis_title="총 금액 (Value)")
 
-        # 5. 품목별 월별 계절성 (히트맵)
-        # 월(Month) 추출
-        df['month'] = df['period_str'].apply(lambda x: x.split('-')[1] if '-' in str(x) else '00')
-        seasonality = df[df['item_name'].isin(top_items)].groupby(['item_name', 'month'])['export_value'].sum().reset_index()
-        
-        # UI 이름 매핑
-        seasonality['ui_name'] = seasonality['item_name'].apply(lambda x: CSV_TO_UI_ITEM_MAPPING.get(x, x))
-        
-        # Pivot for Heatmap: Index=Item, Columns=Month, Values=ExportValue
-        heatmap_data = seasonality.pivot(index='ui_name', columns='month', values='export_value').fillna(0)
-        # 월 순서 정렬
-        sorted_months = sorted(heatmap_data.columns)
-        heatmap_data = heatmap_data[sorted_months]
-        
-        fig5 = px.imshow(heatmap_data, labels=dict(x="월 (Month)", y="품목", color="수출액"),
-                         title="5. 계절성 분석 (Seasonality Heatmap)", aspect="auto", color_continuous_scale='OrRd')
-        fig5.update_layout(template="plotly_white", margin=dict(l=20, r=20, t=40, b=20))
+            # 5. 품목별 월별 계절성 (히트맵)
+            season_query = text("""
+                SELECT item_name, 
+                       SPLIT_PART(period_str, '-', 2) as month, 
+                       SUM(export_value) as export_value
+                FROM export_trends 
+                WHERE item_name IN :items
+                GROUP BY item_name, month
+            """)
+            season_df = pd.read_sql(season_query, conn, params={"items": tuple(top_items)})
+            season_df['ui_name'] = season_df['item_name'].apply(lambda x: CSV_TO_UI_ITEM_MAPPING.get(x, x))
+            
+            # Pivot for Heatmap: Index=Item, Columns=Month, Values=ExportValue
+            heatmap_data = season_df.pivot(index='ui_name', columns='month', values='export_value').fillna(0)
+            # 월 순서 정렬
+            sorted_months = sorted(heatmap_data.columns)
+            heatmap_data = heatmap_data[sorted_months]
+            
+            fig5 = px.imshow(heatmap_data, labels=dict(x="월 (Month)", y="품목", color="수출액"),
+                             title="5. 계절성 분석 (Seasonality Heatmap)", aspect="auto", color_continuous_scale='OrRd')
+            fig5.update_layout(template="plotly_white", margin=dict(l=20, r=20, t=40, b=20))
 
-        return {
-            "has_data": True,
-            "charts": {
-                "top_countries": json.loads(fig1.to_json()),
-                "top_items": json.loads(fig2.to_json()),
-                "profitability": json.loads(fig3.to_json()),
-                "positioning": json.loads(fig4.to_json())
+            return {
+                "has_data": True,
+                "charts": {
+                    "top_countries": json.loads(fig1.to_json()),
+                    "top_items": json.loads(fig2.to_json()),
+                    "profitability": json.loads(fig3.to_json()),
+                    "positioning": json.loads(fig4.to_json()),
+                    "seasonality": json.loads(fig5.to_json())
+                }
             }
-        }
     except Exception as e:
-        print(f"Dashboard Error: {e}")
+        print(f"❌ Dashboard Error: {e}", flush=True)
         return {"has_data": False, "error": str(e)}
 
 if __name__ == "__main__":
     import uvicorn
-    for route in app.routes:
-        print(f"Route: {route.path} {route.name}")
+    # Optional: Print routes for debugging
+    # for route in app.routes:
+    #     print(f"Route: {route.path} {route.name}")
     uvicorn.run(app, host="0.0.0.0", port=8000)
-
-
