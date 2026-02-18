@@ -9,7 +9,7 @@ import time
 import urllib.parse
 
 # ==========================================
-# [Configuration] DB Connection
+# [설정] DB 연결
 # ==========================================
 def parse_db_url(url):
     if not url: return {}
@@ -51,7 +51,7 @@ def get_db_connection(max_retries=5, delay=5):
     return None
 
 # ==========================================
-# [Helpers] Data Cleaning (강화됨)
+# [도움 함수] 데이터 정제 (강화됨)
 # ==========================================
 def clean_bool(val):
     if pd.isna(val): return None
@@ -81,7 +81,7 @@ def clean_json_field(val):
     except: return json.dumps([])
 
 # ==========================================
-# [Task] Load Amazon Reviews
+# [작업] 아마존 리뷰 로드
 # ==========================================
 def load_amazon_reviews():
     csv_path = "amz_insight_data.csv"

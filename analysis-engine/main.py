@@ -20,7 +20,7 @@ from urllib.parse import quote_plus
 
 
 # =========================================================
-# Insight Filtering Constants
+# 인사이트 필터링 상수
 # =========================================================
 
 # 기존 범용 불용어 (구매/사용 행위 관련)
@@ -34,7 +34,7 @@ GENERIC_INSIGHT_STOPWORDS = {
     'anyone', 'anything', 'would', 'could', 'should', 'first', 'second', 'ever', 'never'
 }
 
-# [신규] 감각/감정 관련 불용어 — "뻔한 칭찬" 을 분석 대상에서 제거
+# [신규] 감각/감정 관련 불용어 — "뻔한 칭찬"을 분석 대상에서 제거
 SENSORY_STOPWORDS = {
     'taste', 'tastes', 'tasted', 'flavor', 'flavour', 'smell', 'smells', 'scent',
     'delicious', 'yummy', 'tasty', 'good', 'great', 'bad', 'horrible', 'best',
@@ -173,30 +173,30 @@ def extract_specific_insights(texts, mode='pairing'):
 
 # DB 연결 
 def parse_spring_datasource_url(url):
-    """Parse jdbc:postgresql://host:port/database?params format"""
+    """jdbc:postgresql://host:port/database?params 형식 파싱"""
     if not url:
         return None, None, None
     
-    # Remove jdbc: prefix if present
+    # jdbc: 접두어가 있으면 제거
     if url.startswith("jdbc:"):
         url = url[5:]
         
-    # Handle postgresql://host:port/database
+    # postgresql://host:port/database 처리
     if url.startswith("postgresql://"):
         try:
             # Pattern: postgresql://host:port/database
-            # Using simple string splitting to avoid complex regex issues
+            # 복잡한 정규식 문제를 피하기 위해 단순 문자열 분할 사용
             without_protocol = url.replace("postgresql://", "")
             
-            # Split host:port and path
+            # host:port 와 path 분리
             if "/" in without_protocol:
                 authority, path = without_protocol.split("/", 1)
-                db_name = path.split("?")[0] # Remove query params
+                db_name = path.split("?")[0] # 쿼리 파라미터 제거
             else:
                 authority = without_protocol
-                db_name = "postgres" # Default
+                db_name = "postgres" # 기본값
 
-            # Split host and port
+            # host 와 port 분리
             if ":" in authority:
                 host, port = authority.split(":")
             else:
@@ -210,12 +210,12 @@ def parse_spring_datasource_url(url):
             
     return None, None, None
 
-# Try Spring format first, fall back to legacy format
+# Spring 형식을 먼저 시도하고, 레거시 형식으로 폴백
 SPRING_URL = os.environ.get("SPRING_DATASOURCE_URL", "")
 _parsed_host, _parsed_port, _parsed_db = parse_spring_datasource_url(SPRING_URL)
 
 DB_HOST = _parsed_host or os.environ.get("DB_HOST", "db")
-# [Azure Fix] Remove '@' prefix if present to avoid Unix socket confusion
+# [Azure Fix] 유닉스 소켓 혼동을 방지하기 위해 '@' 접두어가 있으면 제거
 if DB_HOST.startswith("@"):
     print(f"⚠️ DB_HOST '{DB_HOST}' starts with '@'. Removing it to force TCP connection.", flush=True)
     DB_HOST = DB_HOST.lstrip("@")
@@ -224,14 +224,14 @@ DB_PORT = _parsed_port or os.environ.get("DB_PORT", "5432")
 
 
 # [Azure Fix] Prefer parsed DB name directly to respect Azure configuration
-# (Reverted forced override logic as user confirmed previous setup worked)
+# (사용자가 이전 설정이 작동함을 확인했으므로 강제 오버라이드 로직은 되돌림)
 DB_NAME = _parsed_db or os.environ.get("POSTGRES_DB", "bigproject")
 
 DB_USER = os.environ.get("SPRING_DATASOURCE_USERNAME") or os.environ.get("POSTGRES_USER", "postgres")
 DB_PASS = os.environ.get("SPRING_DATASOURCE_PASSWORD") or os.environ.get("POSTGRES_PASSWORD", "postgres")
 
 # ==========================================
-# [DIAGNOSTIC] Log Startup Configuration
+# [진단] 시작 구성 로그
 # ==========================================
 print("="*60)
 print(f"🚀 [Startup Config] Analysis Engine Starting...")
@@ -239,25 +239,25 @@ print(f"   DB_HOST: {DB_HOST}")
 print(f"   DB_PORT: {DB_PORT}")
 print(f"   DB_NAME: {DB_NAME}")
 print(f"   DB_USER: {DB_USER}")
-# Mask Password
+# 비밀번호 마스킹
 masked_pass = "*" * len(DB_PASS) if DB_PASS else "NONE"
 print(f"   DB_PASS: {masked_pass}")
 print(f"   SSL_MODE: {os.environ.get('DB_SSLMODE', 'require')}")
 print("="*60)
 
-# SQLAlchemy Engine for pooled and stable connections
+# 풀링된 안정적인 연결을 위한 SQLAlchemy 엔진
 def create_db_engine():
     try:
-        # Construct SQLAlchemy URL
-        # Format: postgresql://user:password@host:port/dbname
-        # [Fix] URL encode credentials to handle special characters (e.g. '@')
+        # SQLAlchemy URL 구성
+        # 형식: postgresql://user:password@host:port/dbname
+        # [Fix] 특수 문자(예: '@')를 처리하기 위해 자격 증명을 URL 인코드
         encoded_user = quote_plus(DB_USER)
         encoded_pass = quote_plus(DB_PASS)
         conn_str = f"postgresql://{encoded_user}:{encoded_pass}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
         
-        # [Optimization] Use smaller pool size per instance to avoid exhausting Azure DB slots
-        # Default: pool_size=5, max_overflow=10 (Total 15 per replica)
-        # Strict Mode: pool_size=1, max_overflow=2 (Total 3 per replica) to support scaling.
+        # [최적화] Azure DB 슬롯 고갈을 피하기 위해 인스턴스당 작은 풀 사이즈 사용
+        # 기본값: pool_size=5, max_overflow=10 (레플리카당 총 15개)
+        # 엄격 모드: 스케일링을 지원하기 위해 pool_size=1, max_overflow=2 (레플리카당 총 3개)
         pool_size = int(os.environ.get("DB_POOL_SIZE", 1))
         max_overflow = int(os.environ.get("DB_MAX_OVERFLOW", 2))
         
@@ -281,8 +281,8 @@ def create_db_engine():
 
 db_engine = create_db_engine()
 
-# [Refactor] Removed redundant raw psycopg2 connection logic (get_db_connection)
-# All DB access should use the shared SQLAlchemy engine 'db_engine'
+# [리팩토링] 불필요한 raw psycopg2 연결 로직 제거 (get_db_connection)
+# 모든 DB 액세스는 공유 SQLAlchemy 엔진 'db_engine'을 사용해야 함
 
 
 # 국가 매핑
@@ -397,6 +397,7 @@ def extract_bigrams_with_metrics(
     
     Returns:
         List of keyword analysis dicts with impact_score, positivity_rate, sample_reviews
+        분석된 키워드 딕셔너리 리스트 (impact_score, positivity_rate, sample_reviews 포함)
     """
     if texts.empty:
         return []
@@ -449,7 +450,7 @@ def extract_bigrams_with_metrics(
     
     for idx, bigram in enumerate(bigram_names):
         count = int(bigram_counts[idx])
-        if count < min_df: # min_df보다 적으면 pass (CountVectorizer에서 이미 걸러졌겠지만 안전장치)
+        if count < min_df: # min_df보다 적으면 패스 (CountVectorizer에서 이미 걸러졌겠지만 안전장치)
             continue
             
         # 해당 Bigram을 포함하는 리뷰 필터링
@@ -588,34 +589,34 @@ def load_data_background(max_retries=3):
     global df, growth_summary_df
     global GLOBAL_MEAN_SENTIMENT, GLOBAL_STD_SENTIMENT, GLOBAL_MEAN_RATING
 
-    print(f"🚀 [Background] Starting Data Loading (Retries: {max_retries})...", flush=True)
+    print(f"🚀 [백그라운드] 데이터 로딩 시작 (재시도: {max_retries})...", flush=True)
     
     if not db_engine:
-        print("❌ DB Engine not initialized. Skipping data load.", flush=True)
+        print("❌ DB 엔진이 초기화되지 않았습니다. 데이터 로드를 건너뜁니다.", flush=True)
         return
 
-    # Retry mechanism: Wait for DB migration if needed
+    # 재시도 메커니즘: 필요한 경우 DB 마이그레이션 대기
     for i in range(max_retries):
         try:
-            # Use SQLAlchemy connection management
+            # SQLAlchemy 연결 관리 사용
             with db_engine.connect() as conn:
                 # 1. Load Export Trends
-                print(f"Loading export_trends from DB (Attempt {i+1}/{max_retries})...", flush=True)
+                print(f"DB에서 export_trends 로딩 중 (시도 {i+1}/{max_retries})...", flush=True)
                 query = text("SELECT * FROM export_trends")
                 
                 try:
                     temp_df = pd.read_sql(query, conn)
                 except Exception as e:
-                    # [Lazy Loading] If DB is full, stop trying to load at startup
+                    # [지연 로딩] DB가 가득 찬 경우 시작 시 로딩 중단
                     if "remaining connection slots" in str(e) or "too many clients" in str(e):
-                        print("⚠️ DB Connection Full (Slots Reserved). Skipping initial data load for Lazy Loading.", flush=True)
-                        return # Exit function, server starts with empty data
+                        print("⚠️ DB 연결 가득 참 (슬롯 예약됨). 지연 로딩을 위해 초기 데이터 로드를 건너뜁니다.", flush=True)
+                        return # 함수 종료, 서버는 빈 데이터로 시작
                     raise e 
 
                 print(f"Loaded {len(temp_df)} rows. Processing...", flush=True)
                 
                 if not temp_df.empty:
-                    # [Optimization] Do NOT expand JSONB trend_data globally at startup.
+                    # [최적화] 시작 시 trend_data JSONB를 전체적으로 확장하지 않음
                     df = temp_df
 
                     # Ensure trend_data is parsed as dict (if it comes as string)
@@ -645,7 +646,7 @@ def load_data_background(max_retries=3):
                     growth_summary_df = calculate_growth_matrix(df)
                     print("Export Trends Loaded & Matrix Calculated.", flush=True)
                     
-                    # 2. Global Consumer Stats (Only if step 1 success)
+                    # 2. 글로벌 소비자 통계 (1단계 성공 시에만)
                     print("Calculating Global Consumer Stats from DB...", flush=True)
                     try:
                         result = conn.execute(text("SELECT AVG(sentiment_score), STDDEV(sentiment_score), AVG(rating) FROM amazon_reviews")).fetchone()
@@ -659,39 +660,39 @@ def load_data_background(max_retries=3):
                     except Exception as ex:
                         print(f"Global Stats calculation failed: {ex}", flush=True)
                     
-                    break # Success, exit retry loop
+                    break # 성공, 재시도 루프 종료
                     
                 else:
                     print(f"⚠️ export_trends table is empty. Migration might be in progress... (Attempt {i+1}/{max_retries})", flush=True)
-                    time.sleep(5) # Wait for migration
+                    time.sleep(5) # 마이그레이션 대기
 
         except Exception as e:
             print(f"DB Load Failed (Attempt {i+1}/{max_retries}): {e}", flush=True)
-            time.sleep(5) # Wait before retry
+            time.sleep(5) # 재시도 전 대기
     
     # [Fallback] If DB failed, try loading from local CSV
     if df is None or df.empty: 
-        print("❌ Final: Could not load data after retries. App will run with empty state.", flush=True)
+        print("❌ 최종: 재시도 후에도 데이터를 로드할 수 없습니다. 앱이 빈 상태로 실행됩니다.", flush=True)
         df = pd.DataFrame()
         growth_summary_df = pd.DataFrame()
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Initialize empty first to prevent errors if requests come in before load
+    # 데이터 로드 전 요청이 들어올 경우 오류를 방지하기 위해 먼저 빈 데이터로 초기화
     global df, growth_summary_df
     df = pd.DataFrame()
     growth_summary_df = pd.DataFrame()
 
-    print("🚀 Server Starting... Triggering Background Data Load.", flush=True)
+    print("🚀 서버 시작 중... 백그라운드 데이터 로드 트리거.", flush=True)
     
-    # Start background thread for data loading (Lazy Loading Mode)
-    # This prevents blocking the startup, so Readiness Probe can pass immediately.
+    # 데이터 로딩을 위한 백그라운드 스레드 시작 (지연 로딩 모드)
+    # 서버 기동을 방해하지 않으므로 Readiness Probe가 즉시 통과될 수 있음.
     loader_thread = threading.Thread(target=load_data_background, args=(3,), daemon=True)
     loader_thread.start()
 
     yield
-    print("Shutting down...", flush=True)
+    print("서버 종료 중...", flush=True)
 
 app = FastAPI(title="K-Food Export Analysis Engine", lifespan=lifespan)
 
@@ -728,7 +729,7 @@ async def get_items():
 @app.get("/analyze")
 async def analyze(country: str = Query(...), item: str = Query(...)):
     
-    # [Debug] Log incoming request
+    # [디버그] 들어오는 요청 로그
     # print(f"[Analyze] Request: country={country}, item={item}", flush=True)
     
     # 1. 매핑 및 유효성 검사
@@ -742,12 +743,12 @@ async def analyze(country: str = Query(...), item: str = Query(...)):
     csv_item_name = UI_TO_CSV_ITEM_MAPPING.get(item, item)
     # print(f"[Analyze] Mapped: country_name={country_name}, country_code={country_code}, csv_item={csv_item_name}", flush=True)
 
-    # [Robustness] Check if data is loaded
+    # [강건성] 데이터 로드 여부 확인
     if df is None or df.empty:
          print("❌ [Analyze] Error: Data not loaded (df is empty or None).", flush=True)
          raise HTTPException(status_code=503, detail="Analysis data is not available yet. System is retrying connection.")
 
-    # [Diagnostic] Check required columns
+    # [진단] 필수 컬럼 확인
     if 'country_name' not in df.columns or 'item_name' not in df.columns:
         print(f"❌ [Analyze] Error: Missing required columns in df. Columns: {list(df.columns)}", flush=True)
         raise HTTPException(status_code=500, detail="Server Data Error: Invalid Data Schema")
@@ -797,7 +798,7 @@ async def analyze(country: str = Query(...), item: str = Query(...)):
         hovertemplate='%{x}<br>수출액: $%{y:,.0f}<extra></extra>'
     ), row=1, col=1)
     
-    # ★ 최고점/최저점 annotation
+    # ★ 최고점/최저점 주석(Annotation)
     if len(filtered) >= 3:
         max_idx = export_values.idxmax()
         min_idx = export_values[export_values > 0].idxmin() if (export_values > 0).any() else export_values.idxmin()
@@ -905,21 +906,21 @@ async def analyze(country: str = Query(...), item: str = Query(...)):
     
     common_trend_key = f"{country_code}_KFood_mean"
     
-    # Helper to safely get value from dict
+    # 딕셔너리에서 값을 안전하게 가져오기 위한 헬퍼
     def get_trend_val(row, key):
         td = row.get('trend_data', {})
         if not isinstance(td, dict): return None
         return td.get(key)
 
-    # 1. 공통 선행 지표: 전체 K-Food 관심도 (Baseline)
-    # Check if we have data for this key in the first row (as a sample)
+    # 1. 공통 선행 지표: 전체 K-Food 관심도 (기준점)
+    # 첫 번째 행에 이 키의 데이터가 있는지 확인 (샘플로서)
     has_common = False
     first_trend_data = filtered.iloc[0].get('trend_data', {}) if not filtered.empty else {}
     if isinstance(first_trend_data, dict) and common_trend_key in first_trend_data:
         has_common = True
         
     if has_common:
-        # Extract series
+        # 시계열 추출
         y_common = filtered.apply(lambda r: get_trend_val(r, common_trend_key), axis=1)
         fig_signal.add_trace(go.Scatter(
             x=filtered['period_str'], y=y_common, 
@@ -934,7 +935,7 @@ async def analyze(country: str = Query(...), item: str = Query(...)):
     if trend_kw and trend_kw != "KFood":
         specific_trend_key = f"{country_code}_{trend_kw}_mean"
         
-        # Check existence
+        # 존재 여부 확인
         has_specific = False
         if isinstance(first_trend_data, dict) and specific_trend_key in first_trend_data:
              has_specific = True
@@ -948,9 +949,8 @@ async def analyze(country: str = Query(...), item: str = Query(...)):
                 mode='lines+markers'
             ), secondary_y=True)
             
-    elif not has_common:
         # KFood도 없고 매핑도 없을 때만 아무 트렌드나 하나 찾아서 표시 (폴백)
-        # Find any key ending in _mean inside the first row's trend_data
+        # 첫 번째 행의 trend_data 내부에서 _mean으로 끝나는 키를 하나 찾음
         fallback_key = None
         if isinstance(first_trend_data, dict):
             for k in first_trend_data.keys():
@@ -973,11 +973,11 @@ async def analyze(country: str = Query(...), item: str = Query(...)):
         hovertemplate='%{x}<br>수출액: $%{y:,.0f}<extra></extra>'
     ), secondary_y=False)
     
-    # ★ 관심도-수출 상관계수 계산 & 피크 annotation
+    # ★ 관심도-수출 상관계수 계산 & 피크 주석(Annotation)
     signal_summary_parts = []
     signal_corr_text = ""
     
-    # 관심도 데이터 추출 (가장 좋은 걸로)
+    # 관심도 데이터 추출 (가장 적합한 데이터로)
     trend_series = None
     trend_label = ""
     if trend_kw and trend_kw != "KFood":
@@ -1003,7 +1003,7 @@ async def analyze(country: str = Query(...), item: str = Query(...)):
         except:
             pass
         
-        # ★ 관심도 피크 자동 annotation
+        # ★ 관심도 피크 자동 주석(Annotation)
         try:
             trend_numeric = trend_clean.astype(float)
             if len(trend_numeric) >= 4:
@@ -1052,7 +1052,7 @@ async def analyze(country: str = Query(...), item: str = Query(...)):
         curr = country_matrix[country_matrix['item_csv_name'] == csv_item_name]
         others = country_matrix[country_matrix['item_csv_name'] != csv_item_name]
         
-        # ★ Others — 상위 5개에만 라벨 표시
+        # ★ 기타 품목 — 상위 5개에만 라벨 표시
         others_sorted = others.sort_values('weight_growth', ascending=False)
         top_others = others_sorted.head(5)
         rest_others = others_sorted.iloc[5:]
@@ -1081,7 +1081,7 @@ async def analyze(country: str = Query(...), item: str = Query(...)):
                 hovertemplate="<b>%{text}</b><br>양적: %{x}%<br>질적: %{y}%"
             ))
         
-        # ★ Current — ring 마커 효과 (외곽 큰 원 + 내부 원)
+        # ★ 현재 품목 — 링 마커 효과 (외곽 큰 원 + 내부 원)
         curr_x_clamped = np.clip(curr['weight_growth'], -150, 150)
         curr_y_clamped = np.clip(curr['price_growth'], -50, 50)
         
@@ -1175,7 +1175,7 @@ def generate_business_insights(df):
     """
     charts = {}
 
-    # [Chart 1] 평점 vs 실제 감성 점수 비교 (Review Reliability)
+    # [차트 1] 평점 vs 실제 감성 점수 비교 (Review Reliability)
     if 'sentiment_score' in df.columns and 'rating' in df.columns:
         try:
             sentiment_by_rating = df.groupby('rating')['sentiment_score'].mean().round(2).reset_index()
@@ -1188,7 +1188,7 @@ def generate_business_insights(df):
         except Exception as e:
             print(f"[Insights] Chart 1 Error: {e}")
 
-    # [Chart 2] 재구매 의도 저해 요인 분석 (Churn Drivers)
+    # [차트 2] 재구매 의도 저해 요인 분석 (Churn Drivers)
     metrics = ['quality_issues_semantic', 'delivery_issues_semantic', 'price_sensitive']
     metric_labels = {'quality_issues_semantic': '품질 이슈', 
                      'delivery_issues_semantic': '배송 이슈', 
@@ -1246,7 +1246,7 @@ def generate_business_insights(df):
             print(f"[Insights] Chart 2 Build Error: {e}")
 
 
-    # [Chart 3] 주요 불만 유형별 평점 타격 (Rating Impact)
+    # [차트 3] 주요 불만 유형별 평점 타격 (Rating Impact)
     if 'semantic_top_dimension' in df.columns and 'rating' in df.columns:
         try:
             # None 제거
@@ -1264,7 +1264,7 @@ def generate_business_insights(df):
         except Exception as e:
             print(f"[Insights] Chart 3 Error: {e}")
 
-    # [Chart 4] 긍정적 식감 키워드 TOP 10 (Texture Analysis)
+    # [차트 4] 긍정적 식감 키워드 TOP 10 (Texture Analysis)
     def safe_parse(x):
         try: 
             if isinstance(x, list): return x
@@ -1322,7 +1322,7 @@ def extract_improvement_priorities(df):
                 pass
             
     if not issues:
-        # 컬럼 데이터가 없으면 cleaned_text에서 간단한 빈도 분석 (fallback)
+        # 컬럼 데이터가 없으면 cleaned_text에서 간단한 빈도 분석 (폴백)
         # 하지만 여기서는 간단히 빈 리스트 반환하거나, 추후 확장
         return []
 
@@ -1333,14 +1333,14 @@ def extract_improvement_priorities(df):
     return [{"issue": issue, "count": count, "priority": "High" if i < 2 else "Medium"} 
             for i, (issue, count) in enumerate(top_issues)]
 
-# [Optimization] Global cache for consumer analysis results to reduce DB load
+# [최적화] DB 부하를 줄이기 위한 소비자 분석 결과용 글로벌 캐시
 CONSUMER_CACHE = {}
 CACHE_TTL = 300 # 5 minutes
 
 @app.get("/analyze/consumer")
 async def analyze_consumer(item_id: str = Query(None, description="ASIN"), item_name: str = Query(None, description="제품명/키워드")):
     
-    # 0. Cache Lookup
+    # 0. 캐시 조회
     cache_key = f"{item_id}_{item_name}"
     current_time = time.time()
     
@@ -1358,9 +1358,9 @@ async def analyze_consumer(item_id: str = Query(None, description="ASIN"), item_
             print(f"[Consumer] Remapping '{item_name}' to 'Kimchi' for sufficient data analysis.", flush=True)
             item_name = 'Kimchi'
     
-    # [Fix] Use SQLAlchemy Engine for stable search in cloud
+    # [Fix] 클라우드에서의 안정적인 검색을 위해 SQLAlchemy 엔진 사용
     try:
-        # [Optimization] LIMIT 3000 to prevent Cloud OOM & COALESCE for NULL handling
+        # [최적화] 클라우드 OOM 방지를 위한 3000개 제한 및 NULL 처리를 위한 COALESCE 사용
         if db_engine:
             if item_name:
                 query = text("""
@@ -1377,13 +1377,13 @@ async def analyze_consumer(item_id: str = Query(None, description="ASIN"), item_
             else:
                 filtered = pd.DataFrame()
         else:
-            # [Refactor] Legacy fallback removed as get_db_connection is deprecated
+            # [리팩토링] get_db_connection이 사용 중단되었으므로 레거시 폴백 제거
             print("❌ DB Engine not initialized in consumer analysis.", flush=True)
             return JSONResponse(status_code=500, content={"has_data": False, "message": "Database Connection Error (Engine Not Init)"})
             
     except Exception as e:
         print(f"[Consumer] Data Fetch Error: {e}", flush=True)
-        # Handle "Connection slots reserved" specifically to provide better user feedback
+        # 더 나은 사용자 피드백을 위해 "Connection slots reserved" 오류를 구체적으로 처리
         error_msg = str(e)
         if "remaining connection slots" in error_msg.lower():
             error_msg = "실시간 분석 세션이 너무 많습니다. 잠시 후 다시 시도해주세요. (DB Connection Full)"
@@ -1440,7 +1440,7 @@ async def analyze_consumer(item_id: str = Query(None, description="ASIN"), item_
     # 2. 시장 감성 및 주요 점수 (상대적 지표로 전면 교체)
     # =========================================================
     try:
-        # [DIAGNOSTIC] Rating & Sentiment Distribution Log
+        # [진단] 평점 및 감성 분포 로그
         r_mean = filtered['rating'].mean()
         r_std = filtered['rating'].std()
         r_min = filtered['rating'].min()
@@ -1451,19 +1451,19 @@ async def analyze_consumer(item_id: str = Query(None, description="ASIN"), item_
         # print(f"[Consumer-Diag] Total: {total_count}, Rating: mean={r_mean:.2f}, std={r_std:.2f}, min={r_min}, max={r_max}", flush=True)
         # print(f"[Consumer-Diag] Sentiment: mean={s_mean:.2f}, std={s_std:.2f}", flush=True)
 
-        # [Self-Healing] Detect invalid ratings (e.g., all 3.0 or 0 variance despite sentiment variance)
-        # If rating variance is near 0 but sentiment variance is healthy, backfill rating from sentiment.
+        # [자가 치유] 유효하지 않은 평점 감지 (예: 감성 변동에도 불구하고 모든 평점이 3.0이거나 분산이 0인 경우)
+        # 평점 분산이 0에 가깝지만 감성 분산이 정상인 경우, 감성 점수로부터 평점을 역산하여 채움.
         is_rating_flat = (pd.isna(r_std) or r_std < 0.1) and (abs(r_mean - 3.0) < 0.1)
         is_sentiment_active = (not pd.isna(s_std) and s_std > 0.1)
         
         if is_rating_flat and is_sentiment_active:
-            print("[Consumer] 🚨 Detected abnormal ratings (all ~3.0). Attempting SELF-HEALING from sentiment_score...", flush=True)
-            # Formula: Rating = Sentiment * 4 + 1 (Approximate mapping)
+            print("[Consumer] 🚨 비정상적 평점 감지 (모두 ~3.0). sentiment_score로부터 자가 치유를 시도합니다...", flush=True)
+            # 공식: 평점 = 감성 * 4 + 1 (근사 매핑)
             # 0.0 -> 1.0, 0.5 -> 3.0, 1.0 -> 5.0
             filtered['rating'] = filtered['sentiment_score'] * 4 + 1
-            # Recalculate stats
+            # 통계 재계산
             r_mean = filtered['rating'].mean()
-            print(f"[Consumer] Healed Rating Mean: {r_mean:.2f}", flush=True)
+            print(f"[Consumer] 복구된 평점 평균: {r_mean:.2f}", flush=True)
 
         # 1. Impact Score (Rating Lift)
         avg_rating = r_mean
@@ -1529,7 +1529,7 @@ async def analyze_consumer(item_id: str = Query(None, description="ASIN"), item_
             threshold=impact_threshold_val
         )
 
-        # [Logic Fix] 긍정 키워드가 없지만 분석된 키워드 중 Impact Score 양수인 것이 있다면 "Soft Fallback"
+        # [로직 수정] 긍정 키워드가 없지만 분석된 키워드 중 Impact Score가 양수인 것이 있다면 "소프트 폴백"
         if not diverging_keywords["positive"] and keywords_analysis:
             # 0.02 이상인 것들을 찾아서 추가 (Impact Score가 아주 미세하게라도 양수인 것)
             soft_positives = [k for k in keywords_analysis if k['impact_score'] > 0.02]
@@ -1906,7 +1906,7 @@ async def analyze_consumer(item_id: str = Query(None, description="ASIN"), item_
 
     # ASIN별 NSS vs CAS 산점도
     # ASIN별 NSS vs CAS 산점도 (Global Comparative Analysis)
-    # 메모리 문제로 전체 데이터(df_consumer) 로딩을 안하므로, 
+    # 메모리 문제로 전체 데이터(df_consumer) 로딩을 안 하므로, 
     # 비교 분석 대신 현재 검색된 상품들의 분포만 보여주거나, DB 집계가 필요함.
     # 여기서는 검색된 데이터(filtered) 내의 ASIN들만 비교하는 것으로 축소.
     try:
@@ -2095,7 +2095,7 @@ async def analyze_consumer(item_id: str = Query(None, description="ASIN"), item_
     except Exception as e:
         print(f"Business Insights Generation Failed: {e}", flush=True)
 
-    # [Optimization] Store in cache
+    # [최적화] 캐시에 저장
     CONSUMER_CACHE[cache_key] = (result, current_time)
     
     return result
@@ -2104,7 +2104,7 @@ async def analyze_consumer(item_id: str = Query(None, description="ASIN"), item_
 async def debug_db_check():
     """브라우저에서 DB 테이블과 데이터 개수를 즉시 확인"""
     try:
-        # [Refactor] Use SQLAlchemy Engine instead of raw psycopg2
+        # [리팩토링] raw psycopg2 대신 SQLAlchemy 엔진 사용
         if not db_engine:
              return {"error": "DB Engine Not Initialized"}
 
@@ -2134,7 +2134,7 @@ async def debug_db_check():
 
 @app.get("/dashboard")
 async def dashboard():
-    # [Lazy Loading] If data is empty, try to load it on-demand
+    # [지연 로딩] 데이터가 비어 있는 경우 요청 시 로딩 시도
     if df is None or df.empty:
         print("⚠️ Data empty on /dashboard request. Attempting On-Demand Load...", flush=True)
         load_data_background(max_retries=1)
@@ -2143,7 +2143,7 @@ async def dashboard():
         return {"has_data": False, "message": "데이터 로드 실패 (DB 연결 지연)"}
         
     try:
-        # 1. Top 5 국가 수출 추세 (Line)
+        # 1. Top 5 국가 수출 추세 (마켓 트렌드)
         # 국가별, 월별 합산
         country_trend = df.groupby(['period_str', 'country_name'])['export_value'].sum().reset_index()
         # 총 수출액 기준 Top 5 국가 선정
@@ -2154,7 +2154,7 @@ async def dashboard():
                        title="1. Top 5 국가 수출 추세 (Market Trend)")
         fig1.update_layout(template="plotly_white", margin=dict(l=20, r=20, t=40, b=20), xaxis_title="기간", yaxis_title="수출액 ($)")
 
-        # 2. Top 5 품목 수출 추세 (Line)
+        # 2. Top 5 품목 수출 추세 (제품 라이프사이클)
         item_trend = df.groupby(['period_str', 'item_name'])['export_value'].sum().reset_index()
         top_items = df.groupby('item_name')['export_value'].sum().nlargest(5).index.tolist()
         item_trend_top = item_trend[item_trend['item_name'].isin(top_items)]
@@ -2166,7 +2166,7 @@ async def dashboard():
                        title="2. Top 5 품목 수출 추세 (Product Lifecycle)")
         fig2.update_layout(template="plotly_white", margin=dict(l=20, r=20, t=40, b=20), xaxis_title="기간", yaxis_title="수출액 ($)")
 
-        # 3. 국가별 평균 단가 비교 (Bar - Profitability)
+        # 3. 국가별 평균 단가 비교 (수익성 확인)
         # 단가 = 총 수출액 / 총 중량 (중량 없으면 unit_price 평균 대용)
         # 여기서는 간단히 unit_price의 평균을 국가별로 비교
         profitability = df.groupby('country_name')['unit_price'].mean().sort_values(ascending=False).reset_index()
@@ -2175,7 +2175,7 @@ async def dashboard():
                       title="3. 국가별 평균 단가 (Profitability Check)", color_continuous_scale='Viridis')
         fig3.update_layout(template="plotly_white", margin=dict(l=20, r=20, t=40, b=20), xaxis_title="국가", yaxis_title="평균 단가 ($/kg)")
 
-        # 4. 시장 포지셔닝 맵 (Scatter - Volume vs Value)
+        # 4. 시장 포지셔닝 맵 (물량 vs 가치)
         # 국가별 총 수출액(Value) vs 총 중량(Volume)
         positioning = df.groupby('country_name').agg({
             'export_value': 'sum',
@@ -2189,7 +2189,7 @@ async def dashboard():
         fig4.update_layout(template="plotly_white", margin=dict(l=20, r=20, t=40, b=20), 
                            xaxis_title="총 물량 (Volume)", yaxis_title="총 금액 (Value)")
 
-        # 5. 품목별 월별 계절성 (Heatmap)
+        # 5. 품목별 월별 계절성 (히트맵)
         # 월(Month) 추출
         df['month'] = df['period_str'].apply(lambda x: x.split('-')[1] if '-' in str(x) else '00')
         seasonality = df[df['item_name'].isin(top_items)].groupby(['item_name', 'month'])['export_value'].sum().reset_index()
