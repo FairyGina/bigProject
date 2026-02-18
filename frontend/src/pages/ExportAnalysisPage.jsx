@@ -52,6 +52,11 @@ const ExportAnalysisPage = () => {
                 params: { country: filters.country, item: filters.item }
             });
             setData(response.data);
+
+            // 수출 0인 월이 12회 이상이면 경고 alert
+            if (response.data?.export_zero_count >= 12) {
+                alert('해당 품목에 수출 기록이 충분하지 않아 정확하지 않을 수 있습니다');
+            }
         } catch (err) {
             console.error("Analysis Error:", err);
             setError("데이터를 불러오는 중 오류가 발생했습니다.");
@@ -261,6 +266,13 @@ const ExportAnalysisPage = () => {
                                         style={{ width: '100%', height: '400px' }}
                                         config={{ displayModeBar: false }}
                                     />
+                                )}
+
+                                {/* 중국 선택 시 구글 트렌드 미지원 안내 */}
+                                {data?.is_china && (
+                                    <p className="mt-3 text-sm text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 px-4 py-2 rounded-lg border border-amber-200 dark:border-amber-800 text-center">
+                                        ⚠️ 중국은 구글 트렌드 서비스가 제공되지 않아 관심도 서비스가 제공되지 않습니다
+                                    </p>
                                 )}
                             </div>
 

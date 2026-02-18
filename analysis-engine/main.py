@@ -1157,11 +1157,28 @@ async def analyze(country: str = Query(...), item: str = Query(...)):
             template="plotly_white", height=500
         )
 
+    # ---------------------------------------------------------
+    # 추가 경고 플래그 계산
+    # ---------------------------------------------------------
+    # 1. 중국 여부 (구글 트렌드 미지원)
+    is_china = (country_code == 'CN')
+    
+    # 2. 수출 0인 월 카운트 (22.01~25.12 범위)
+    export_zero_count = 0
+    try:
+        period_mask = (filtered['period_str'] >= '2022.01') & (filtered['period_str'] <= '2025.12')
+        filtered_range = filtered[period_mask]
+        export_zero_count = int((filtered_range['export_value'] == 0).sum())
+    except Exception as e:
+        print(f"[Analyze] export_zero_count 계산 오류: {e}", flush=True)
+
     return {
         "country": country,
         "country_name": country_name,
         "item": item,
         "has_data": True,
+        "is_china": is_china,
+        "export_zero_count": export_zero_count,
         "charts": {
             "trend_stack": json.loads(fig_stack.to_json()),
             "signal_map": json.loads(fig_signal.to_json()),
@@ -1383,7 +1400,8 @@ async def analyze_consumer(item_id: str = Query(None, description="ASIN"), item_
     # [Fix] 클라우드에서의 안정적인 검색을 위해 SQLAlchemy 엔진 사용
     try:
         # [Phase 2] SELECT * 대신 분석에 필요한 컬럼만 명시적으로 요청하여 메모리 절감
-        SELECTED_COLUMNS = "asin, title, rating, sentiment_score, cleaned_text, original_text, texture_terms, ingredients, quality_issues_semantic, delivery_issues_semantic, packaging_keywords, repurchase_intent_hybrid, recommendation_intent_hybrid, value_perception_hybrid, price_sensitive, sensory_conflict, review_text_keywords, title_keywords, flavor_terms, price"
+        # ⚠️ migrate_db.py의 CREATE TABLE 스키마와 정확히 일치하는 컬럼만 사용
+        SELECTED_COLUMNS = "asin, title, rating, sentiment_score, cleaned_text, original_text, texture_terms, ingredients, quality_issues_semantic, delivery_issues_semantic, packaging_keywords, repurchase_intent_hybrid, recommendation_intent_hybrid, price_sensitive, semantic_top_dimension"
         if db_engine:
             if item_name:
                 query = text(f"""
