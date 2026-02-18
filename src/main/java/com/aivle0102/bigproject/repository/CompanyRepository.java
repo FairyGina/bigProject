@@ -1,10 +1,9 @@
 package com.aivle0102.bigproject.repository;
 
-import java.util.Optional;
-
+import com.aivle0102.bigproject.domain.Company;
 import org.springframework.data.jpa.repository.JpaRepository;
 
-import com.aivle0102.bigproject.domain.Company;
+import java.util.Optional;
 
 public interface CompanyRepository extends JpaRepository<Company, Long> {
     Optional<Company> findFirstByCompanyNameIgnoreCase(String companyName);

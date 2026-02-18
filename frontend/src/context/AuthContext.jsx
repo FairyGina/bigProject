@@ -1,5 +1,5 @@
 ﻿import React, { createContext, useState, useEffect, useContext } from 'react';
-import { clearAccessToken, getAccessToken, setAccessToken, setCsrfToken } from '../utils/authStorage';
+import axiosInstance from '../axiosConfig';
 
 const AuthContext = createContext(null);
 
@@ -9,29 +9,31 @@ export const AuthProvider = ({ children }) => {
 
     useEffect(() => {
         // 초기 로딩 시 CSRF 토큰 발급
-        fetch('http://localhost:8080/api/csrf', { credentials: 'include' })
-            .then((res) => (res.ok ? res.json() : null))
-            .then((data) => {
+        axiosInstance.get('/csrf')
+            .then((res) => {
+                const data = res.data;
                 if (data?.token) {
-                    setCsrfToken(data.token);
+                    sessionStorage.setItem('csrfToken', data.token);
                 }
             })
-            .catch(() => {});
+            .catch(() => { });
 
-        const token = getAccessToken();
+        const token = sessionStorage.getItem('accessToken');
         if (token) {
-            setUser({ token });
+            const userName = sessionStorage.getItem('userName') || localStorage.getItem('userName');
+            const userId = sessionStorage.getItem('userId') || localStorage.getItem('userId');
+            setUser({ token, userName, userId });
         }
         setLoading(false);
     }, []);
 
     const login = (token, userData = {}) => {
-        setAccessToken(token);
+        sessionStorage.setItem('accessToken', token);
         setUser({ token, ...userData });
     };
 
     const logout = () => {
-        clearAccessToken();
+        sessionStorage.removeItem('accessToken');
         setUser(null);
     };
 
@@ -43,7 +45,3 @@ export const AuthProvider = ({ children }) => {
 };
 
 export const useAuth = () => useContext(AuthContext);
-
-
-
-

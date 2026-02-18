@@ -2,6 +2,7 @@ package com.aivle0102.bigproject.controller;
 
 import com.aivle0102.bigproject.dto.RecipeCreateRequest;
 import com.aivle0102.bigproject.dto.RecipePublishRequest;
+import com.aivle0102.bigproject.dto.RecipeListResponse;
 import com.aivle0102.bigproject.dto.RecipeResponse;
 import com.aivle0102.bigproject.dto.RecipeTargetRecommendRequest;
 import com.aivle0102.bigproject.dto.RecipeTargetRecommendResponse;
@@ -41,17 +42,17 @@ public class RecipeController {
     }
 
     @GetMapping
-    public ResponseEntity<List<RecipeResponse>> getAll(Principal principal) {
+    public ResponseEntity<List<RecipeListResponse>> getAll(Principal principal) {
         String requester = principal == null ? null : principal.getName();
-        return ResponseEntity.ok(recipeService.getAll(requester));
+        return ResponseEntity.ok(recipeService.getAllForList(requester));
     }
 
     @GetMapping("/me")
-    public ResponseEntity<List<RecipeResponse>> getMine(Principal principal) {
+    public ResponseEntity<List<RecipeListResponse>> getMine(Principal principal) {
         if (principal == null) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
         }
-        return ResponseEntity.ok(recipeService.getByAuthor(principal.getName()));
+        return ResponseEntity.ok(recipeService.getByAuthorForList(principal.getName()));
     }
 
     @GetMapping("/{id}")
@@ -64,8 +65,7 @@ public class RecipeController {
     public ResponseEntity<RecipeResponse> publish(
             @PathVariable("id") Long id,
             @RequestBody(required = false) RecipePublishRequest request,
-            Principal principal
-    ) {
+            Principal principal) {
         if (principal == null) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
         }
@@ -76,8 +76,7 @@ public class RecipeController {
     public ResponseEntity<RecipeResponse> saveInfluencers(
             @PathVariable("id") Long id,
             @RequestBody(required = false) RecipePublishRequest request,
-            Principal principal
-    ) {
+            Principal principal) {
         if (principal == null) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
         }
@@ -85,7 +84,8 @@ public class RecipeController {
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<RecipeResponse> update(@PathVariable("id") Long id, @RequestBody RecipeCreateRequest request, Principal principal) {
+    public ResponseEntity<RecipeResponse> update(@PathVariable("id") Long id, @RequestBody RecipeCreateRequest request,
+            Principal principal) {
         if (principal == null) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
         }
@@ -96,8 +96,7 @@ public class RecipeController {
     public ResponseEntity<RecipeResponse> updateVisibility(
             @PathVariable("id") Long id,
             @RequestBody(required = false) VisibilityUpdateRequest request,
-            Principal principal
-    ) {
+            Principal principal) {
         if (principal == null) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
         }
@@ -114,7 +113,8 @@ public class RecipeController {
     }
 
     @PostMapping("/recommend-targets")
-    public ResponseEntity<RecipeTargetRecommendResponse> recommendTargets(@RequestBody RecipeTargetRecommendRequest request) {
+    public ResponseEntity<RecipeTargetRecommendResponse> recommendTargets(
+            @RequestBody RecipeTargetRecommendRequest request) {
         return ResponseEntity.ok(recipeTargetRecommendationService.recommend(request));
     }
 }

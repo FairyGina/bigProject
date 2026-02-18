@@ -5,7 +5,6 @@ import ThemeToggle from '../components/common/ThemeToggle';
 import Footer from '../components/common/Footer';
 import { useAuth } from '../context/AuthContext';
 import axiosInstance from '../axiosConfig';
-import { storeUserIdentity } from '../utils/user';
 
 const LandingPage = () => {
     const navigate = useNavigate();
@@ -25,7 +24,12 @@ const LandingPage = () => {
             const data = response.data || {};
             if (data.accessToken) {
                 login(data.accessToken, { userName: data.userName });
-                storeUserIdentity({ userName: data.userName, userId: data.userId });
+                if (data.userName) {
+                    localStorage.setItem('userName', data.userName);
+                }
+                if (data.userId) {
+                    localStorage.setItem('userId', data.userId);
+                }
             }
             navigate('/mainboard');
         } catch (err) {

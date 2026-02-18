@@ -8,11 +8,9 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 
 import org.springframework.stereotype.Service;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 @Service
-@Slf4j
 public class ReportProgressTracker {
 
     private static final long DEFAULT_TIMEOUT_MS = 5 * 60 * 1000L;
@@ -129,8 +127,7 @@ public class ReportProgressTracker {
                         "updatedAt", Instant.now().toString()
                 )));
             }
-        } catch (IOException e) {
-            log.debug("SSE 초기 전송 실패: {}", e.getMessage());
+        } catch (IOException ignored) {
         }
         return emitter;
     }
@@ -148,7 +145,6 @@ public class ReportProgressTracker {
             try {
                 emitter.send(SseEmitter.event().name("progress").data(state.toPayload()));
             } catch (IOException ex) {
-                log.debug("SSE 전송 실패: {}", ex.getMessage());
                 removeEmitter(jobId, emitter);
             }
         }

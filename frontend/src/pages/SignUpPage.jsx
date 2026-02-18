@@ -6,21 +6,19 @@ import GlassCard from '../components/common/GlassCard';
 import ThemeToggle from '../components/common/ThemeToggle';
 import Footer from '../components/common/Footer';
 import axiosInstance from '../axiosConfig';
-import { writeToStorages } from '../utils/storage';
-import { buildCountryOptions } from '../utils/targetOptions';
 
-const TARGET_COUNTRY_OPTIONS = buildCountryOptions([
-    'KR',
-    'US',
-    'JP',
-    'CN',
-    'FR',
-    'DE',
-    'PL',
-    'IN',
-    'VN',
-    'TH',
-]);
+const TARGET_COUNTRY_OPTIONS = [
+    { value: 'KR', label: '한국' },
+    { value: 'US', label: '미국' },
+    { value: 'JP', label: '일본' },
+    { value: 'CN', label: '중국' },
+    { value: 'FR', label: '프랑스' },
+    { value: 'DE', label: '독일' },
+    { value: 'PL', label: '폴란드' },
+    { value: 'IN', label: '인도' },
+    { value: 'VN', label: '베트남' },
+    { value: 'TH', label: '태국' },
+];
 
 const SignUpPage = () => {
     const navigate = useNavigate();
@@ -232,7 +230,8 @@ const SignUpPage = () => {
         }
 
         try {
-            writeToStorages('oauthFlow', 'signup');
+            sessionStorage.setItem('oauthFlow', 'signup');
+            localStorage.setItem('oauthFlow', 'signup');
         } catch (storageError) {
             console.warn('oauthFlow 스토리지 사용 불가:', storageError);
         }

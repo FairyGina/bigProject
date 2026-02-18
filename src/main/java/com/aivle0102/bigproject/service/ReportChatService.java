@@ -57,22 +57,22 @@ public class ReportChatService {
         if (reportId == null) {
             return List.of();
         }
-        return reportChatRoomRepository.findByReport_Id(reportId)
-                .map(room -> {
-                    List<ReportChatMessage> messages = reportChatMessageRepository.findByRoom_IdOrderByCreatedAtAsc(room.getId());
-                    if (messages.isEmpty()) {
-                        return List.<ReportChatMessageResponse>of();
-                    }
-                    List<String> userIds = messages.stream()
-                            .map(ReportChatMessage::getUserId)
-                            .distinct()
-                            .toList();
-                    Map<String, String> nameMap = userInfoRepository.findByUserIdIn(userIds).stream()
-                            .collect(Collectors.toMap(UserInfo::getUserId, UserInfo::getUserName, (a, b) -> a));
-                    return messages.stream()
-                            .map(msg -> ReportChatMessageResponse.from(msg, nameMap.getOrDefault(msg.getUserId(), msg.getUserId())))
-                            .toList();
-                })
-                .orElseGet(List::of);
+        ReportChatRoom room = reportChatRoomRepository.findByReport_Id(reportId).orElse(null);
+        if (room == null) {
+            return List.of();
+        }
+        List<ReportChatMessage> messages = reportChatMessageRepository.findByRoom_IdOrderByCreatedAtAsc(room.getId());
+        if (messages.isEmpty()) {
+            return List.of();
+        }
+        List<String> userIds = messages.stream()
+                .map(ReportChatMessage::getUserId)
+                .distinct()
+                .toList();
+        Map<String, String> nameMap = userInfoRepository.findByUserIdIn(userIds).stream()
+                .collect(Collectors.toMap(UserInfo::getUserId, UserInfo::getUserName, (a, b) -> a));
+        return messages.stream()
+                .map(msg -> ReportChatMessageResponse.from(msg, nameMap.getOrDefault(msg.getUserId(), msg.getUserId())))
+                .toList();
     }
 }

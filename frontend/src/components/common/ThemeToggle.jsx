@@ -1,14 +1,13 @@
 import React from 'react';
-import { readFromStorage, writeToStorages } from '../../utils/storage';
 
 const ThemeToggle = ({ className = '' }) => {
     const [theme, setTheme] = React.useState(() => {
-        return readFromStorage('theme', { preferSession: false }) || 'light';
+        return localStorage.getItem('theme') || 'light';
     });
 
     React.useEffect(() => {
         document.documentElement.setAttribute('data-theme', theme);
-        writeToStorages('theme', theme, { session: false });
+        localStorage.setItem('theme', theme);
     }, [theme]);
 
     const toggleTheme = () => {

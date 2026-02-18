@@ -8,7 +8,6 @@ import org.springframework.stereotype.Service;
 
 import com.aivle0102.bigproject.client.OpenAiClient;
 import com.aivle0102.bigproject.dto.ReportRequest;
-import com.aivle0102.bigproject.util.OpenAiJsonUtils;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
@@ -31,13 +30,19 @@ public class AiReportService {
             "kpis",
             "nextSteps"
     );
-    private static final String SYSTEM_PROMPT =
-            "당신은 글로벌 식품/레시피 비즈니스 분석가입니다. 한국어로만 답변하세요.";
 
     public Map<String, Object> generateReport(ReportRequest req) {
         String prompt = buildPrompt(req);
 
-        Map<String, Object> body = buildChatRequest(prompt, 0.4);
+        Map<String, Object> body = Map.of(
+                "model", model,
+                "messages", List.of(
+                        Map.of("role", "system", "content",
+                                "당신은 글로벌 식품/레시피 비즈니스 분석가입니다. 한국어로만 답변하세요."),
+                        Map.of("role", "user", "content", prompt)
+                ),
+                "temperature", 0.4
+        );
 
         String content = openAiClient.chatCompletion(body);
         return parseJson(content);
@@ -46,30 +51,45 @@ public class AiReportService {
     public String generateSummary(String fullReport) {
         String prompt = buildSummaryPrompt(fullReport);
 
-        Map<String, Object> body = buildChatRequest(prompt, 0.4);
+        Map<String, Object> body = Map.of(
+                "model", model,
+                "messages", List.of(
+                        Map.of("role", "system", "content",
+                                "당신은 글로벌 식품/레시피 비즈니스 분석가입니다. 한국어로만 답변하세요."),
+                        Map.of("role", "user", "content", prompt)
+                ),
+                "temperature", 0.4
+        );
 
         return openAiClient.chatCompletion(body);
     }
 
     public String generateFinalEvaluation(List<Map<String, Object>> reportInputs) {
         String prompt = buildFinalEvaluationPrompt(reportInputs);
-        Map<String, Object> body = buildChatRequest(prompt, 0.2);
+        Map<String, Object> body = Map.of(
+                "model", model,
+                "messages", List.of(
+                        Map.of("role", "system", "content",
+                                "당신은 글로벌 식품/레시피 비즈니스 분석가입니다. 한국어로만 답변하세요."),
+                        Map.of("role", "user", "content", prompt)
+                ),
+                "temperature", 0.2
+        );
         return openAiClient.chatCompletion(body);
     }
 
-    private Map<String, Object> buildChatRequest(String prompt, double temperature) {
-        return Map.of(
-                "model", model,
-                "messages", List.of(
-                        Map.of("role", "system", "content", SYSTEM_PROMPT),
-                        Map.of("role", "user", "content", prompt)
-                ),
-                "temperature", temperature
-        );
-    }
-
     private Map<String, Object> parseJson(String content) {
-        String json = OpenAiJsonUtils.extractJsonBlock(content, '{', '}');
+        String trimmed = content == null ? "" : content.trim();
+        String json = trimmed;
+        if (trimmed.startsWith("```")) {
+            json = trimmed.replaceFirst("^```[a-zA-Z]*\\s*", "");
+            json = json.replaceFirst("\\s*```$", "");
+        }
+        int start = json.indexOf('{');
+        int end = json.lastIndexOf('}');
+        if (start >= 0 && end > start) {
+            json = json.substring(start, end + 1);
+        }
         try {
             return objectMapper.readValue(json, new TypeReference<>() {});
         } catch (Exception e) {

@@ -165,6 +165,7 @@ public class InfluencerDiscoveryService {
                 "temperature", 0.2
         );
 
+        // ✅ 여기만 핵심 변경: WebClient 직접 호출 제거
         String json = openAiClient.chatCompletion(body);
         String cleaned = sanitizeJson(json);
 

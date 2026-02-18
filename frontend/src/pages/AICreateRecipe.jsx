@@ -1,12 +1,13 @@
 ﻿import React from 'react';
 import { useAuth } from '../context/AuthContext';
-import { getStoredUserName, maskUserName } from '../utils/user';
 
 const AICreateRecipe = () => {
     const { user } = useAuth();
-    const rawName = getStoredUserName(user, '사용자');
-    const maskedName = maskUserName(rawName);
-    const iframeSrc = '/ai/recipe/';
+    const rawName = user?.userName || sessionStorage.getItem('userName') || localStorage.getItem('userName') || '사용자';
+    const maskedName = rawName.length <= 1 ? '*' : `${rawName.slice(0, -1)}*`;
+    // 환경변수로 챗봇 URL 설정, 기본값은 Azure Container Apps 주소
+    const chatbotBaseUrl = import.meta.env.VITE_CHATBOT_URL || 'https://bp-chatbot-app.wittysand-a0f4e87e.centralindia.azurecontainerapps.io';
+    const iframeSrc = `${chatbotBaseUrl}/recipe/${user?.token ? `?token=${user.token}` : ''}`;
 
     return (
         <div className="relative">
@@ -52,3 +53,4 @@ const AICreateRecipe = () => {
 };
 
 export default AICreateRecipe;
+

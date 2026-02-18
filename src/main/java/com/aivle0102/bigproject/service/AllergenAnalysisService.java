@@ -1,3 +1,5 @@
+// 레시피 재료를 기반으로 알레르기 성분을 추출/매칭하는 핵심 서비스.
+// 원재료/가공식품 분류, HACCP 검색, AI 보조 추출을 순차적으로 수행한다.
 package com.aivle0102.bigproject.service;
 
 import java.util.ArrayList;
@@ -117,17 +119,16 @@ public class AllergenAnalysisService {
             }
 
             // 0-1) 수산물 원재료 카탈로그 분류(생선/갑각류/연체/해조 등)
-            Optional<RawProduceCatalogLoader.SeafoodCategory> seafoodCategory =
-                    rawProduceCatalogLoader.matchSeafoodCategory(ing);
-            if (seafoodCategory.isPresent()) {
-                RawProduceCatalogLoader.SeafoodCategory category = seafoodCategory.get();
-                LOGGER.info(() -> "RAW_PRODUCE_SEAFOOD 판단: ingredient=" + ing + " category=" + category);
-                if (addSeafoodDirectMatches(category, ing, obligation, directMatched)) {
+            RawProduceCatalogLoader.SeafoodCategory seafoodCategory =
+                    rawProduceCatalogLoader.matchSeafoodCategory(ing).orElse(null);
+            if (seafoodCategory != null) {
+                LOGGER.info(() -> "RAW_PRODUCE_SEAFOOD 판단: ingredient=" + ing + " category=" + seafoodCategory);
+                if (addSeafoodDirectMatches(seafoodCategory, ing, obligation, directMatched)) {
                     continue;
                 }
                 skippedEvidences.add(IngredientEvidence.builder()
                         .ingredient(ing)
-                        .searchStrategy("RAW_PRODUCE_SEAFOOD_NON_ALLERGEN:" + category)
+                        .searchStrategy("RAW_PRODUCE_SEAFOOD_NON_ALLERGEN:" + seafoodCategory)
                         .evidences(List.of())
                         .matchedAllergensForTargetCountry(List.of())
                         .status("SKIPPED_RAW_PRODUCE_NON_ALLERGEN")
@@ -153,7 +154,8 @@ public class AllergenAnalysisService {
                 // 원재료성 식품 중 알레르기 원재료만 통과
                 Optional<String> canonicalOpt = allergenMatcher.directMatchIngredientToCanonical(ing);
                 if (canonicalOpt.isPresent()) {
-                    if (addDirectIfObligated(canonicalOpt.get(), ing, obligation, directMatched)) {
+                    String canonical = canonicalOpt.get();
+                    if (addDirectIfObligated(canonical, ing, obligation, directMatched)) {
                         continue;
                     }
                 }
@@ -173,7 +175,8 @@ public class AllergenAnalysisService {
                 canonicalOpt = processedFoodsCatalogLoader.matchDirectFromCatalog(ing);
             }
             if (canonicalOpt.isPresent()) {
-                if (!addDirectIfObligated(canonicalOpt.get(), ing, obligation, directMatched)) {
+                String canonical = canonicalOpt.get();
+                if (!addDirectIfObligated(canonical, ing, obligation, directMatched)) {
                     remaining.add(ing);
                 }
             } else {
@@ -329,6 +332,7 @@ public class AllergenAnalysisService {
                 } else if (exactProductMatch && !unknownAllergy) {
                     canonicalCandidates.addAll(allergenMatcher.extractCanonicalFromHaccpAllergyText(allergyRaw));
                 } else {
+                    // 정확하지 않은 제품에 대한 과도한 매칭은 제외 처리..
                 }
             }
 
@@ -576,7 +580,6 @@ public class AllergenAnalysisService {
             JsonNode root = objectMapper.readTree(body);
             return root.path("choices").path(0).path("message").path("content").asText("[]");
         } catch (Exception e) {
-            LOGGER.fine(() -> "OpenAI 응답 파싱 실패: " + e.getMessage());
             return "[]";
         }
     }
@@ -595,8 +598,7 @@ public class AllergenAnalysisService {
                 }
                 return out;
             }
-        } catch (Exception e) {
-            LOGGER.fine(() -> "JSON 배열 파싱 실패: " + e.getMessage());
+        } catch (Exception ignored) {
         }
         return List.of();
     }

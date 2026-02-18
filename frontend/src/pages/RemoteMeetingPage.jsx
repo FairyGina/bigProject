@@ -2,7 +2,6 @@
 import { Client } from '@stomp/stompjs';
 import SockJS from 'sockjs-client';
 import axiosInstance from '../axiosConfig';
-import { getAccessToken } from '../utils/authStorage';
 
 const RemoteMeetingPage = () => {
     const [reports, setReports] = useState([]);
@@ -19,7 +18,7 @@ const RemoteMeetingPage = () => {
         const fetchReports = async () => {
             try {
                 setLoading(true);
-                const res = await axiosInstance.get('/api/report/list');
+                const res = await axiosInstance.get('/report/list');
                 const all = res.data || [];
                 setReports(all.filter((item) => (item.reportType || 'AI') === 'FINAL_EVALUATION'));
             } catch (err) {
@@ -38,15 +37,17 @@ const RemoteMeetingPage = () => {
                 return;
             }
             try {
-                const history = await axiosInstance.get(`/api/chat/report/${activeReport.reportId}/messages`);
+                const history = await axiosInstance.get(`/chat/report/${activeReport.reportId}/messages`);
                 setMessages(history.data || []);
             } catch (err) {
                 console.error('채팅 내역을 불러오지 못했습니다.', err);
             }
 
-            const token = getAccessToken();
+            const token = sessionStorage.getItem('accessToken') || localStorage.getItem('accessToken');
+            // 보안을 위해 프론트엔드 도메인(Nginx 프록시)을 통해 백엔드로 전달됩니다.
+            const wsBaseUrl = window.location.origin;
             const client = new Client({
-                webSocketFactory: () => new SockJS('http://localhost:8080/ws'),
+                webSocketFactory: () => new SockJS(`${wsBaseUrl}/ws`, null, { transports: ['websocket'] }),
                 reconnectDelay: 4000,
                 connectHeaders: token ? { Authorization: `Bearer ${token}` } : {},
                 onConnect: () => {
@@ -68,7 +69,30 @@ const RemoteMeetingPage = () => {
 
         connectSocket();
 
+        // [Fallback] Polling mechanism (every 3 seconds) ensures data sync even if WebSocket fails or backend scales out
+        const pollInterval = setInterval(async () => {
+            if (activeReport?.reportId) {
+                try {
+                    const res = await axiosInstance.get(`/chat/report/${activeReport.reportId}/messages`);
+                    if (res.data) {
+                        // Simple deduplication/update strategy
+                        // If new data has more items, update the state.
+                        setMessages((prev) => {
+                            if (res.data.length > prev.length) {
+                                return res.data;
+                            }
+                            return prev;
+                        });
+                    }
+                } catch (err) {
+                    console.error('채팅 폴링 중 오류 발생', err);
+                }
+            }
+        }, 3000);
+
         return () => {
+            clearInterval(pollInterval); // Cleanup polling
+
             if (subscriptionRef.current) {
                 subscriptionRef.current.unsubscribe();
                 subscriptionRef.current = null;
@@ -125,11 +149,10 @@ const RemoteMeetingPage = () => {
                                 key={report.reportId}
                                 type="button"
                                 onClick={() => selectReport(report)}
-                                className={`relative rounded-2xl border text-left overflow-hidden shadow-[0_10px_25px_var(--shadow)] transition ${
-                                    selected
-                                        ? 'border-[color:var(--accent)] bg-[color:var(--surface-muted)] ring-2 ring-[color:var(--accent)]/40'
-                                        : 'border-[color:var(--border)] bg-[color:var(--surface-muted)] hover:border-[color:var(--accent)]/60'
-                                }`}
+                                className={`relative rounded-2xl border text-left overflow-hidden shadow-[0_10px_25px_var(--shadow)] transition ${selected
+                                    ? 'border-[color:var(--accent)] bg-[color:var(--surface-muted)] ring-2 ring-[color:var(--accent)]/40'
+                                    : 'border-[color:var(--border)] bg-[color:var(--surface-muted)] hover:border-[color:var(--accent)]/60'
+                                    }`}
                             >
                                 <div className="absolute top-3 right-3 z-10 text-[10px] px-2 py-1 rounded-full bg-[color:var(--surface)] text-[color:var(--text-soft)]">
                                     최종
@@ -170,7 +193,10 @@ const RemoteMeetingPage = () => {
                         {messages.map((msg) => (
                             <div key={msg.messageId || `${msg.userId}-${msg.createdAt}`} className="flex flex-col gap-1">
                                 <div className="text-xs text-[color:var(--text-soft)]">
-                                    {msg.userName || msg.userId || '익명'} · {msg.createdAt ? new Date(msg.createdAt).toLocaleTimeString('ko-KR') : ''}
+                                    {(msg.userName || msg.userId || '익명').length > 1
+                                        ? (msg.userName || msg.userId || '익명').substring(0, (msg.userName || msg.userId || '익명').length - 1) + '*'
+                                        : (msg.userName || msg.userId || '익명')
+                                    } · {msg.createdAt ? new Date(msg.createdAt).toLocaleTimeString('ko-KR') : ''}
                                 </div>
                                 <div className="rounded-xl bg-[color:var(--surface)] border border-[color:var(--border)] px-3 py-2">
                                     {msg.content}
