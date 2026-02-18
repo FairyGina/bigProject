@@ -3,6 +3,7 @@ import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import GlassCard from '../components/common/GlassCard';
 import axiosInstance from '../axiosConfig';
+import { getStoredUserId, getStoredUserName, storeUserIdentity } from '../utils/user';
 
 const UserProfilePage = () => {
     const navigate = useNavigate();
@@ -16,7 +17,7 @@ const UserProfilePage = () => {
     });
     const [loading, setLoading] = useState(false);
     const [isSocialAccount, setIsSocialAccount] = useState(false);
-    const isDemoAdmin = localStorage.getItem('userId') === 'super';
+    const isDemoAdmin = getStoredUserId(null) === 'super';
     const canEditPassword = !isSocialAccount && !isDemoAdmin;
 
     const hasSequentialDigits = (value, length = 3) => {
@@ -139,8 +140,8 @@ const UserProfilePage = () => {
         };
 
         const loadProfile = async () => {
-            const storedUserName = localStorage.getItem('userName') || '';
-            const storedUserId = localStorage.getItem('userId') || '';
+            const storedUserName = getStoredUserName(null, '');
+            const storedUserId = getStoredUserId(null) || '';
             setFormData((prev) => ({
                 ...prev,
                 userName: storedUserName || prev.userName,
@@ -151,12 +152,7 @@ const UserProfilePage = () => {
             try {
                 const response = await axiosInstance.get('/api/user/me');
                 const data = response.data || {};
-                if (data.userName) {
-                    localStorage.setItem('userName', data.userName);
-                }
-                if (data.userId) {
-                    localStorage.setItem('userId', data.userId);
-                }
+                storeUserIdentity({ userName: data.userName, userId: data.userId });
                 setIsSocialAccount(Boolean(data.socialAccount));
                 setFormData((prev) => ({
                     ...prev,

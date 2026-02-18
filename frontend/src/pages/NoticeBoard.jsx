@@ -2,15 +2,10 @@
 import React from 'react';
 import { useAuth } from '../context/AuthContext';
 import axiosInstance from '../axiosConfig';
+import { getAccessToken } from '../utils/authStorage';
+import { getStoredUserName, maskUserName } from '../utils/user';
 
 const initialNotices = [];
-
-const maskName = (name) => {
-    if (!name) {
-        return '*';
-    }
-    return name.length <= 1 ? '*' : `${name.slice(0, -1)}*`;
-};
 
 const formatDate = (value) => {
     if (!value) {
@@ -90,8 +85,8 @@ const normalizeComment = (comment) => {
 
 const NoticeBoard = () => {
     const { user } = useAuth();
-    const rawName = user?.userName || localStorage.getItem('userName') || '김에이블러';
-    const maskedName = maskName(rawName);
+    const rawName = getStoredUserName(user, '김에이블러');
+    const maskedName = maskUserName(rawName);
     const [notices, setNotices] = React.useState([]);
     const [selectedId, setSelectedId] = React.useState(null);
     const [selectedNotice, setSelectedNotice] = React.useState(null);
@@ -127,14 +122,13 @@ const NoticeBoard = () => {
     const totalPages = Math.max(1, Math.ceil(filteredNotices.length / pageSize));
     const currentPage = Math.min(page, totalPages);
     const pagedNotices = filteredNotices.slice((currentPage - 1) * pageSize, currentPage * pageSize);
-    const isLoggedIn = Boolean(user || localStorage.getItem('accessToken'));
+    const isLoggedIn = Boolean(user || getAccessToken());
     const isEditingComment = commentEditingId !== null;
 
     const refreshCsrf = React.useCallback(async () => {
         try {
             await axiosInstance.get('/api/csrf');
         } catch (error) {
-            // CSRF 갱신 실패는 무시
         }
     }, []);
 
@@ -454,7 +448,7 @@ const NoticeBoard = () => {
                                 <span>{notice.id}</span>
                                 <span>{notice.title}</span>
                                 <span className="min-w-[140px] justify-self-end text-right text-[color:var(--text-muted)]">
-                                    {maskName(notice.authorName)} | {formatListDate(notice.createdAt)}
+                                    {maskUserName(notice.authorName)} | {formatListDate(notice.createdAt)}
                                 </span>
                             </button>
                         ))}
@@ -585,7 +579,7 @@ const NoticeBoard = () => {
                                         <>
                                             <h3 className="text-xl font-semibold text-[color:var(--text)]">{selectedNotice.title}</h3>
                                             <p className="text-sm text-[color:var(--text-muted)] mt-2">
-                                                {maskName(selectedNotice.authorName)} | {formatDetailDateTime(selectedNotice.createdAt)}
+                                                {maskUserName(selectedNotice.authorName)} | {formatDetailDateTime(selectedNotice.createdAt)}
                                             </p>
                                         </>
                                     )}
@@ -662,7 +656,7 @@ const NoticeBoard = () => {
                                                 <div key={comment.id} className="rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] p-3">
                                                     <div className="flex items-center justify-between">
                                                         <div className="text-sm font-semibold text-[color:var(--text)]">
-                                                            {maskName(comment.authorName)}
+                                                            {maskUserName(comment.authorName)}
                                                             <span className="ml-2 text-xs text-[color:var(--text-muted)]">{formatDetailDateTime(comment.createdAt)}</span>
                                                         </div>
                                                         {isOwner(comment.authorId, comment.authorName) && (

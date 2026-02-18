@@ -4,6 +4,7 @@ import com.aivle0102.bigproject.client.OpenAiClient;
 import com.aivle0102.bigproject.dto.AgeGroupResult;
 import com.aivle0102.bigproject.domain.VirtualConsumer;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import tools.jackson.databind.ObjectMapper;
 
@@ -15,6 +16,7 @@ import java.util.Map;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class PersonaService {
 
     private final OpenAiClient openAiClient;
@@ -35,7 +37,9 @@ public class PersonaService {
 
         String response = openAiClient.chatCompletion(body);
 
-        System.out.println("파싱이 이상하다 뭐지..." + response);
+        if (response != null) {
+            log.debug("연령대 응답 길이={}", response.length());
+        }
 
         return parseMultiCountryResult(response);
     }
@@ -53,8 +57,7 @@ public class PersonaService {
                 personas.add(persona);
 
             } catch (Exception e) {
-                // 한 국가 실패해도 전체 중단하지 않기
-                System.err.println("[페르소나 생성 실패] country=" + t.getCountry() + " / " + e.getMessage());
+                log.warn("페르소나 생성 실패: country={}, reason={}", t.getCountry(), e.getMessage(), e);
             }
         }
 

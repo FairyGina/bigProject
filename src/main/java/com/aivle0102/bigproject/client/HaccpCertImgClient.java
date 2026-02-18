@@ -6,6 +6,7 @@ package com.aivle0102.bigproject.client;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.dataformat.xml.XmlMapper;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Component;
@@ -17,6 +18,7 @@ import java.util.Optional;
 
 @Component
 @RequiredArgsConstructor
+@Slf4j
 public class HaccpCertImgClient {
 
     // host까지만 url 입력
@@ -40,7 +42,7 @@ public class HaccpCertImgClient {
                 .build()
                 .toUriString();
 
-        System.out.println("[HACCP 주소] " + maskServiceKey(url));
+        log.debug("HACCP 주소: {}", maskServiceKey(url));
 
         ResponseEntity<String> resp = restTemplate.getForEntity(url, String.class);
 
@@ -67,7 +69,7 @@ public class HaccpCertImgClient {
                 .build()
                 .toUriString();
 
-        System.out.println("[HACCP 주소] " + maskServiceKey(url));
+        log.debug("HACCP 주소: {}", maskServiceKey(url));
 
         ResponseEntity<String> resp = restTemplate.getForEntity(url, String.class);
 
@@ -89,3 +91,4 @@ public class HaccpCertImgClient {
         return url.substring(0, idx + "ServiceKey=".length()) + "***";
     }
 }
+

@@ -7,6 +7,13 @@ import ThemeToggle from '../components/common/ThemeToggle';
 import Footer from '../components/common/Footer';
 import { useAuth } from '../context/AuthContext';
 import axiosInstance from '../axiosConfig';
+import { writeToStorages } from '../utils/storage';
+import {
+    clearPasswordChangePrompt,
+    getPasswordPromptDeferredUntil,
+    setPasswordChangePrompt,
+} from '../utils/passwordPrompt';
+import { storeUserIdentity } from '../utils/user';
 
 const LoginPage = () => {
     const navigate = useNavigate();
@@ -19,8 +26,7 @@ const LoginPage = () => {
     const [warningCount, setWarningCount] = useState(null);
 
     const handleSocialLogin = (provider) => {
-        sessionStorage.setItem('oauthFlow', 'login');
-        localStorage.setItem('oauthFlow', 'login');
+        writeToStorages('oauthFlow', 'login');
         window.location.href = `http://localhost:8080/oauth2/authorization/${provider}`;
     };
 
@@ -49,17 +55,13 @@ const LoginPage = () => {
 
             if (data.accessToken) {
                 login(data.accessToken, { userName: data.userName });
-                if (data.userName) {
-                    localStorage.setItem('userName', data.userName);
-                }
-                if (data.userId) {
-                    localStorage.setItem('userId', data.userId);
-                } else {
-                    localStorage.setItem('userId', userId);
-                }
+                storeUserIdentity({
+                    userName: data.userName,
+                    userId: data.userId || userId,
+                });
             }
 
-            const deferredUntil = localStorage.getItem('passwordChangeDeferredUntil');
+            const deferredUntil = getPasswordPromptDeferredUntil();
             const deferValid = deferredUntil && new Date(deferredUntil) > new Date();
             const changedAtRaw = data.passwordChangedAt || data.passwordExpiryAt;
             const changedAt = changedAtRaw ? new Date(changedAtRaw) : null;
@@ -69,9 +71,9 @@ const LoginPage = () => {
             }
             const clientExpired = expiryAt && !Number.isNaN(expiryAt.getTime()) && new Date() > expiryAt;
             if (clientExpired && !data.socialAccount && !deferValid) {
-                localStorage.setItem('passwordChangePrompt', 'true');
+                setPasswordChangePrompt();
             } else {
-                localStorage.removeItem('passwordChangePrompt');
+                clearPasswordChangePrompt();
             }
 
             navigate('/mainboard');

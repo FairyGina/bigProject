@@ -1,4 +1,10 @@
 import axios from 'axios';
+import {
+    clearAccessToken,
+    getAccessToken,
+    getCsrfToken,
+    setCsrfToken,
+} from './utils/authStorage';
 
 // Axios 인스턴스
 const axiosInstance = axios.create({
@@ -15,11 +21,11 @@ axiosInstance.defaults.xsrfHeaderName = 'X-XSRF-TOKEN';
 // 요청 인터셉터: 토큰 첨부
 axiosInstance.interceptors.request.use(
     (config) => {
-        const token = localStorage.getItem('accessToken');
+        const token = getAccessToken();
         if (token) {
             config.headers['Authorization'] = `Bearer ${token}`;
         }
-        const csrfToken = localStorage.getItem('csrfToken');
+        const csrfToken = getCsrfToken();
         if (csrfToken && !config.headers['X-XSRF-TOKEN']) {
             config.headers['X-XSRF-TOKEN'] = csrfToken;
         }
@@ -34,7 +40,7 @@ axiosInstance.interceptors.request.use(
 axiosInstance.interceptors.response.use(
     (response) => {
         if (response.config?.url?.includes('/api/csrf') && response.data?.token) {
-            localStorage.setItem('csrfToken', response.data.token);
+            setCsrfToken(response.data.token);
         }
         return response;
     },
@@ -46,7 +52,7 @@ axiosInstance.interceptors.response.use(
             const errorCode = error.response?.data?.errorCode;
             const isPasswordMismatch = errorCode === 'PASSWORD_MISMATCH';
             if (!isPasswordCheck && !isProfileUpdate && !isPasswordMismatch) {
-                localStorage.removeItem('accessToken');
+                clearAccessToken();
                 // 필요 시 로그인으로 이동: window.location.href = '/'
             }
         }

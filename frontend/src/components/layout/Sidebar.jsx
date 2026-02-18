@@ -2,6 +2,7 @@
 import { ChevronDown, ChevronRight, LogOut, MessageCircle } from 'lucide-react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
+import { clearRecipeEditDirty, isRecipeEditDirty } from '../../utils/uiFlags';
 
 const labels = {
     brand: '빈 레시피',
@@ -63,13 +64,13 @@ const Sidebar = ({ onOpenChatbot }) => {
     };
 
     const confirmNavigation = () => {
-        const isDirty = sessionStorage.getItem('recipeEditDirty') === '1';
+        const isDirty = isRecipeEditDirty();
         if (!isDirty) {
             return true;
         }
         const confirmed = window.confirm(labels.confirmNavigation);
         if (confirmed) {
-            sessionStorage.removeItem('recipeEditDirty');
+            clearRecipeEditDirty();
         }
         return confirmed;
     };

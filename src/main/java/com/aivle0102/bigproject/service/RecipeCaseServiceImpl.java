@@ -9,6 +9,7 @@ import com.aivle0102.bigproject.dto.RegulatoryCase;
 import com.aivle0102.bigproject.repository.RecipeNonconformingCaseRepository;
 import com.aivle0102.bigproject.util.RecipeIngredientExtractor;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.csv.CSVFormat;
 import org.apache.commons.csv.CSVRecord;
 import org.springframework.core.io.ClassPathResource;
@@ -26,6 +27,7 @@ import java.util.Map;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class RecipeCaseServiceImpl implements RecipeCaseService {
 
     private final RecipeNonconformingCaseRepository recipeNonconformingCaseRepository;
@@ -37,9 +39,7 @@ public class RecipeCaseServiceImpl implements RecipeCaseService {
 
     @Override
     public RecipeCaseResponse findCases(RecipeCaseRequest request) {
-        System.out.println("========== EXPORT RISK DEBUG ==========");
-        System.out.println("[RAW REQUEST RECIPE] = " + request.getRecipe());
-        System.out.println("[RECIPE ID] = " + request.getRecipeId());
+        log.debug("EXPORT RISK DEBUG: recipeId={}, recipe={}", request.getRecipeId(), request.getRecipe());
 
         List<SearchRow> searchRows = getSearchRows();
         Map<String, InfoRow> infoByCaseId = getInfoByCaseId();
@@ -61,9 +61,8 @@ public class RecipeCaseServiceImpl implements RecipeCaseService {
                 InfoRow info = infoByCaseId.get(row.caseId);
                 if (info == null) continue;
 
-                System.out.println("[MATCH - PRODUCT] product="
-                        + parsed.productName + " / keyword=" + row.ingredientKeyword
-                        + " / caseId=" + info.caseId);
+                log.debug("EXPORT MATCH PRODUCT: product={}, keyword={}, caseId={}",
+                        parsed.productName, row.ingredientKeyword, info.caseId);
                 addCase(productCases, toSave, request.getRecipeId(), info, row.ingredientKeyword);
             }
         }
@@ -82,9 +81,8 @@ public class RecipeCaseServiceImpl implements RecipeCaseService {
                 InfoRow info = infoByCaseId.get(row.caseId);
                 if (info == null) continue;
 
-                System.out.println("[MATCH - INGREDIENT] ingredient="
-                        + ingredient + " / keyword=" + row.ingredientKeyword
-                        + " / caseId=" + info.caseId);
+                log.debug("EXPORT MATCH INGREDIENT: ingredient={}, keyword={}, caseId={}",
+                        ingredient, row.ingredientKeyword, info.caseId);
                 addCase(cases, toSave, request.getRecipeId(), info, row.ingredientKeyword);
             }
 
@@ -93,10 +91,6 @@ public class RecipeCaseServiceImpl implements RecipeCaseService {
                     .cases(cases)
                     .build());
         }
-
-//        if (!toSave.isEmpty()) {
-//            recipeNonconformingCaseRepository.saveAll(toSave);
-//        }
 
         return RecipeCaseResponse.builder()
                 .productCases(ProductCases.builder()
@@ -155,12 +149,10 @@ public class RecipeCaseServiceImpl implements RecipeCaseService {
         String product = recipe.substring(0, idx).trim();
         String right = recipe.substring(idx + 1).trim();
 
-        // 🔥 재료 정제 유틸 사용
         List<String> ingredients =
                 RecipeIngredientExtractor.extractIngredients(right);
 
-        System.out.println("[EXPORT RISK] product = " + product);
-        System.out.println("[EXPORT RISK] ingredients = " + ingredients);
+        log.debug("EXPORT RISK PARSED: product={}, ingredients={}", product, ingredients);
 
         return new ParsedRecipe(product, ingredients);
     }

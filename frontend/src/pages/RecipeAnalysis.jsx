@@ -1,16 +1,26 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+﻿import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import axiosInstance from '../axiosConfig';
+import SectionTitle from '../components/common/SectionTitle';
+import {
+    readFromStorage,
+    readJsonFromStorage,
+    safeParseJson,
+    safeRemoveFromStorage,
+    safeWriteToStorage,
+} from '../utils/storage';
+import { getStoredUserId, getStoredUserName, maskUserName } from '../utils/user';
+import { pickInfluencerForImage } from '../utils/influencer';
 
 const RecipeAnalysis = () => {
     const { user } = useAuth();
     const navigate = useNavigate();
     const { id, reportId } = useParams();
     const location = useLocation();
-    const rawName = user?.userName || localStorage.getItem('userName') || '게스트';
-    const maskedName = rawName.length <= 1 ? '*' : `${rawName.slice(0, -1)}*`;
-    const userId = user?.userId || localStorage.getItem('userId') || null;
+    const rawName = getStoredUserName(user, '게스트');
+    const maskedName = maskUserName(rawName);
+    const userId = getStoredUserId(user);
 
     const [recipe, setRecipe] = useState(null);
     const [loading, setLoading] = useState(true);
@@ -32,19 +42,7 @@ const RecipeAnalysis = () => {
     const [productCases, setProductCases] = useState([]);
     const [ingredientCases, setIngredientCases] = useState([]);
 
-    const readTargetMeta = (recipeId) => {
-        const cached =
-            sessionStorage.getItem(targetMetaKey(recipeId)) ||
-            localStorage.getItem(targetMetaKey(recipeId));
-        if (!cached) {
-            return null;
-        }
-        try {
-            return JSON.parse(cached);
-        } catch (err) {
-            return null;
-        }
-    };
+    const readTargetMeta = (recipeId) => readJsonFromStorage(targetMetaKey(recipeId));
 
     const influencerMetaKey = (recipeId, reportIdValue) =>
         reportIdValue ? `reportInfluencerMeta:${reportIdValue}` : `recipeInfluencerMeta:${recipeId}`;
@@ -52,19 +50,8 @@ const RecipeAnalysis = () => {
         reportIdValue ? `reportInfluencers:${reportIdValue}` : `recipeInfluencers:${recipeId}`;
     const influencerImageKey = (recipeId, reportIdValue) =>
         reportIdValue ? `reportInfluencerImage:${reportIdValue}` : `recipeInfluencerImage:${recipeId}`;
-    const readInfluencerMeta = (recipeId, reportIdValue) => {
-        const cached =
-            sessionStorage.getItem(influencerMetaKey(recipeId, reportIdValue)) ||
-            localStorage.getItem(influencerMetaKey(recipeId, reportIdValue));
-        if (!cached) {
-            return null;
-        }
-        try {
-            return JSON.parse(cached);
-        } catch (err) {
-            return null;
-        }
-    };
+    const readInfluencerMeta = (recipeId, reportIdValue) =>
+        readJsonFromStorage(influencerMetaKey(recipeId, reportIdValue));
     const isInfluencerMetaMatch = (meta, currentRecipe) =>
         Boolean(meta) &&
         meta.title === (currentRecipe?.title ?? '') &&
@@ -251,9 +238,6 @@ const RecipeAnalysis = () => {
     }, [recipe]);
 
     useEffect(() => {
-        console.log('[EXPORT] exportRisks', recipe?.report?.exportRisks);
-        console.log('[EXPORT] productCases', productCases.length, productCases);
-        console.log('[EXPORT] ingredientCases', ingredientCases.length, ingredientCases);
     }, [recipe, productCases, ingredientCases]);
 
     useEffect(() => {
@@ -281,9 +265,7 @@ const RecipeAnalysis = () => {
                 if (allowInfluencerImage && !recipe?.influencerImageBase64 && !imageBase64) {
                     setInfluencerLoading(true);
                     try {
-                        const topExisting =
-                            existingRecs.find((item) => item?.name && item?.imageUrl) ||
-                            existingRecs.find((item) => item?.name);
+                        const topExisting = pickInfluencerForImage(existingRecs);
                         if (topExisting?.name) {
                             const imageRes = await axiosInstance.post('/api/images/generate', {
                                 recipe: recipe.title,
@@ -294,16 +276,7 @@ const RecipeAnalysis = () => {
                             const generated = imageRes.data?.imageBase64 || '';
                             setImageBase64(generated);
                             if (generated) {
-                                try {
-                                    sessionStorage.setItem(influencerImageKey(recipe.id, reportId), generated);
-                                } catch (err) {
-                                    // 캐시 오류는 무시
-                                }
-                                try {
-                                    localStorage.setItem(influencerImageKey(recipe.id, reportId), generated);
-                                } catch (err) {
-                                    // 캐시 오류는 무시
-                                }
+                                safeWriteToStorage(influencerImageKey(recipe.id, reportId), generated);
                             }
                             await persistReportInfluencers(existingRecs, generated);
                         }
@@ -327,29 +300,18 @@ const RecipeAnalysis = () => {
             if (influencers.length && imageBase64) {
                 return;
             }
-            const cachedInfluencers =
-                sessionStorage.getItem(influencerListKey(recipe.id, reportId)) ||
-                localStorage.getItem(influencerListKey(recipe.id, reportId));
-            const cachedImage =
-                sessionStorage.getItem(influencerImageKey(recipe.id, reportId)) ||
-                localStorage.getItem(influencerImageKey(recipe.id, reportId));
+            const cachedInfluencers = readFromStorage(influencerListKey(recipe.id, reportId));
+            const cachedImage = readFromStorage(influencerImageKey(recipe.id, reportId));
             const cachedMeta = readInfluencerMeta(recipe.id, reportId);
             if (cachedMeta && !isInfluencerMetaMatch(cachedMeta, recipe)) {
-                sessionStorage.removeItem(influencerListKey(recipe.id, reportId));
-                sessionStorage.removeItem(influencerImageKey(recipe.id, reportId));
-                sessionStorage.removeItem(influencerMetaKey(recipe.id, reportId));
-                localStorage.removeItem(influencerListKey(recipe.id, reportId));
-                localStorage.removeItem(influencerImageKey(recipe.id, reportId));
-                localStorage.removeItem(influencerMetaKey(recipe.id, reportId));
+                safeRemoveFromStorage(influencerListKey(recipe.id, reportId));
+                safeRemoveFromStorage(influencerImageKey(recipe.id, reportId));
+                safeRemoveFromStorage(influencerMetaKey(recipe.id, reportId));
             }
             if (cachedInfluencers) {
-                try {
-                    const parsed = JSON.parse(cachedInfluencers);
-                    if (Array.isArray(parsed)) {
-                        setInfluencers(parsed);
-                    }
-                } catch (e) {
-                    // 캐시 파싱 오류는 무시
+                const parsed = safeParseJson(cachedInfluencers);
+                if (Array.isArray(parsed)) {
+                    setInfluencers(parsed);
                 }
             }
             if (cachedImage && !imageBase64 && allowInfluencerImage) {
@@ -384,23 +346,14 @@ const RecipeAnalysis = () => {
                         title: recipe.title,
                         summary: recipe.summary,
                     });
-                    try {
-                        sessionStorage.setItem(influencerMetaKey(recipe.id, reportId), metaJson);
-                        sessionStorage.setItem(influencerListKey(recipe.id, reportId), JSON.stringify(trimmedRecs));
-                    } catch (err) {
-                        // 캐시 오류는 무시
-                    }
-                    try {
-                        localStorage.setItem(influencerMetaKey(recipe.id, reportId), metaJson);
-                        localStorage.setItem(influencerListKey(recipe.id, reportId), JSON.stringify(trimmedRecs));
-                    } catch (err) {
-                        // 캐시 오류는 무시
-                    }
+                    safeWriteToStorage(influencerMetaKey(recipe.id, reportId), metaJson);
+                    safeWriteToStorage(
+                        influencerListKey(recipe.id, reportId),
+                        JSON.stringify(trimmedRecs)
+                    );
                 }
 
-                const top =
-                    trimmedRecs.find((item) => item?.name && item?.imageUrl) ||
-                    trimmedRecs.find((item) => item?.name);
+                const top = pickInfluencerForImage(trimmedRecs);
                 if (allowInfluencerImage && top?.name) {
                     const imageRes = await axiosInstance.post('/api/images/generate', {
                         recipe: recipe.title,
@@ -411,16 +364,7 @@ const RecipeAnalysis = () => {
                     generatedImage = imageRes.data?.imageBase64 || '';
                     setImageBase64(generatedImage);
                     if (generatedImage) {
-                        try {
-                            sessionStorage.setItem(influencerImageKey(recipe.id, reportId), generatedImage);
-                        } catch (err) {
-                            // 캐시 오류는 무시
-                        }
-                        try {
-                            localStorage.setItem(influencerImageKey(recipe.id, reportId), generatedImage);
-                        } catch (err) {
-                            // 캐시 오류는 무시
-                        }
+                        safeWriteToStorage(influencerImageKey(recipe.id, reportId), generatedImage);
                     }
                 }
                 await persistReportInfluencers(trimmedRecs, generatedImage);
@@ -1116,25 +1060,6 @@ const RecipeAnalysis = () => {
             </ul>
         );
     };
-    const HelpTooltip = ({ label, description }) => (
-        <span className="relative inline-flex items-center group ml-2 align-middle">
-            <span className="inline-flex h-5 w-5 items-center justify-center rounded-full border border-[color:var(--border)] text-[10px] font-semibold text-[color:var(--text-muted)] bg-[color:var(--surface)]">
-                ?
-            </span>
-            <span className="sr-only">{label}</span>
-            <span className="pointer-events-none absolute left-1/2 top-full z-10 mt-2 w-56 -translate-x-1/2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 py-2 text-xs text-[color:var(--text)] opacity-0 shadow-[0_12px_30px_var(--shadow)] transition group-hover:opacity-100">
-                {description}
-            </span>
-        </span>
-    );
-    const SectionTitle = ({ title, help }) => (
-        <h3 className="text-lg font-semibold text-[color:var(--text)] mb-3 flex items-center">
-            {title}
-            {help && <HelpTooltip label={title} description={help} />}
-        </h3>
-    );
-
-
     if (loading) {
         return (
             <div className="rounded-[2.5rem] bg-[color:var(--surface)]/90 border border-[color:var(--border)] shadow-[0_30px_80px_var(--shadow)] p-10 backdrop-blur">

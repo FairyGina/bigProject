@@ -1,10 +1,11 @@
 ﻿import React from 'react';
 import { useAuth } from '../context/AuthContext';
+import { getStoredUserName, maskUserName } from '../utils/user';
 
 const AICreateRecipe = () => {
     const { user } = useAuth();
-    const rawName = user?.userName || localStorage.getItem('userName') || '사용자';
-    const maskedName = rawName.length <= 1 ? '*' : `${rawName.slice(0, -1)}*`;
+    const rawName = getStoredUserName(user, '사용자');
+    const maskedName = maskUserName(rawName);
     const iframeSrc = '/ai/recipe/';
 
     return (

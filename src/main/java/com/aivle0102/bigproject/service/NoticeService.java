@@ -148,8 +148,10 @@ public class NoticeService {
     }
 
     private Long resolveCompanyId(String userId) {
-        return userInfoRepository.findByUserId(userId)
-                .map(UserInfo::getCompanyId)
-                .orElse(null);
+        java.util.Optional<UserInfo> userInfo = userInfoRepository.findByUserId(userId);
+        if (userInfo.isEmpty()) {
+            return null;
+        }
+        return userInfo.get().getCompanyId();
     }
 }

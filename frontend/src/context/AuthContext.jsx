@@ -1,4 +1,5 @@
 ﻿import React, { createContext, useState, useEffect, useContext } from 'react';
+import { clearAccessToken, getAccessToken, setAccessToken, setCsrfToken } from '../utils/authStorage';
 
 const AuthContext = createContext(null);
 
@@ -12,12 +13,12 @@ export const AuthProvider = ({ children }) => {
             .then((res) => (res.ok ? res.json() : null))
             .then((data) => {
                 if (data?.token) {
-                    localStorage.setItem('csrfToken', data.token);
+                    setCsrfToken(data.token);
                 }
             })
             .catch(() => {});
 
-        const token = localStorage.getItem('accessToken');
+        const token = getAccessToken();
         if (token) {
             setUser({ token });
         }
@@ -25,12 +26,12 @@ export const AuthProvider = ({ children }) => {
     }, []);
 
     const login = (token, userData = {}) => {
-        localStorage.setItem('accessToken', token);
+        setAccessToken(token);
         setUser({ token, ...userData });
     };
 
     const logout = () => {
-        localStorage.removeItem('accessToken');
+        clearAccessToken();
         setUser(null);
     };
 
@@ -42,3 +43,7 @@ export const AuthProvider = ({ children }) => {
 };
 
 export const useAuth = () => useContext(AuthContext);
+
+
+
+

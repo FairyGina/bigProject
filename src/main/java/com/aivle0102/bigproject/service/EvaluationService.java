@@ -13,10 +13,12 @@ import com.aivle0102.bigproject.domain.VirtualConsumer;
 import com.aivle0102.bigproject.repository.ConsumerFeedbackRepository;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import tools.jackson.databind.ObjectMapper;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class EvaluationService {
 
     private final OpenAiClient openAiClient;
@@ -36,7 +38,7 @@ public class EvaluationService {
                 results.add(evaluation);
 
             } catch (Exception e) {
-                System.err.println("[평가 실패] " + persona.getCountry() + " / " + persona.getPersonaName());
+                log.warn("평가 실패: {} / {}", persona.getCountry(), persona.getPersonaName(), e);
             }
         }
 
@@ -56,7 +58,7 @@ public class EvaluationService {
                 evaluation.setConsumer(persona);
                 results.add(evaluation);
             } catch (Exception e) {
-                System.err.println("[에러발생] " + persona.getCountry() + " / " + persona.getPersonaName());
+                log.warn("평가 저장 실패: {} / {}", persona.getCountry(), persona.getPersonaName(), e);
             }
         }
         if (!results.isEmpty()) {

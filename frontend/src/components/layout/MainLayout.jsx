@@ -5,6 +5,11 @@ import Sidebar from './Sidebar';
 import ThemeToggle from '../common/ThemeToggle';
 import Footer from '../common/Footer';
 import GlassCard from '../common/GlassCard';
+import {
+    deferPasswordChangePrompt,
+    resetPasswordPromptDeferral,
+    shouldShowPasswordChangePrompt,
+} from '../../utils/passwordPrompt';
 
 const MainLayout = ({ children }) => {
     const navigate = useNavigate();
@@ -13,14 +18,7 @@ const MainLayout = ({ children }) => {
     const helperChatUrl = import.meta.env.VITE_HELPER_CHAT_URL || 'http://localhost:7861';
 
     useEffect(() => {
-        const deferredUntil = localStorage.getItem('passwordChangeDeferredUntil');
-        const deferValid = deferredUntil && new Date(deferredUntil) > new Date();
-        if (deferValid) {
-            localStorage.removeItem('passwordChangePrompt');
-            return;
-        }
-        const shouldShow = localStorage.getItem('passwordChangePrompt') === 'true';
-        if (shouldShow) {
+        if (shouldShowPasswordChangePrompt()) {
             setShowExpiryModal(true);
         }
     }, []);
@@ -59,10 +57,7 @@ const MainLayout = ({ children }) => {
                             <div className="flex gap-3">
                                 <button
                                     onClick={() => {
-                                        const deferredAt = new Date();
-                                        deferredAt.setMonth(deferredAt.getMonth() + 3);
-                                        localStorage.setItem('passwordChangeDeferredUntil', deferredAt.toISOString());
-                                        localStorage.removeItem('passwordChangePrompt');
+                                        deferPasswordChangePrompt(3);
                                         setShowExpiryModal(false);
                                     }}
                                     className="flex-1 py-3 rounded-2xl border border-[color:var(--border)] text-[color:var(--text)] hover:bg-[color:var(--surface-muted)] transition"
@@ -71,8 +66,7 @@ const MainLayout = ({ children }) => {
                                 </button>
                                 <button
                                     onClick={() => {
-                                        localStorage.removeItem('passwordChangeDeferredUntil');
-                                        localStorage.removeItem('passwordChangePrompt');
+                                        resetPasswordPromptDeferral();
                                         setShowExpiryModal(false);
                                         navigate('/mainboard/user-hub/profile');
                                     }}

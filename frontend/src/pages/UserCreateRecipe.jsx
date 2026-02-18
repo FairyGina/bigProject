@@ -1,9 +1,26 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+﻿import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Plus, Trash2 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { useBeforeUnload } from 'react-router';
 import axiosInstance from '../axiosConfig';
+import HelpTooltip from '../components/common/HelpTooltip';
+import {
+    readFromStorage,
+    readJsonFromStorage,
+    safeParseJson,
+    safeRemoveFromStorage,
+    safeWriteToStorage,
+} from '../utils/storage';
+import { clearRecipeEditDirty, markRecipeEditDirty } from '../utils/uiFlags';
+import { getStoredUserName, maskUserName } from '../utils/user';
+import { pickInfluencerForImage } from '../utils/influencer';
+import {
+    buildCountryOptions,
+    buildReportSections,
+    PERSONAS,
+    PRICE_RANGES,
+} from '../utils/targetOptions';
 
 const labels = {
     guest: '게스트',
@@ -57,35 +74,74 @@ const labels = {
     targetRecommendError: '타겟 추천에 실패했습니다.',
 };
 
-const TARGET_COUNTRY_OPTIONS = [
-    { value: 'US', label: '미국' },
-    { value: 'JP', label: '일본' },
-    { value: 'CN', label: '중국' },
-    { value: 'FR', label: '프랑스' },
-    { value: 'DE', label: '독일' },
-    { value: 'PL', label: '폴란드' },
-    { value: 'IN', label: '인도' },
-    { value: 'VN', label: '베트남' },
-    { value: 'TH', label: '태국' },
-];
+const TARGET_COUNTRY_OPTIONS = buildCountryOptions([
+    'US',
+    'JP',
+    'CN',
+    'FR',
+    'DE',
+    'PL',
+    'IN',
+    'VN',
+    'TH',
+]);
 
 const TARGET_PERSONA_OPTIONS = [
-    '20~30대 직장인, 간편식 선호',
-    '30~40대 맞벌이 가정, 건강 중시',
-    '10대/20대 학생, 트렌디한 맛 선호',
-    '40~50대 가족, 가성비 중시',
-    '해외 한식 입문자, 한국 맛 경험',
-    '건강/피트니스 관심층, 고단백/저당',
+    PERSONAS.WORKER_20S_30S_SIMPLE,
+    PERSONAS.DUAL_INCOME_30S_40S,
+    PERSONAS.STUDENT_10S_20S_TREND,
+    PERSONAS.FAMILY_40S_50S_VALUE,
+    PERSONAS.OVERSEAS_BEGINNER,
+    PERSONAS.FITNESS_HIGH_PROTEIN,
 ];
 
 const PRICE_RANGE_OPTIONS = [
-    'USD 3~5',
-    'USD 6~9',
-    'USD 10~15',
-    'USD 15~20',
+    PRICE_RANGES.USD_3_5,
+    PRICE_RANGES.USD_6_9,
+    PRICE_RANGES.USD_10_15,
+    PRICE_RANGES.USD_15_20,
 ];
 
-const REPORT_SECTION_ORDER = [
+const DEFAULT_TARGET_COUNTRY = TARGET_COUNTRY_OPTIONS[0].value;
+const DEFAULT_TARGET_PERSONA = TARGET_PERSONA_OPTIONS[0];
+const DEFAULT_PRICE_RANGE = PRICE_RANGE_OPTIONS[1];
+
+const REQUIRED_REPORT_SECTION_KEYS = [
+    'executiveSummary',
+    'marketSnapshot',
+    'riskAssessment',
+    'conceptIdeas',
+    'summary',
+];
+
+const REPORT_SECTIONS = buildReportSections(
+    [
+        'executiveSummary',
+        'marketSnapshot',
+        'riskAssessment',
+        'swot',
+        'conceptIdeas',
+        'kpis',
+        'nextSteps',
+        'summary',
+        'allergenNote',
+        'influencer',
+        'influencerImage',
+        'globalMarketMap',
+    ],
+    REQUIRED_REPORT_SECTION_KEYS,
+    { summary: '요약본' }
+);
+
+const REQUIRED_REPORT_SECTIONS = new Set(REQUIRED_REPORT_SECTION_KEYS);
+
+const GENERATION_OPTIONS = [
+    { value: 'recipe', label: '레시피', includeReport: false },
+];
+
+const DEFAULT_GENERATION_OPTION = GENERATION_OPTIONS[0].value;
+
+const BASE_REPORT_SECTIONS = [
     'executiveSummary',
     'marketSnapshot',
     'riskAssessment',
@@ -95,114 +151,27 @@ const REPORT_SECTION_ORDER = [
     'nextSteps',
     'summary',
     'allergenNote',
-    'influencer',
-    'influencerImage',
-    'globalMarketMap',
 ];
 
-const REPORT_SECTION_LABELS = {
-    executiveSummary: '핵심 요약',
-    marketSnapshot: '시장 스냅샷',
-    riskAssessment: '리스크 & 대응',
-    swot: 'SWOT',
-    conceptIdeas: '컨셉 아이디어',
-    kpis: 'KPI 제안',
-    nextSteps: '다음 단계',
-    summary: '요약본',
-    allergenNote: '알레르기 성분 노트',
-    influencer: '인플루언서 추천',
-    influencerImage: '인플루언서 이미지',
-    globalMarketMap: 'Global Market Map',
-};
-
-const REQUIRED_REPORT_SECTIONS = new Set([
-    'executiveSummary',
-    'marketSnapshot',
-    'riskAssessment',
-    'conceptIdeas',
-    'summary',
-]);
-
-const GENERATION_OPTIONS = [
-    { value: 'recipe', label: '레시피', includeReport: false },
-];
+const MAP_SECTION = 'globalMarketMap';
+const INFLUENCER_SECTIONS = ['influencer'];
+const INFLUENCER_IMAGE_SECTIONS = ['influencer', 'influencerImage'];
 
 const REPORT_PRESETS = {
     recipe: [],
-    recipe_report: [
-        'executiveSummary',
-        'marketSnapshot',
-        'riskAssessment',
-        'swot',
-        'conceptIdeas',
-        'kpis',
-        'nextSteps',
-        'summary',
-        'allergenNote',
-    ],
-    recipe_report_map: [
-        'executiveSummary',
-        'marketSnapshot',
-        'riskAssessment',
-        'swot',
-        'conceptIdeas',
-        'kpis',
-        'nextSteps',
-        'summary',
-        'allergenNote',
-        'globalMarketMap',
-    ],
-    recipe_report_influencer: [
-        'executiveSummary',
-        'marketSnapshot',
-        'riskAssessment',
-        'swot',
-        'conceptIdeas',
-        'kpis',
-        'nextSteps',
-        'summary',
-        'allergenNote',
-        'influencer',
-    ],
+    recipe_report: [...BASE_REPORT_SECTIONS],
+    recipe_report_map: [...BASE_REPORT_SECTIONS, MAP_SECTION],
+    recipe_report_influencer: [...BASE_REPORT_SECTIONS, ...INFLUENCER_SECTIONS],
     recipe_report_influencer_map: [
-        'executiveSummary',
-        'marketSnapshot',
-        'riskAssessment',
-        'swot',
-        'conceptIdeas',
-        'kpis',
-        'nextSteps',
-        'summary',
-        'allergenNote',
-        'influencer',
-        'globalMarketMap',
+        ...BASE_REPORT_SECTIONS,
+        ...INFLUENCER_SECTIONS,
+        MAP_SECTION,
     ],
-    recipe_report_influencer_image: [
-        'executiveSummary',
-        'marketSnapshot',
-        'riskAssessment',
-        'swot',
-        'conceptIdeas',
-        'kpis',
-        'nextSteps',
-        'summary',
-        'allergenNote',
-        'influencer',
-        'influencerImage',
-    ],
+    recipe_report_influencer_image: [...BASE_REPORT_SECTIONS, ...INFLUENCER_IMAGE_SECTIONS],
     recipe_report_influencer_image_map: [
-        'executiveSummary',
-        'marketSnapshot',
-        'riskAssessment',
-        'swot',
-        'conceptIdeas',
-        'kpis',
-        'nextSteps',
-        'summary',
-        'allergenNote',
-        'influencer',
-        'influencerImage',
-        'globalMarketMap',
+        ...BASE_REPORT_SECTIONS,
+        ...INFLUENCER_IMAGE_SECTIONS,
+        MAP_SECTION,
     ],
 };
 
@@ -211,8 +180,8 @@ const UserCreateRecipe = () => {
     const navigate = useNavigate();
     const location = useLocation();
     const { id } = useParams();
-    const rawName = user?.userName || localStorage.getItem('userName') || labels.guest;
-    const maskedName = rawName.length <= 1 ? '*' : `${rawName.slice(0, -1)}*`;
+    const rawName = getStoredUserName(user, labels.guest);
+    const maskedName = maskUserName(rawName);
 
     const initialRecipe = useMemo(() => location.state?.recipe || null, [location.state]);
     const reviewRecipeId = location.state?.reviewRecipeId;
@@ -228,11 +197,11 @@ const UserCreateRecipe = () => {
     const [createdInfluencerImage, setCreatedInfluencerImage] = useState('');
     const [showReview, setShowReview] = useState(false);
     const [hasUserEdits, setHasUserEdits] = useState(false);
-    const [targetCountry, setTargetCountry] = useState(TARGET_COUNTRY_OPTIONS[0].value);
-    const [targetPersona, setTargetPersona] = useState(TARGET_PERSONA_OPTIONS[0]);
-    const [priceRange, setPriceRange] = useState(PRICE_RANGE_OPTIONS[1]);
+    const [targetCountry, setTargetCountry] = useState(DEFAULT_TARGET_COUNTRY);
+    const [targetPersona, setTargetPersona] = useState(DEFAULT_TARGET_PERSONA);
+    const [priceRange, setPriceRange] = useState(DEFAULT_PRICE_RANGE);
     const [recipeOpenYn, setRecipeOpenYn] = useState('N');
-    const [generationOption, setGenerationOption] = useState(GENERATION_OPTIONS[0].value);
+    const [generationOption, setGenerationOption] = useState(DEFAULT_GENERATION_OPTION);
     const [selectedReportSections, setSelectedReportSections] = useState([]);
     const [targetRecommendLoading, setTargetRecommendLoading] = useState(false);
     const [loading, setLoading] = useState(false);
@@ -300,25 +269,13 @@ const UserCreateRecipe = () => {
     };
 
     const targetMetaKey = (recipeId) => `recipeTargetMeta:${recipeId}`;
-    const readTargetMeta = (recipeId) => {
-        const cached =
-            sessionStorage.getItem(targetMetaKey(recipeId)) ||
-            localStorage.getItem(targetMetaKey(recipeId));
-        if (!cached) {
-            return null;
-        }
-        try {
-            return JSON.parse(cached);
-        } catch (err) {
-            return null;
-        }
-    };
+    const readTargetMeta = (recipeId) => readJsonFromStorage(targetMetaKey(recipeId));
 
     const applyTargetMeta = (meta) => {
         if (!meta) {
-            setTargetCountry(TARGET_COUNTRY_OPTIONS[0].value);
-            setTargetPersona(TARGET_PERSONA_OPTIONS[0]);
-            setPriceRange(PRICE_RANGE_OPTIONS[1]);
+            setTargetCountry(DEFAULT_TARGET_COUNTRY);
+            setTargetPersona(DEFAULT_TARGET_PERSONA);
+            setPriceRange(DEFAULT_PRICE_RANGE);
             return;
         }
         if (meta.targetCountry) {
@@ -502,15 +459,15 @@ const UserCreateRecipe = () => {
 
     useEffect(() => {
         if (isDirty && hasUserEdits && shouldBlockRef.current) {
-            sessionStorage.setItem('recipeEditDirty', '1');
+            markRecipeEditDirty();
         } else {
-            sessionStorage.removeItem('recipeEditDirty');
+            clearRecipeEditDirty();
         }
     }, [hasUserEdits, isDirty]);
 
     useEffect(() => {
         return () => {
-            sessionStorage.removeItem('recipeEditDirty');
+            clearRecipeEditDirty();
         };
     }, []);
 
@@ -630,7 +587,6 @@ const UserCreateRecipe = () => {
             try {
                 await axiosInstance.get('/api/csrf');
             } catch (err) {
-                // CSRF 갱신 실패는 무시
             }
             const res = await axiosInstance.post('/api/ingredients/extract', {
                 steps: stepInputs,
@@ -685,52 +641,6 @@ const UserCreateRecipe = () => {
         }
     };
 
-    const HelpTooltip = ({ label, description }) => (
-        <span className="relative inline-flex items-center group align-middle">
-            <span className="inline-flex h-5 w-5 items-center justify-center rounded-full border border-[color:var(--border)] text-[10px] font-semibold text-[color:var(--text-muted)] bg-[color:var(--surface)]">
-                ?
-            </span>
-            <span className="sr-only">{label}</span>
-            <span className="pointer-events-none absolute left-1/2 top-full z-10 mt-2 w-64 -translate-x-1/2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 py-2 text-xs text-[color:var(--text)] opacity-0 shadow-[0_12px_30px_var(--shadow)] transition group-hover:opacity-100">
-                {description}
-            </span>
-        </span>
-    );
-
-    const safeCacheSet = (key, value) => {
-        try {
-            localStorage.setItem(key, value);
-            return true;
-        } catch (err) {
-            return false;
-        }
-    };
-
-    const safeSessionSet = (key, value) => {
-        try {
-            sessionStorage.setItem(key, value);
-            return true;
-        } catch (err) {
-            return false;
-        }
-    };
-
-    const safeSessionRemove = (key) => {
-        try {
-            sessionStorage.removeItem(key);
-        } catch (err) {
-            // 삭제 오류는 무시
-        }
-    };
-
-    const safeCacheRemove = (key) => {
-        try {
-            localStorage.removeItem(key);
-        } catch (err) {
-            // 삭제 오류는 무시
-        }
-    };
-
     const influencerMetaKey = (recipeId) => `recipeInfluencerMeta:${recipeId}`;
 
     const buildInfluencerMeta = (recipe) => ({
@@ -740,19 +650,7 @@ const UserCreateRecipe = () => {
         createdAt: recipe?.createdAt ?? '',
     });
 
-    const readInfluencerMeta = (recipeId) => {
-        const cached =
-            sessionStorage.getItem(influencerMetaKey(recipeId)) ||
-            localStorage.getItem(influencerMetaKey(recipeId));
-        if (!cached) {
-            return null;
-        }
-        try {
-            return JSON.parse(cached);
-        } catch (err) {
-            return null;
-        }
-    };
+    const readInfluencerMeta = (recipeId) => readJsonFromStorage(influencerMetaKey(recipeId));
 
     const isInfluencerMetaMatch = (meta, recipe) =>
         Boolean(meta) &&
@@ -761,19 +659,9 @@ const UserCreateRecipe = () => {
         meta.createdAt === (recipe?.createdAt ?? '');
 
     const clearInfluencerCache = (recipeId) => {
-        safeSessionRemove(`recipeInfluencers:${recipeId}`);
-        safeSessionRemove(`recipeInfluencerImage:${recipeId}`);
-        safeSessionRemove(influencerMetaKey(recipeId));
-        safeCacheRemove(`recipeInfluencers:${recipeId}`);
-        safeCacheRemove(`recipeInfluencerImage:${recipeId}`);
-        safeCacheRemove(influencerMetaKey(recipeId));
-    };
-
-    const pickInfluencerForImage = (items) => {
-        if (!Array.isArray(items) || items.length === 0) {
-            return null;
-        }
-        return items.find((item) => item?.name && item?.imageUrl) || items.find((item) => item?.name) || null;
+        safeRemoveFromStorage(`recipeInfluencers:${recipeId}`);
+        safeRemoveFromStorage(`recipeInfluencerImage:${recipeId}`);
+        safeRemoveFromStorage(influencerMetaKey(recipeId));
     };
 
     const generateInfluencerAssets = async (recipe, options) => {
@@ -784,31 +672,24 @@ const UserCreateRecipe = () => {
             setCreatedInfluencerImage('');
             return { influencers: [], imageBase64: '' };
         }
-        const cachedInfluencers =
-            sessionStorage.getItem(`recipeInfluencers:${recipe.id}`) ||
-            localStorage.getItem(`recipeInfluencers:${recipe.id}`);
+        const cachedInfluencers = readFromStorage(`recipeInfluencers:${recipe.id}`);
         const cachedImage = includeImage
-            ? (sessionStorage.getItem(`recipeInfluencerImage:${recipe.id}`) ||
-                localStorage.getItem(`recipeInfluencerImage:${recipe.id}`))
+            ? readFromStorage(`recipeInfluencerImage:${recipe.id}`)
             : '';
         const cachedMeta = readInfluencerMeta(recipe.id);
         if (cachedMeta && !isInfluencerMetaMatch(cachedMeta, recipe)) {
             clearInfluencerCache(recipe.id);
         }
         if (cachedInfluencers && (!includeImage || cachedImage)) {
-            try {
-                const parsed = JSON.parse(cachedInfluencers);
-                if (Array.isArray(parsed)) {
-                    setCreatedInfluencers(parsed);
-                    if (includeImage) {
-                        setCreatedInfluencerImage(cachedImage || '');
-                    } else {
-                        setCreatedInfluencerImage('');
-                    }
-                    return { influencers: parsed, imageBase64: includeImage ? cachedImage || '' : '' };
+            const parsed = safeParseJson(cachedInfluencers);
+            if (Array.isArray(parsed)) {
+                setCreatedInfluencers(parsed);
+                if (includeImage) {
+                    setCreatedInfluencerImage(cachedImage || '');
+                } else {
+                    setCreatedInfluencerImage('');
                 }
-            } catch (err) {
-                // 캐시 파싱 오류는 무시
+                return { influencers: parsed, imageBase64: includeImage ? cachedImage || '' : '' };
             }
             if (includeImage) {
                 setCreatedInfluencerImage(cachedImage || '');
@@ -832,11 +713,9 @@ const UserCreateRecipe = () => {
             }
             setCreatedInfluencers(recs);
             const influencersJson = JSON.stringify(recs);
-            safeSessionSet(`recipeInfluencers:${recipe.id}`, influencersJson);
-            safeCacheSet(`recipeInfluencers:${recipe.id}`, influencersJson);
+            safeWriteToStorage(`recipeInfluencers:${recipe.id}`, influencersJson);
             const metaJson = JSON.stringify(buildInfluencerMeta(recipe));
-            safeSessionSet(influencerMetaKey(recipe.id), metaJson);
-            safeCacheSet(influencerMetaKey(recipe.id), metaJson);
+            safeWriteToStorage(influencerMetaKey(recipe.id), metaJson);
 
             if (!includeImage) {
                 setCreatedInfluencerImage('');
@@ -854,8 +733,7 @@ const UserCreateRecipe = () => {
                 const imageBase64 = imageRes.data?.imageBase64 || '';
                 if (imageBase64) {
                     setCreatedInfluencerImage(imageBase64);
-                    safeSessionSet(`recipeInfluencerImage:${recipe.id}`, imageBase64);
-                    safeCacheSet(`recipeInfluencerImage:${recipe.id}`, imageBase64);
+                    safeWriteToStorage(`recipeInfluencerImage:${recipe.id}`, imageBase64);
                     return { influencers: recs, imageBase64 };
                 }
                 setCreatedInfluencerImage('');
@@ -923,7 +801,6 @@ const UserCreateRecipe = () => {
             try {
                 await axiosInstance.get('/api/csrf');
             } catch (err) {
-                // CSRF 갱신 실패는 무시
             }
             if (shouldRegenerate && recipeId) {
                 clearInfluencerCache(recipeId);
@@ -937,7 +814,7 @@ const UserCreateRecipe = () => {
             bumpProgress(isUpdate ? 60 : 55);
             initialSnapshotRef.current = buildSnapshot(created || payload);
             shouldBlockRef.current = false;
-            sessionStorage.removeItem('recipeEditDirty');
+            clearRecipeEditDirty();
 
             if (shouldRegenerateReport) {
                 const runInfluencer = selectedReportSections.includes('influencer');
@@ -959,8 +836,7 @@ const UserCreateRecipe = () => {
             if (isCreateFlow) {
                 setCreatedRecipe(created);
                 const metaJson = JSON.stringify({ targetCountry, targetPersona, priceRange });
-                safeSessionSet(targetMetaKey(created.id), metaJson);
-                safeCacheSet(targetMetaKey(created.id), metaJson);
+                safeWriteToStorage(targetMetaKey(created.id), metaJson);
                 setShowReview(true);
                 setError('');
                 success = true;
@@ -970,8 +846,7 @@ const UserCreateRecipe = () => {
             success = true;
             if (created?.id) {
                 const metaJson = JSON.stringify({ targetCountry, targetPersona, priceRange });
-                safeSessionSet(targetMetaKey(created.id), metaJson);
-                safeCacheSet(targetMetaKey(created.id), metaJson);
+                safeWriteToStorage(targetMetaKey(created.id), metaJson);
             }
             navigate(`/mainboard/recipes/${created.id}`);
         } catch (err) {
@@ -1004,7 +879,6 @@ const UserCreateRecipe = () => {
             try {
                 await axiosInstance.get('/api/csrf');
             } catch (err) {
-                // CSRF 갱신 실패는 무시
             }
             await axiosInstance.put(`/api/recipes/${createdRecipe.id}/publish`, {
                 influencers: includesReport ? createdInfluencers : [],
@@ -1329,6 +1203,8 @@ const UserCreateRecipe = () => {
                                             <HelpTooltip
                                                 label={labels.targetRecommendHelpLabel}
                                                 description={labels.targetRecommendHelpDesc}
+                                                width="w-64"
+                                                margin="ml-0"
                                             />
                                         </div>
                                     </div>
@@ -1408,6 +1284,8 @@ const UserCreateRecipe = () => {
                                             <HelpTooltip
                                                 label={labels.ingredientAutoHelpLabel}
                                                 description={labels.ingredientAutoHelpDesc}
+                                                width="w-64"
+                                                margin="ml-0"
                                             />
                                             <button
                                                 type="button"
@@ -1469,12 +1347,9 @@ const UserCreateRecipe = () => {
                                                 <div className="rounded-xl border border-[color:var(--border)] bg-[color:var(--surface-muted)] p-4 space-y-3">
                                                     <p className="text-sm font-semibold text-[color:var(--text)]">리포트 생성 항목</p>
                                                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                                                        {REPORT_SECTION_ORDER.map((key) => {
-                                                            const label = REPORT_SECTION_LABELS[key];
-                                                            if (!label) {
-                                                                return null;
-                                                            }
-                                                            const isRequired = REQUIRED_REPORT_SECTIONS.has(key);
+                                                        {REPORT_SECTIONS.map((section) => {
+                                                            const { key, label } = section;
+                                                            const isRequired = Boolean(section.required);
                                                             const isChecked = isRequired || selectedReportSections.includes(key);
                                                             const isDisabled = isRequired || (key === 'influencerImage' && !influencerSelected);
                                                             return (
@@ -1542,7 +1417,7 @@ const UserCreateRecipe = () => {
                                                         return;
                                                     }
                                                 }
-                                                sessionStorage.removeItem('recipeEditDirty');
+                                                clearRecipeEditDirty();
                                                 navigate(`/mainboard/recipes/${id}`);
                                             }}
                                             className="w-full py-3 rounded-xl border border-[color:var(--border)] text-[color:var(--text)] font-semibold hover:bg-[color:var(--surface-muted)] transition"

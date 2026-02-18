@@ -2,6 +2,7 @@
 import { Client } from '@stomp/stompjs';
 import SockJS from 'sockjs-client';
 import axiosInstance from '../axiosConfig';
+import { getAccessToken } from '../utils/authStorage';
 
 const RemoteMeetingPage = () => {
     const [reports, setReports] = useState([]);
@@ -43,7 +44,7 @@ const RemoteMeetingPage = () => {
                 console.error('채팅 내역을 불러오지 못했습니다.', err);
             }
 
-            const token = localStorage.getItem('accessToken');
+            const token = getAccessToken();
             const client = new Client({
                 webSocketFactory: () => new SockJS('http://localhost:8080/ws'),
                 reconnectDelay: 4000,

@@ -1,9 +1,11 @@
 package com.aivle0102.bigproject.service;
 
 import com.aivle0102.bigproject.client.OpenAiClient;
+import com.aivle0102.bigproject.util.OpenAiJsonUtils;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
@@ -16,6 +18,7 @@ import java.util.Set;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class IngredientExtractionService {
 
     private final OpenAiClient openAiClient;
@@ -62,17 +65,7 @@ public class IngredientExtractionService {
         if (content == null || content.isBlank()) {
             return List.of();
         }
-        String trimmed = content.trim();
-        String json = trimmed;
-        if (trimmed.startsWith("```")) {
-            json = trimmed.replaceFirst("^```[a-zA-Z]*\\s*", "");
-            json = json.replaceFirst("\\s*```$", "");
-        }
-        int start = json.indexOf('[');
-        int end = json.lastIndexOf(']');
-        if (start >= 0 && end > start) {
-            json = json.substring(start, end + 1);
-        }
+        String json = OpenAiJsonUtils.extractJsonBlock(content, '[', ']');
         try {
             JsonNode node = objectMapper.readTree(json);
             if (!node.isArray()) {
@@ -89,6 +82,7 @@ public class IngredientExtractionService {
             }
             return out;
         } catch (Exception e) {
+            log.debug("재료 JSON 파싱 실패: {}", e.getMessage());
             return List.of();
         }
     }

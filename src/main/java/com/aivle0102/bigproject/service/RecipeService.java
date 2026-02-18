@@ -20,6 +20,7 @@ import com.aivle0102.bigproject.repository.VirtualConsumerRepository;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -41,6 +42,7 @@ import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class RecipeService {
 
     private static final String STATUS_DRAFT = "DRAFT";
@@ -227,7 +229,6 @@ public class RecipeService {
         List<RecipeIngredient> ingredients;
         List<String> ingredientsForAnalysis;
         if (ingredientsChanged) {
-            // 레퍼가 끊기지 않도록 재료 삭제 전에 알레르겐 행을 먼저 삭제
             recipeAllergenRepository.deleteByRecipe_Id(saved.getId());
             ingredients = replaceIngredients(saved, request.getIngredients());
             ingredientsForAnalysis = request.getIngredients();
@@ -306,7 +307,7 @@ public class RecipeService {
                 evaluationService.evaluateAndSave(marketReport, consumers, reportJson);
             }
         } else if (hasSelection && includeReportJson && !includeEvaluation) {
-            MarketReport latestReport = marketReportRepository.findTopByRecipe_IdOrderByCreatedAtDesc(saved.getId()).orElse(null);
+            MarketReport latestReport = findLatestReport(saved.getId());
             if (latestReport != null && latestReport.getId() != null) {
                 consumerFeedbackRepository.deleteByReport_Id(latestReport.getId());
                 virtualConsumerRepository.deleteByReport_Id(latestReport.getId());
@@ -328,7 +329,7 @@ public class RecipeService {
         }
 
         String authorName = resolveUserName(authorId);
-        MarketReport latestReport = marketReportRepository.findTopByRecipe_IdOrderByCreatedAtDesc(saved.getId()).orElse(null);
+        MarketReport latestReport = findLatestReport(saved.getId());
         return toResponse(saved, ingredients, latestReport, authorName);
     }
 
@@ -663,7 +664,7 @@ public class RecipeService {
         }
 
         if (request != null) {
-            MarketReport latestReport = marketReportRepository.findTopByRecipe_IdOrderByCreatedAtDesc(recipe.getId()).orElse(null);
+            MarketReport latestReport = findLatestReport(recipe.getId());
             Long reportId = latestReport == null ? null : latestReport.getId();
             if (reportId != null) {
                 influencerRepository.deleteByReport_Id(reportId);
@@ -703,7 +704,7 @@ public class RecipeService {
             return toResponse(recipe);
         }
 
-        MarketReport latestReport = marketReportRepository.findTopByRecipe_IdOrderByCreatedAtDesc(recipe.getId()).orElse(null);
+        MarketReport latestReport = findLatestReport(recipe.getId());
         Long reportId = latestReport == null ? null : latestReport.getId();
         if (reportId == null) {
             return toResponse(recipe);
@@ -735,7 +736,6 @@ public class RecipeService {
         if (!recipe.getUserId().equals(requesterId)) {
             throw new IllegalArgumentException("레시피를 찾을 수 없습니다.");
         }
-        // FK 제약 위반 => 연관되는 행 안전하게 삭제
         recipeAllergenRepository.deleteByRecipe_Id(id);
         recipeIngredientRepository.deleteByRecipe_Id(id);
 
@@ -751,9 +751,20 @@ public class RecipeService {
 
     private RecipeResponse toResponse(Recipe recipe) {
         List<RecipeIngredient> ingredients = recipeIngredientRepository.findByRecipe_IdOrderByIdAsc(recipe.getId());
-        MarketReport latestReport = marketReportRepository.findTopByRecipe_IdOrderByCreatedAtDesc(recipe.getId()).orElse(null);
+        MarketReport latestReport = findLatestReport(recipe.getId());
         String authorName = resolveUserName(recipe.getUserId());
         return toResponse(recipe, ingredients, latestReport, authorName);
+    }
+
+    private MarketReport findLatestReport(Long recipeId) {
+        if (recipeId == null) {
+            return null;
+        }
+        Optional<MarketReport> latestReport = marketReportRepository.findTopByRecipe_IdOrderByCreatedAtDesc(recipeId);
+        if (latestReport.isEmpty()) {
+            return null;
+        }
+        return latestReport.get();
     }
 
     private RecipeResponse toResponse(Recipe recipe, List<RecipeIngredient> ingredients, MarketReport report, String authorName) {
@@ -767,9 +778,6 @@ public class RecipeService {
         if (evalReport != null) {
             reportMap.put("evaluationResults", readEvaluationResults(evalReport));
         }
-        System.out.println("🔥 [EXPORT] recipeId = " + recipe.getId());
-        System.out.println("🔥 [EXPORT] ingredients = " + ingredientNames);
-
         RecipeCaseRequest req = new RecipeCaseRequest();
         req.setRecipeId(recipe.getId());
         req.setRecipe(
@@ -783,18 +791,15 @@ public class RecipeService {
                 .toList()
                 : List.of();
 
-// 🔹 2. RecipeCase 섹션 처리
         if (sections.contains(SECTION_RECIPE_CASE)) {
             RecipeCaseResponse exportRisks = recipeCaseService.findCases(req);
             reportMap.put("exportRisks", exportRisks);
         }
 
-// 🔹 3. 기본 데이터 읽기
         Map<String, Object> allergenMap = buildAllergenResponse(recipe);
         List<Map<String, Object>> influencers = readInfluencers(primaryReport);
         String influencerImage = influencers.isEmpty() ? null : readInfluencerImage(primaryReport);
 
-// 🔹 4. Draft 상태에서 섹션 기준 필터링
         if (STATUS_DRAFT.equalsIgnoreCase(recipe.getStatus())) {
             boolean allowInfluencer =
                     sections.contains(SECTION_INFLUENCER) ||
@@ -833,10 +838,7 @@ public class RecipeService {
         if (candidate != null && REPORT_TYPE_AI.equalsIgnoreCase(defaultIfBlank(candidate.getReportType(), ""))) {
             return candidate;
         }
-        MarketReport latestAi = marketReportRepository
-                .findTopByRecipe_IdAndReportTypeOrderByCreatedAtDesc(recipe.getId(), REPORT_TYPE_AI)
-                .orElse(null);
-        return latestAi != null ? latestAi : candidate;
+        return findLatestAiReport(recipe.getId()).orElse(candidate);
     }
 
     private ReportDetailResponse toReportDetailResponse(Recipe recipe, MarketReport report) {
@@ -895,13 +897,18 @@ public class RecipeService {
     }
 
     private String readInfluencerImage(MarketReport report) {
-        if (report == null) return null;
-        return influencerRepository.findByReport_IdOrderByIdAsc(report.getId())
+        if (report == null) {
+            return null;
+        }
+        Optional<String> image = influencerRepository.findByReport_IdOrderByIdAsc(report.getId())
                 .stream()
                 .map(Influencer::getInfluencerImage)
                 .filter(v -> v != null && !v.isBlank())
-                .findFirst()
-                .orElse(null);
+                .findFirst();
+        if (image.isEmpty()) {
+            return null;
+        }
+        return image.get();
     }
 
     private List<Map<String, Object>> readInfluencers(MarketReport report) {
@@ -921,9 +928,18 @@ public class RecipeService {
         if (recipeId == null) {
             return null;
         }
-        return marketReportRepository
-                .findTopByRecipe_IdAndReportTypeOrderByCreatedAtDesc(recipeId, REPORT_TYPE_AI)
-                .orElse(null);
+        Optional<MarketReport> latestReport = findLatestAiReport(recipeId);
+        if (latestReport.isEmpty()) {
+            return null;
+        }
+        return latestReport.get();
+    }
+
+    private Optional<MarketReport> findLatestAiReport(Long recipeId) {
+        if (recipeId == null) {
+            return Optional.empty();
+        }
+        return marketReportRepository.findTopByRecipe_IdAndReportTypeOrderByCreatedAtDesc(recipeId, REPORT_TYPE_AI);
     }
 
     private Map<String, Object> buildAllergenResponse(Recipe recipe) {
@@ -1055,7 +1071,6 @@ public class RecipeService {
         if (report == null || report.getId() == null) {
             return List.of();
         }
-        // 유니크 제약(report_id, personaName, country, ageGroup)이 충돌하지 않도록
         virtualConsumerRepository.deleteByReport_Id(report.getId());
         if (recipeText == null || recipeText.isBlank()) {
             return List.of();
@@ -1102,7 +1117,7 @@ public class RecipeService {
                 return virtualConsumerRepository.saveAll(rows);
             }
         } catch (Exception e) {
-            System.err.println("보고서 가상 소비자 저장에 실패했습니다: " + report.getId() + " - " + e.getMessage());
+            log.warn("보고서 가상 소비자 저장 실패: reportId={}, message={}", report.getId(), e.getMessage(), e);
         }
         return List.of();
     }
@@ -1589,9 +1604,11 @@ public class RecipeService {
     }
 
     private Long resolveCompanyId(String userId) {
-        return userInfoRepository.findByUserId(userId)
-                .map(UserInfo::getCompanyId)
-                .orElse(null);
+        Optional<UserInfo> userInfo = userInfoRepository.findByUserId(userId);
+        if (userInfo.isEmpty()) {
+            return null;
+        }
+        return userInfo.get().getCompanyId();
     }
 }
 

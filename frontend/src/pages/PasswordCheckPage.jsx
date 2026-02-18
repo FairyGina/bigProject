@@ -3,12 +3,13 @@ import { motion } from 'framer-motion';
 import { Search } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import axiosInstance from '../axiosConfig';
+import { getStoredUserId } from '../utils/user';
 
 const PasswordCheckPage = () => {
     const navigate = useNavigate();
     const [password, setPassword] = useState('');
     const [error, setError] = useState('');
-    const isDemoAdmin = localStorage.getItem('userId') === 'super';
+    const isDemoAdmin = getStoredUserId(null) === 'super';
 
     const handlePasswordCheck = async () => {
         setError('');
