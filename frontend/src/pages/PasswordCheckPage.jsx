@@ -3,12 +3,13 @@ import { motion } from 'framer-motion';
 import { Search } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import axiosInstance from '../axiosConfig';
+import { getStoredUserId } from '../utils/user';
 
 const PasswordCheckPage = () => {
     const navigate = useNavigate();
     const [password, setPassword] = useState('');
     const [error, setError] = useState('');
-    const isDemoAdmin = (sessionStorage.getItem('userId') || localStorage.getItem('userId')) === 'super';
+    const isDemoAdmin = getStoredUserId(null) === 'super';
 
     const handlePasswordCheck = async () => {
         setError('');
@@ -17,8 +18,8 @@ const PasswordCheckPage = () => {
             return;
         }
         try {
-            await axiosInstance.get('/csrf');
-            await axiosInstance.post('/user/verify-password', { password });
+            await axiosInstance.get('/api/csrf');
+            await axiosInstance.post('/api/user/verify-password', { password });
             navigate('/mainboard/user-hub/profile');
         } catch (err) {
             console.error(err);

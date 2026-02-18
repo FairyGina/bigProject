@@ -1,16 +1,26 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+﻿import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import axiosInstance from '../axiosConfig';
+import SectionTitle from '../components/common/SectionTitle';
+import {
+    readFromStorage,
+    readJsonFromStorage,
+    safeParseJson,
+    safeRemoveFromStorage,
+    safeWriteToStorage,
+} from '../utils/storage';
+import { getStoredUserId, getStoredUserName, maskUserName } from '../utils/user';
+import { pickInfluencerForImage } from '../utils/influencer';
 
 const RecipeAnalysis = () => {
     const { user } = useAuth();
     const navigate = useNavigate();
     const { id, reportId } = useParams();
     const location = useLocation();
-    const rawName = user?.userName || sessionStorage.getItem('userName') || localStorage.getItem('userName') || '게스트';
-    const maskedName = rawName.length <= 1 ? '*' : `${rawName.slice(0, -1)}*`;
-    const userId = user?.userId || sessionStorage.getItem('userId') || localStorage.getItem('userId') || null;
+    const rawName = getStoredUserName(user, '게스트');
+    const maskedName = maskUserName(rawName);
+    const userId = getStoredUserId(user);
 
     const [recipe, setRecipe] = useState(null);
     const [loading, setLoading] = useState(true);
@@ -32,19 +42,7 @@ const RecipeAnalysis = () => {
     const [productCases, setProductCases] = useState([]);
     const [ingredientCases, setIngredientCases] = useState([]);
 
-    const readTargetMeta = (recipeId) => {
-        const cached =
-            sessionStorage.getItem(targetMetaKey(recipeId)) ||
-            localStorage.getItem(targetMetaKey(recipeId));
-        if (!cached) {
-            return null;
-        }
-        try {
-            return JSON.parse(cached);
-        } catch (err) {
-            return null;
-        }
-    };
+    const readTargetMeta = (recipeId) => readJsonFromStorage(targetMetaKey(recipeId));
 
     const influencerMetaKey = (recipeId, reportIdValue) =>
         reportIdValue ? `reportInfluencerMeta:${reportIdValue}` : `recipeInfluencerMeta:${recipeId}`;
@@ -52,19 +50,8 @@ const RecipeAnalysis = () => {
         reportIdValue ? `reportInfluencers:${reportIdValue}` : `recipeInfluencers:${recipeId}`;
     const influencerImageKey = (recipeId, reportIdValue) =>
         reportIdValue ? `reportInfluencerImage:${reportIdValue}` : `recipeInfluencerImage:${recipeId}`;
-    const readInfluencerMeta = (recipeId, reportIdValue) => {
-        const cached =
-            sessionStorage.getItem(influencerMetaKey(recipeId, reportIdValue)) ||
-            localStorage.getItem(influencerMetaKey(recipeId, reportIdValue));
-        if (!cached) {
-            return null;
-        }
-        try {
-            return JSON.parse(cached);
-        } catch (err) {
-            return null;
-        }
-    };
+    const readInfluencerMeta = (recipeId, reportIdValue) =>
+        readJsonFromStorage(influencerMetaKey(recipeId, reportIdValue));
     const isInfluencerMetaMatch = (meta, currentRecipe) =>
         Boolean(meta) &&
         meta.title === (currentRecipe?.title ?? '') &&
@@ -74,7 +61,7 @@ const RecipeAnalysis = () => {
             return;
         }
         try {
-            await axiosInstance.put(`/reports/${reportId}/influencers`, {
+            await axiosInstance.put(`/api/reports/${reportId}/influencers`, {
                 influencers: recs || [],
                 influencerImageBase64: image || '',
             });
@@ -88,7 +75,7 @@ const RecipeAnalysis = () => {
             try {
                 setLoading(true);
                 if (reportId) {
-                    const res = await axiosInstance.get(`/reports/${reportId}`);
+                    const res = await axiosInstance.get(`/api/reports/${reportId}`);
                     const data = res.data || {};
                     setRecipe({
                         id: data.recipeId,
@@ -108,7 +95,7 @@ const RecipeAnalysis = () => {
                     });
                     return;
                 }
-                const res = await axiosInstance.get(`/recipes/${id}`);
+                const res = await axiosInstance.get(`/api/recipes/${id}`);
                 setRecipe(res.data);
             } catch (err) {
                 console.error('레시피를 불러오지 못했습니다.', err);
@@ -148,94 +135,72 @@ const RecipeAnalysis = () => {
         }
     }, [allowInfluencer, allowInfluencerImage, location.state]);
 
-    const [mapsApiKey, setMapsApiKey] = useState(import.meta.env.VITE_GOOGLE_MAPS_API_KEY || '');
-
     useEffect(() => {
-        if (!showMap) return;
+        if (!showMap) {
+            return;
+        }
+        const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
+        if (!apiKey) {
+            setMapError('Google Maps API 키가 없습니다.');
+            return;
+        }
 
-        const loadKeyAndInit = async () => {
-            let key = mapsApiKey;
-
-            // 환경 변수에 키가 없으면 백엔드에서 가져오기 시도
-            if (!key) {
-                try {
-                    console.log('[MAP] Attempting to fetch Google Maps API key from backend...');
-                    const res = await axiosInstance.get('/evaluation/maps-key');
-                    if (res.data?.apiKey) {
-                        key = res.data.apiKey;
-                        setMapsApiKey(key);
-                        console.log('[MAP] Google Maps API key fetched from backend successfully.');
-                    }
-                } catch (err) {
-                    console.error('[MAP] Failed to fetch Google Maps API key from backend:', err);
-                }
-            }
-
-            if (!key) {
-                console.error('[MAP] Google Maps API key is missing (both VITE_ env and backend).');
-                setMapError('Google Maps API 키가 없습니다.');
-                return;
-            }
-
-            const initMap = (retry = 0) => {
-                if (!mapRef.current) {
-                    if (retry < 10) {
-                        setTimeout(() => initMap(retry + 1), 100);
-                    } else {
-                        setMapError('지도 초기화에 실패했습니다.');
-                    }
-                    return;
-                }
-                if (!window.google?.maps) {
-                    if (retry < 20) {
-                        setTimeout(() => initMap(retry + 1), 150);
-                    } else {
-                        setMapError('Google Maps 로딩에 실패했습니다. API 키와 설정을 확인하세요.');
-                    }
-                    return;
-                }
-                setMapError('');
-                const map = new window.google.maps.Map(mapRef.current, {
-                    center: { lat: 20, lng: 0 },
-                    zoom: 1,
-                    minZoom: 1,
-                    maxZoom: 8,
-                    disableDefaultUI: false,
-                    gestureHandling: 'greedy',
-                    scrollwheel: true,
-                    styles: [
-                        { featureType: 'administrative', elementType: 'labels', stylers: [{ visibility: 'off' }] },
-                        { featureType: 'poi', elementType: 'all', stylers: [{ visibility: 'off' }] },
-                        { featureType: 'road', elementType: 'all', stylers: [{ visibility: 'off' }] },
-                    ],
-                });
-                mapInstanceRef.current = map;
-                setMapReady(true);
-            };
-
-            const existing = document.querySelector('script[data-google-maps]');
-            if (existing) {
-                if (window.google?.maps) {
-                    initMap();
+        const initMap = (retry = 0) => {
+            if (!mapRef.current) {
+                if (retry < 10) {
+                    setTimeout(() => initMap(retry + 1), 100);
                 } else {
-                    existing.addEventListener('load', () => initMap(), { once: true });
-                    existing.addEventListener('error', () => setMapError('Google Maps script failed to load.'), { once: true });
-                    initMap();
+                    setMapError('지도 초기화에 실패했습니다.');
                 }
                 return;
             }
-
-            window.__initRecipeMap = () => initMap();
-            const script = document.createElement('script');
-            script.src = `https://maps.googleapis.com/maps/api/js?key=${key}&v=weekly&callback=__initRecipeMap`;
-            script.async = true;
-            script.defer = true;
-            script.dataset.googleMaps = 'true';
-            script.onerror = () => setMapError('Google Maps 스크립트 로딩에 실패했습니다.');
-            document.body.appendChild(script);
+            if (!window.google?.maps) {
+                if (retry < 20) {
+                    setTimeout(() => initMap(retry + 1), 150);
+                } else {
+                    setMapError('Google Maps 로딩에 실패했습니다. API 키와 설정을 확인하세요.');
+                }
+                return;
+            }
+            setMapError('');
+            const map = new window.google.maps.Map(mapRef.current, {
+                center: { lat: 20, lng: 0 },
+                zoom: 1,
+                minZoom: 1,
+                maxZoom: 8,
+                disableDefaultUI: false,
+                gestureHandling: 'greedy',
+                scrollwheel: true,
+                styles: [
+                    { featureType: 'administrative', elementType: 'labels', stylers: [{ visibility: 'off' }] },
+                    { featureType: 'poi', elementType: 'all', stylers: [{ visibility: 'off' }] },
+                    { featureType: 'road', elementType: 'all', stylers: [{ visibility: 'off' }] },
+                ],
+            });
+            mapInstanceRef.current = map;
+            setMapReady(true);
         };
 
-        loadKeyAndInit();
+        const existing = document.querySelector('script[data-google-maps]');
+        if (existing) {
+            if (window.google?.maps) {
+                initMap();
+            } else {
+                existing.addEventListener('load', () => initMap(), { once: true });
+                existing.addEventListener('error', () => setMapError('Google Maps script failed to load.'), { once: true });
+                initMap();
+            }
+            return;
+        }
+
+        window.__initRecipeMap = () => initMap();
+        const script = document.createElement('script');
+        script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&v=weekly&callback=__initRecipeMap`;
+        script.async = true;
+        script.defer = true;
+        script.dataset.googleMaps = 'true';
+        script.onerror = () => setMapError('Google Maps 스크립트 로딩에 실패했습니다.');
+        document.body.appendChild(script);
     }, [showMap]);
 
     useEffect(() => {
@@ -273,9 +238,6 @@ const RecipeAnalysis = () => {
     }, [recipe]);
 
     useEffect(() => {
-        console.log('[EXPORT] exportRisks', recipe?.report?.exportRisks);
-        console.log('[EXPORT] productCases', productCases.length, productCases);
-        console.log('[EXPORT] ingredientCases', ingredientCases.length, ingredientCases);
     }, [recipe, productCases, ingredientCases]);
 
     useEffect(() => {
@@ -303,11 +265,9 @@ const RecipeAnalysis = () => {
                 if (allowInfluencerImage && !recipe?.influencerImageBase64 && !imageBase64) {
                     setInfluencerLoading(true);
                     try {
-                        const topExisting =
-                            existingRecs.find((item) => item?.name && item?.imageUrl) ||
-                            existingRecs.find((item) => item?.name);
+                        const topExisting = pickInfluencerForImage(existingRecs);
                         if (topExisting?.name) {
-                            const imageRes = await axiosInstance.post('/images/generate', {
+                            const imageRes = await axiosInstance.post('/api/images/generate', {
                                 recipe: recipe.title,
                                 influencerName: topExisting.name,
                                 influencerImageUrl: topExisting.imageUrl || '',
@@ -316,16 +276,7 @@ const RecipeAnalysis = () => {
                             const generated = imageRes.data?.imageBase64 || '';
                             setImageBase64(generated);
                             if (generated) {
-                                try {
-                                    sessionStorage.setItem(influencerImageKey(recipe.id, reportId), generated);
-                                } catch (err) {
-                                    // 캐시 오류는 무시
-                                }
-                                try {
-                                    localStorage.setItem(influencerImageKey(recipe.id, reportId), generated);
-                                } catch (err) {
-                                    // 캐시 오류는 무시
-                                }
+                                safeWriteToStorage(influencerImageKey(recipe.id, reportId), generated);
                             }
                             await persistReportInfluencers(existingRecs, generated);
                         }
@@ -349,29 +300,18 @@ const RecipeAnalysis = () => {
             if (influencers.length && imageBase64) {
                 return;
             }
-            const cachedInfluencers =
-                sessionStorage.getItem(influencerListKey(recipe.id, reportId)) ||
-                localStorage.getItem(influencerListKey(recipe.id, reportId));
-            const cachedImage =
-                sessionStorage.getItem(influencerImageKey(recipe.id, reportId)) ||
-                localStorage.getItem(influencerImageKey(recipe.id, reportId));
+            const cachedInfluencers = readFromStorage(influencerListKey(recipe.id, reportId));
+            const cachedImage = readFromStorage(influencerImageKey(recipe.id, reportId));
             const cachedMeta = readInfluencerMeta(recipe.id, reportId);
             if (cachedMeta && !isInfluencerMetaMatch(cachedMeta, recipe)) {
-                sessionStorage.removeItem(influencerListKey(recipe.id, reportId));
-                sessionStorage.removeItem(influencerImageKey(recipe.id, reportId));
-                sessionStorage.removeItem(influencerMetaKey(recipe.id, reportId));
-                localStorage.removeItem(influencerListKey(recipe.id, reportId));
-                localStorage.removeItem(influencerImageKey(recipe.id, reportId));
-                localStorage.removeItem(influencerMetaKey(recipe.id, reportId));
+                safeRemoveFromStorage(influencerListKey(recipe.id, reportId));
+                safeRemoveFromStorage(influencerImageKey(recipe.id, reportId));
+                safeRemoveFromStorage(influencerMetaKey(recipe.id, reportId));
             }
             if (cachedInfluencers) {
-                try {
-                    const parsed = JSON.parse(cachedInfluencers);
-                    if (Array.isArray(parsed)) {
-                        setInfluencers(parsed);
-                    }
-                } catch (e) {
-                    // 캐시 파싱 오류는 무시
+                const parsed = safeParseJson(cachedInfluencers);
+                if (Array.isArray(parsed)) {
+                    setInfluencers(parsed);
                 }
             }
             if (cachedImage && !imageBase64 && allowInfluencerImage) {
@@ -395,7 +335,7 @@ const RecipeAnalysis = () => {
                     targetPersona: targetMeta.targetPersona || '20~30대 직장인, 간편식 선호',
                     priceRange: targetMeta.priceRange || 'USD 6~9',
                 };
-                const influencerRes = await axiosInstance.post('/influencers/recommend', payload);
+                const influencerRes = await axiosInstance.post('/api/influencers/recommend', payload);
                 const recs = influencerRes.data?.recommendations ?? [];
                 const trimmedRecs = recs.slice(0, 3);
                 let generatedImage = '';
@@ -406,25 +346,16 @@ const RecipeAnalysis = () => {
                         title: recipe.title,
                         summary: recipe.summary,
                     });
-                    try {
-                        sessionStorage.setItem(influencerMetaKey(recipe.id, reportId), metaJson);
-                        sessionStorage.setItem(influencerListKey(recipe.id, reportId), JSON.stringify(trimmedRecs));
-                    } catch (err) {
-                        // 캐시 오류는 무시
-                    }
-                    try {
-                        localStorage.setItem(influencerMetaKey(recipe.id, reportId), metaJson);
-                        localStorage.setItem(influencerListKey(recipe.id, reportId), JSON.stringify(trimmedRecs));
-                    } catch (err) {
-                        // 캐시 오류는 무시
-                    }
+                    safeWriteToStorage(influencerMetaKey(recipe.id, reportId), metaJson);
+                    safeWriteToStorage(
+                        influencerListKey(recipe.id, reportId),
+                        JSON.stringify(trimmedRecs)
+                    );
                 }
 
-                const top =
-                    trimmedRecs.find((item) => item?.name && item?.imageUrl) ||
-                    trimmedRecs.find((item) => item?.name);
+                const top = pickInfluencerForImage(trimmedRecs);
                 if (allowInfluencerImage && top?.name) {
-                    const imageRes = await axiosInstance.post('/images/generate', {
+                    const imageRes = await axiosInstance.post('/api/images/generate', {
                         recipe: recipe.title,
                         influencerName: top.name,
                         influencerImageUrl: top.imageUrl || '',
@@ -433,16 +364,7 @@ const RecipeAnalysis = () => {
                     generatedImage = imageRes.data?.imageBase64 || '';
                     setImageBase64(generatedImage);
                     if (generatedImage) {
-                        try {
-                            sessionStorage.setItem(influencerImageKey(recipe.id, reportId), generatedImage);
-                        } catch (err) {
-                            // 캐시 오류는 무시
-                        }
-                        try {
-                            localStorage.setItem(influencerImageKey(recipe.id, reportId), generatedImage);
-                        } catch (err) {
-                            // 캐시 오류는 무시
-                        }
+                        safeWriteToStorage(influencerImageKey(recipe.id, reportId), generatedImage);
                     }
                 }
                 await persistReportInfluencers(trimmedRecs, generatedImage);
@@ -655,7 +577,6 @@ const RecipeAnalysis = () => {
             mapMarkersRef.current.push(marker);
         });
     };
-
     useEffect(() => {
         if (!mapReady || evaluationResults.length === 0) {
             return;
@@ -679,17 +600,17 @@ const RecipeAnalysis = () => {
                 const countries = Object.keys(countryCoords)
                     .filter((c) => /[가-힣]/.test(c))
                     .slice(0, 10);
-                const ageRes = await axiosInstance.post('/persona/age-group', {
+                const ageRes = await axiosInstance.post('/api/persona/age-group', {
                     recipe: `${recipe.title || ''} ${recipe.description || ''}`.trim(),
                     countries,
                 });
                 const targets = ageRes.data || [];
-                const personaRes = await axiosInstance.post('/persona/batch', {
+                const personaRes = await axiosInstance.post('/api/persona/batch', {
                     recipeSummary: recipe.summary || JSON.stringify(report || {}),
                     targets,
                 });
                 const personas = personaRes.data || [];
-                const evalRes = await axiosInstance.post('/evaluation', {
+                const evalRes = await axiosInstance.post('/api/evaluation', {
                     personas,
                     report: JSON.stringify(report || {}),
                 });
@@ -718,7 +639,7 @@ const RecipeAnalysis = () => {
         }
         setPublishLoading(true);
         try {
-            const res = await axiosInstance.put(`/recipes/${recipe.id}/publish`, {
+            const res = await axiosInstance.put(`/api/recipes/${recipe.id}/publish`, {
                 influencers,
                 influencerImageBase64: imageBase64,
             });
@@ -773,7 +694,7 @@ const RecipeAnalysis = () => {
             .replace(/"/g, '&quot;')
             .replace(/'/g, '&#39;');
 
-    const listHtml = (items) => {
+        const listHtml = (items) => {
         if (!items || items.length === 0) {
             return '<p class="muted">내용이 없습니다.</p>';
         }
@@ -801,15 +722,15 @@ const RecipeAnalysis = () => {
       </thead>
       <tbody>
         ${marketMapRows
-                .map(
-                    (row) => `
+                    .map(
+                        (row) => `
         <tr>
           <td>${escapeHtml(row?.country || '-')}</td>
           <td>${escapeHtml(row?.totalScore ?? '-')}</td>
         </tr>
       `
-                )
-                .join('')}
+                    )
+                    .join('')}
       </tbody>
     </table>
   </div>
@@ -977,11 +898,12 @@ const RecipeAnalysis = () => {
                 ? `
   <div class="section">
     <h2>인플루언서 추천</h2>
-    ${influencers.length
-                    ? influencers
-                        .slice(0, 5)
-                        .map(
-                            (inf) => `
+    ${
+                    influencers.length
+                        ? influencers
+                            .slice(0, 5)
+                            .map(
+                                (inf) => `
         <div>
           <p><strong>${escapeHtml(inf.name || '')}</strong> (${escapeHtml(inf.platform || '-')})</p>
           <p class="muted">${escapeHtml(inf.profileUrl || '')}</p>
@@ -989,9 +911,9 @@ const RecipeAnalysis = () => {
           ${inf.riskNotes ? `<p class="muted">주의: ${escapeHtml(inf.riskNotes)}</p>` : ''}
         </div>
       `
-                        )
-                        .join('')
-                    : '<p class="muted">추천 결과가 없습니다.</p>'
+                            )
+                            .join('')
+                        : '<p class="muted">추천 결과가 없습니다.</p>'
                 }
   </div>
 `
@@ -1000,9 +922,10 @@ const RecipeAnalysis = () => {
                 ? `
   <div class="section">
     <h2>인플루언서 이미지</h2>
-    ${imageBase64
-                    ? `<img src="data:image/png;base64,${imageBase64}" alt="influencer" style="max-width:100%; border-radius:12px;"/>`
-                    : '<p class="muted">이미지 생성 결과가 없습니다.</p>'
+    ${
+                    imageBase64
+                        ? `<img src="data:image/png;base64,${imageBase64}" alt="influencer" style="max-width:100%; border-radius:12px;"/>`
+                        : '<p class="muted">이미지 생성 결과가 없습니다.</p>'
                 }
   </div>
 `
@@ -1137,25 +1060,6 @@ const RecipeAnalysis = () => {
             </ul>
         );
     };
-    const HelpTooltip = ({ label, description }) => (
-        <span className="relative inline-flex items-center group ml-2 align-middle">
-            <span className="inline-flex h-5 w-5 items-center justify-center rounded-full border border-[color:var(--border)] text-[10px] font-semibold text-[color:var(--text-muted)] bg-[color:var(--surface)]">
-                ?
-            </span>
-            <span className="sr-only">{label}</span>
-            <span className="pointer-events-none absolute left-1/2 top-full z-10 mt-2 w-56 -translate-x-1/2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 py-2 text-xs text-[color:var(--text)] opacity-0 shadow-[0_12px_30px_var(--shadow)] transition group-hover:opacity-100">
-                {description}
-            </span>
-        </span>
-    );
-    const SectionTitle = ({ title, help }) => (
-        <h3 className="text-lg font-semibold text-[color:var(--text)] mb-3 flex items-center">
-            {title}
-            {help && <HelpTooltip label={title} description={help} />}
-        </h3>
-    );
-
-
     if (loading) {
         return (
             <div className="rounded-[2.5rem] bg-[color:var(--surface)]/90 border border-[color:var(--border)] shadow-[0_30px_80px_var(--shadow)] p-10 backdrop-blur">
@@ -1553,7 +1457,7 @@ const RecipeAnalysis = () => {
                                 }
                             >
                                 {(allowInfluencer && influencers.length === 0) ||
-                                    (allowInfluencerImage && !imageBase64)
+                                (allowInfluencerImage && !imageBase64)
                                     ? allowInfluencerImage
                                         ? '이미지 생성 중...'
                                         : '인플루언서 준비 중...'

@@ -10,15 +10,22 @@ import com.aivle0102.bigproject.dto.ReportRequest;
 import com.aivle0102.bigproject.repository.MarketReportRepository;
 import com.aivle0102.bigproject.repository.UserInfoRepository;
 import com.aivle0102.bigproject.service.AiReportService;
+import com.aivle0102.bigproject.util.ReportSummaryUtils;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
 
 import java.security.Principal;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
+import java.util.List;
 
 @RestController
 @RequiredArgsConstructor
@@ -41,8 +48,7 @@ public class ReportController {
     @GetMapping("/list")
     public ResponseEntity<List<ReportListItemResponse>> list(Principal principal) {
         String userId = principal == null ? null : principal.getName();
-        Long companyId = userId == null ? null
-                : userInfoRepository.findByUserId(userId).map(UserInfo::getCompanyId).orElse(null);
+        Long companyId = resolveCompanyId(userId);
         List<MarketReport> reports = companyId == null
                 ? marketReportRepository.findAllByOrderByCreatedAtDesc()
                 : marketReportRepository.findByRecipe_CompanyIdOrderByCreatedAtDesc(companyId);
@@ -55,12 +61,12 @@ public class ReportController {
             return ResponseEntity.badRequest().build();
         }
         String userId = principal == null ? null : principal.getName();
-        Long companyId = userId == null ? null
-                : userInfoRepository.findByUserId(userId).map(UserInfo::getCompanyId).orElse(null);
-        MarketReport report = marketReportRepository.findWithRecipeById(id).orElse(null);
-        if (report == null) {
+        Long companyId = resolveCompanyId(userId);
+        java.util.Optional<MarketReport> reportOpt = marketReportRepository.findWithRecipeById(id);
+        if (reportOpt.isEmpty()) {
             return ResponseEntity.notFound().build();
         }
+        MarketReport report = reportOpt.get();
         String existingContent = report.getContent();
         log.info("리포트 상세: id={}, type={}, contentLength={}",
                 report.getId(),
@@ -87,44 +93,31 @@ public class ReportController {
     @PostMapping("/final-evaluation")
     public ResponseEntity<FinalEvaluationResponse> finalEvaluation(
             @RequestBody FinalEvaluationRequest request,
-            Principal principal) {
-        if (principal == null) {
-            return ResponseEntity.status(401).build();
-        }
-
-        String userId = principal.getName();
-        log.info("Final evaluation requested by user: {}, reportIds: {}", userId, request.getReportIds());
-
-        if (request.getReportIds() == null || request.getReportIds().isEmpty()) {
+            Principal principal
+    ) {
+        if (request == null || request.getReportIds() == null || request.getReportIds().isEmpty()) {
             return ResponseEntity.badRequest().build();
         }
+        String userId = principal == null ? null : principal.getName();
+        Long companyId = resolveCompanyId(userId);
 
-        // 1. 보고서 목록 조회
-        List<MarketReport> selectedReports = marketReportRepository.findAllById(request.getReportIds());
-        if (selectedReports.isEmpty()) {
-            return ResponseEntity.notFound().build();
+        List<MarketReport> reports = marketReportRepository.findAllById(request.getReportIds());
+        if (companyId != null) {
+            reports = reports.stream()
+                    .filter(report -> report.getRecipe() != null && companyId.equals(report.getRecipe().getCompanyId()))
+                    .toList();
+        }
+        if (reports.isEmpty()) {
+            return ResponseEntity.status(403).build();
         }
 
-        // 2. 각 보고서의 evaluation 필드가 비어있다면 새로 생성
-        recipeService.ensureEvaluationForReports(selectedReports);
+        recipeService.ensureEvaluationForReports(reports);
 
-        // Prepare report inputs for LLM
-        List<Map<String, Object>> reportInputs = selectedReports.stream()
-                .map(report -> {
-                    Map<String, Object> item = new HashMap<>();
-                    item.put("reportId", report.getId());
-                    item.put("recipeId", report.getRecipe() == null ? "" : report.getRecipe().getId());
-                    item.put("recipeTitle", report.getRecipe() == null ? "" : report.getRecipe().getRecipeName());
-                    item.put("summary", safeTrim(report.getSummary(), 1200));
-                    item.put("content", safeTrim(report.getContent(), 2000));
-                    return item;
-                })
-                .toList();
+        List<Map<String, Object>> reportInputs = buildReportInputs(reports);
 
         String content = aiReportService.generateFinalEvaluation(reportInputs);
-        String summary = buildFinalSummary(selectedReports);
-
-        MarketReport targetReport = selectFinalReportTarget(selectedReports, content);
+        String summary = buildFinalSummary(reports);
+        MarketReport targetReport = selectFinalReportTarget(reports, content);
         if (targetReport != null && targetReport.getRecipe() != null) {
             marketReportRepository.save(MarketReport.builder()
                     .recipe(targetReport.getRecipe())
@@ -159,6 +152,17 @@ public class ReportController {
                 counts[1], counts[2], counts[3], counts[4], counts[5], counts[6], counts[7]);
     }
 
+    private Long resolveCompanyId(String userId) {
+        if (userId == null) {
+            return null;
+        }
+        java.util.Optional<UserInfo> userInfo = userInfoRepository.findByUserId(userId);
+        if (userInfo.isEmpty()) {
+            return null;
+        }
+        return userInfo.get().getCompanyId();
+    }
+
     private String safeTrim(String value, int maxLength) {
         if (value == null) {
             return "";
@@ -189,10 +193,13 @@ public class ReportController {
                 return report;
             }
         }
-        return reports.stream()
+        java.util.Optional<MarketReport> fallback = reports.stream()
                 .filter(r -> r != null && r.getRecipe() != null)
-                .findFirst()
-                .orElse(null);
+                .findFirst();
+        if (fallback.isPresent()) {
+            return fallback.get();
+        }
+        return null;
     }
 
     private MarketReport findReportByTitle(List<MarketReport> reports, String title) {
@@ -287,41 +294,33 @@ public class ReportController {
                 .distinct()
                 .toList();
         String meta = String.format("||reports=%s;recipes=%s",
-                joinIds(reportIds),
-                joinIds(recipeIds));
+                ReportSummaryUtils.joinIds(reportIds),
+                ReportSummaryUtils.joinIds(recipeIds)
+        );
         return "비교 보고서: " + String.join(" · ", titles) + " " + meta;
     }
 
-    private String joinIds(List<Long> ids) {
-        if (ids == null || ids.isEmpty()) {
-            return "";
+    private List<Map<String, Object>> buildReportInputs(List<MarketReport> reports) {
+        if (reports == null || reports.isEmpty()) {
+            return List.of();
         }
-        return ids.stream().map(String::valueOf).collect(java.util.stream.Collectors.joining(","));
+        return reports.stream()
+                .map(report -> {
+                    Map<String, Object> item = new HashMap<>();
+                    item.put("reportId", report.getId());
+                    item.put("recipeId", report.getRecipe() == null ? "" : report.getRecipe().getId());
+                    item.put("recipeTitle", report.getRecipe() == null ? "" : report.getRecipe().getRecipeName());
+                    item.put("summary", safeTrim(report.getSummary(), 1200));
+                    item.put("content", safeTrim(report.getContent(), 2000));
+                    return item;
+                })
+                .toList();
     }
 
+
+
     private List<Long> parseReportIdsFromSummary(String summary) {
-        if (summary == null || summary.isBlank()) {
-            return List.of();
-        }
-        int metaIndex = summary.indexOf("||");
-        if (metaIndex < 0) {
-            return List.of();
-        }
-        String meta = summary.substring(metaIndex + 2);
-        for (String token : meta.split(";")) {
-            if (token.startsWith("reports=")) {
-                String ids = token.substring("reports=".length());
-                if (ids.isBlank()) {
-                    return List.of();
-                }
-                return java.util.Arrays.stream(ids.split(","))
-                        .map(String::trim)
-                        .filter(v -> !v.isEmpty())
-                        .map(Long::valueOf)
-                        .toList();
-            }
-        }
-        return List.of();
+        return ReportSummaryUtils.parseReportIds(summary);
     }
 
     private String regenerateFinalContent(MarketReport report, Long companyId) {
@@ -344,17 +343,7 @@ public class ReportController {
                     reportIds);
             return null;
         }
-        List<Map<String, Object>> reportInputs = reports.stream()
-                .map(r -> {
-                    Map<String, Object> item = new HashMap<>();
-                    item.put("reportId", r.getId());
-                    item.put("recipeId", r.getRecipe() == null ? "" : r.getRecipe().getId());
-                    item.put("recipeTitle", r.getRecipe() == null ? "" : r.getRecipe().getRecipeName());
-                    item.put("summary", safeTrim(r.getSummary(), 1200));
-                    item.put("content", safeTrim(r.getContent(), 2000));
-                    return item;
-                })
-                .toList();
+        List<Map<String, Object>> reportInputs = buildReportInputs(reports);
         try {
             return aiReportService.generateFinalEvaluation(reportInputs);
         } catch (Exception e) {

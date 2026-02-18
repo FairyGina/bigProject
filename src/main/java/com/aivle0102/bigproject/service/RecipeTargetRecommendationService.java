@@ -3,6 +3,7 @@ package com.aivle0102.bigproject.service;
 import com.aivle0102.bigproject.client.OpenAiClient;
 import com.aivle0102.bigproject.dto.RecipeTargetRecommendRequest;
 import com.aivle0102.bigproject.dto.RecipeTargetRecommendResponse;
+import com.aivle0102.bigproject.util.OpenAiJsonUtils;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
@@ -112,17 +113,7 @@ public class RecipeTargetRecommendationService {
     }
 
     private Map<String, Object> parseJson(String content) {
-        String trimmed = content == null ? "" : content.trim();
-        String json = trimmed;
-        if (trimmed.startsWith("```")) {
-            json = trimmed.replaceFirst("^```[a-zA-Z]*\\s*", "");
-            json = json.replaceFirst("\\s*```$", "");
-        }
-        int start = json.indexOf('{');
-        int end = json.lastIndexOf('}');
-        if (start >= 0 && end > start) {
-            json = json.substring(start, end + 1);
-        }
+        String json = OpenAiJsonUtils.extractJsonBlock(content, '{', '}');
         try {
             return objectMapper.readValue(json, new TypeReference<>() {});
         } catch (Exception e) {

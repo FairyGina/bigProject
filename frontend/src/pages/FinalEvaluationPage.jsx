@@ -1,6 +1,8 @@
 ﻿import React, { useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import axiosInstance from '../axiosConfig';
+import { FINAL_EVAL_HIGHLIGHT_TOKENS } from '../constants/finalEvaluation';
+import { useEvaluationScores } from '../hooks/useEvaluationScores';
 
 const PALETTE = [
     '#2ECC40', // green
@@ -15,14 +17,11 @@ const PALETTE = [
     '#111111', // black
 ];
 
-// UI components
 const FinalEvaluationPage = () => {
     const location = useLocation();
     const navigate = useNavigate();
     const result = location.state?.result;
     const selectedReports = location.state?.selectedReports || [];
-    const [scoreData, setScoreData] = useState([]);
-    const [scoreLoading, setScoreLoading] = useState(false);
     const [detailResult, setDetailResult] = useState(null);
 
     const summaryParts = useMemo(() => {
@@ -36,14 +35,6 @@ const FinalEvaluationPage = () => {
     const summaryMeta = summaryParts[1] || '';
 
     useEffect(() => {
-        if (!result) {
-            return;
-        }
-        const payload = typeof result?.content === 'string' ? result.content : result;
-        console.log('[FinalEvaluation] 보고서 내용 미리보기:', String(payload).slice(0, 4000));
-    }, [result]);
-
-    useEffect(() => {
         const fetchDetail = async () => {
             if (!result?.reportId) {
                 return;
@@ -52,7 +43,7 @@ const FinalEvaluationPage = () => {
                 return;
             }
             try {
-                const res = await axiosInstance.get(`/report/${result.reportId}`);
+                const res = await axiosInstance.get(`/api/report/${result.reportId}`);
                 setDetailResult(res.data || null);
             } catch (err) {
                 console.error('최종 보고서 상세를 불러오지 못했습니다.', err);
@@ -103,91 +94,7 @@ const FinalEvaluationPage = () => {
         return recipeIdsFromSummary;
     }, [selectedReports, recipeIdsFromSummary]);
 
-    useEffect(() => {
-        const fetchScores = async () => {
-            if (!reportIds.length && !recipeIds.length) {
-                return;
-            }
-            try {
-                setScoreLoading(true);
-                const buildScoreData = (results) =>
-                    results
-                        .map((resultItem, index) => {
-                            if (!resultItem || resultItem.status !== 'fulfilled') {
-                                return null;
-                            }
-                            const res = resultItem.value;
-                            const data = res.data || {};
-                            const evaluations = data.report?.evaluationResults || [];
-                            const totalCount = evaluations.length || 1;
-                            const sums = evaluations.reduce(
-                                (acc, item) => {
-                                    acc.total += Number(item.totalScore || 0);
-                                    acc.taste += Number(item.tasteScore || 0);
-                                    acc.price += Number(item.priceScore || 0);
-                                    acc.health += Number(item.healthScore || 0);
-                                    return acc;
-                                },
-                                { total: 0, taste: 0, price: 0, health: 0 }
-                            );
-                            return {
-                                recipeId: data.recipeId || data.id,
-                                title: data.recipeTitle || data.title || selectedReports[index]?.recipeTitle || `레시피 ${index + 1}`,
-                                scores: [
-                                    Math.round(sums.total / totalCount),
-                                    Math.round(sums.taste / totalCount),
-                                    Math.round(sums.price / totalCount),
-                                    Math.round(sums.health / totalCount),
-                                ],
-                                countryScores: Array.isArray(data.report?.evaluationResults)
-                                    ? data.report.evaluationResults
-                                        .map((item) => ({
-                                            country: item?.country,
-                                            totalScore: Number(item?.totalScore),
-                                            tasteScore: Number(item?.tasteScore),
-                                            priceScore: Number(item?.priceScore),
-                                            healthScore: Number(item?.healthScore),
-                                        }))
-                                        .filter((item) => item.country)
-                                    : [],
-                            };
-                        })
-                        .filter(Boolean);
-
-                const hasEvaluation = (scoreItems) =>
-                    scoreItems.some(
-                        (item) =>
-                            item.scores.some((value) => value > 0) ||
-                            (item.countryScores && item.countryScores.length > 0)
-                    );
-
-                if (reportIds.length) {
-                    const results = await Promise.allSettled(
-                        reportIds.map((id) => axiosInstance.get(`/report/${id}`))
-                    );
-                    const mapped = buildScoreData(results);
-                    setScoreData(mapped);
-                    if (!hasEvaluation(mapped) && recipeIds.length) {
-                        const fallback = await Promise.allSettled(
-                            recipeIds.map((id) => axiosInstance.get(`/recipes/${id}`))
-                        );
-                        setScoreData(buildScoreData(fallback));
-                    }
-                } else if (recipeIds.length) {
-                    const results = await Promise.allSettled(
-                        recipeIds.map((id) => axiosInstance.get(`/recipes/${id}`))
-                    );
-                    setScoreData(buildScoreData(results));
-                }
-            } catch (err) {
-                console.error('평가 점수 정보를 불러오지 못했습니다.', err);
-            } finally {
-                setScoreLoading(false);
-            }
-        };
-
-        fetchScores();
-    }, [reportIds, recipeIds, selectedReports]);
+    const { scoreData, scoreLoading } = useEvaluationScores({ reportIds, recipeIds, selectedReports });
 
     if (!result) {
         return (
@@ -266,20 +173,7 @@ const FinalEvaluationPage = () => {
     const priceSeries = buildSeries('priceScore');
     const healthSeries = buildSeries('healthScore');
     const reportLines = useMemo(() => contentText.split('\n'), [contentText]);
-    const highlightTokens = useMemo(
-        () => [
-            '최종 추천 레시피',
-            '선택 이유',
-            '비교 요약',
-            '리스크 및 보완 제안',
-            '다음 실행 단계',
-            '- 장점',
-            '- 리스크',
-            '- 시장성',
-            '- 차별성',
-        ],
-        []
-    );
+    const highlightTokens = useMemo(() => FINAL_EVAL_HIGHLIGHT_TOKENS, []);
     const renderReportLine = (line, index) => {
         if (line === '') {
             return (
@@ -461,7 +355,6 @@ const FinalEvaluationPage = () => {
     );
 };
 
-// Utilities
 const BAR_CHART_WIDTH = 520;
 const BAR_CHART_HEIGHT = 220;
 const BAR_CHART_PADDING = { top: 18, right: 16, bottom: 42, left: 40 };
@@ -515,7 +408,7 @@ const BarChart = ({ title, categories, series }) => {
     );
 
     return (
-        <div className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface)] p-4">
+        <div className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface-muted)] p-4">
             <div className="flex flex-col gap-2 mb-3">
                 <p className="text-sm font-semibold text-[color:var(--text)]">{title}</p>
                 <div className="flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-[color:var(--text-muted)]">
@@ -602,7 +495,7 @@ const BarChart = ({ title, categories, series }) => {
                                             height={h}
                                             rx="3"
                                             fill={line.color}
-                                            opacity="1.0"
+                                            opacity="0.9"
                                         />
                                     );
                                 })}
@@ -662,7 +555,6 @@ const normalizeReportContent = (value) => {
             .join('\n');
     }
     if (typeof value === 'object') {
-        // Backend 응답 포맷이 섞여 들어오는 경우를 흡수
         if (typeof value.content === 'string') {
             return value.content.trim();
         }

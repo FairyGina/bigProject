@@ -73,16 +73,13 @@ public class InfluencerImageGenerationService {
             @Override public String getFilename() { return "influencer.png"; }
         });
 
-        // size: GPT 이미지 모델 지원 크기 1024x1024/1536x1024/1024x1536/auto
         form.add("size", "1024x1024");
 
-        // GPT 이미지 모델은 response_format 미지원 (b64_json 대신 output_format 사용)
         boolean isGptImageModel = imageModel != null && imageModel.startsWith("gpt-image-");
         if (!isGptImageModel) {
             // dall-e-2는 response_format=b64_json 필요
             form.add("response_format", "b64_json");
         } else {
-            // GPT 이미지 모델: output_format 사용(png/jpeg/webp)
             form.add("output_format", "png");
         }
 
@@ -94,7 +91,6 @@ public class InfluencerImageGenerationService {
                 .bodyToMono(Map.class)
                 .block();
 
-        // OpenAI Images 응답: { data: [ { b64_json: "..." } ], ... }
         String b64 = extractB64(res);
         return new ImageGenerateResponse(
                 b64,
@@ -221,7 +217,6 @@ public class InfluencerImageGenerationService {
         boolean isWebp = bytes.length > 12 && bytes[0] == 'R' && bytes[1] == 'I' && bytes[2] == 'F' && bytes[3] == 'F'
                 && bytes[8] == 'W' && bytes[9] == 'E' && bytes[10] == 'B' && bytes[11] == 'P';
 
-        // GPT image edits 지원 포맷: png/webp/jpg
         if (!isJpeg && !isPng && !isWebp) {
             String head = new String(bytes, 0, Math.min(200, bytes.length), StandardCharsets.UTF_8);
             throw new RuntimeException("다운로드한 파일이 JPG/PNG/WEBP 형식이 아닙니다. head=" + head);

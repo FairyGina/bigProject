@@ -1,14 +1,15 @@
-import React from 'react';
+﻿import React from 'react';
 import { motion } from 'framer-motion';
 import { LayoutDashboard, Users, Settings, Activity, ChevronRight } from 'lucide-react';
 import GlassCard from '../components/common/GlassCard';
+import { getStoredUserName } from '../utils/user';
 
 // 대시보드 페이지
 const Dashboard = () => {
     const [userName, setUserName] = React.useState('사용자');
 
     React.useEffect(() => {
-        const storedName = sessionStorage.getItem('userName') || localStorage.getItem('userName');
+        const storedName = getStoredUserName(null, '');
         if (storedName) {
             setUserName(storedName);
         }

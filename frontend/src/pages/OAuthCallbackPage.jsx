@@ -1,9 +1,11 @@
-import React, { useEffect, useRef, useState } from 'react';
+﻿import React, { useEffect, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import GlassCard from '../components/common/GlassCard';
 import ThemeToggle from '../components/common/ThemeToggle';
 import { useAuth } from '../context/AuthContext';
+import { readFromStorage, removeFromStorages } from '../utils/storage';
+import { storeUserIdentity } from '../utils/user';
 
 const OAuthCallbackPage = () => {
     const { login } = useAuth();
@@ -18,11 +20,11 @@ const OAuthCallbackPage = () => {
             return;
         }
 
-        const storedFlow = sessionStorage.getItem('oauthFlow');
+        const storedFlow = readFromStorage('oauthFlow');
         const flowValue = storedFlow || flow;
         if (storedFlow) {
             setFlow(storedFlow);
-            sessionStorage.removeItem('oauthFlow');
+            removeFromStorages('oauthFlow');
         }
 
         const params = new URLSearchParams(location.search);
@@ -72,12 +74,7 @@ const OAuthCallbackPage = () => {
 
         handledRef.current = true;
         login(token, userId || extractedName ? { userId, userName: extractedName } : {});
-        if (extractedName) {
-            sessionStorage.setItem('userName', extractedName);
-        }
-        if (userId) {
-            sessionStorage.setItem('userId', userId);
-        }
+        storeUserIdentity({ userName: extractedName, userId });
         if (flowValue === 'signup' || isNewUser) {
             alert('회원가입이 완료되었습니다.');
         }

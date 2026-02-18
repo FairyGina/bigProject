@@ -1,13 +1,14 @@
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
+import { getStoredUserName, maskUserName } from '../utils/user';
 import { useNavigate } from 'react-router-dom';
 import axiosInstance from '../axiosConfig';
 
 const MainBoard = () => {
     const { user } = useAuth();
     const navigate = useNavigate();
-    const rawName = user?.userName || sessionStorage.getItem('userName') || localStorage.getItem('userName') || '게스트';
-    const maskedName = rawName.length <= 1 ? '*' : `${rawName.slice(0, -1)}*`;
+    const rawName = getStoredUserName(user, '게스트');
+    const maskedName = maskUserName(rawName);
 
     const [recipes, setRecipes] = useState([]);
     const [searchTerm, setSearchTerm] = useState('');
@@ -18,7 +19,7 @@ const MainBoard = () => {
         const fetchRecipes = async () => {
             try {
                 setLoading(true);
-                const res = await axiosInstance.get('/recipes');
+                const res = await axiosInstance.get('/api/recipes');
                 setRecipes(res.data || []);
             } catch (err) {
                 console.error('레시피 목록을 불러오지 못했습니다', err);
