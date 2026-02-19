@@ -764,19 +764,6 @@ async def analyze(country: str = Query(...), item: str = Query(...)):
         filtered['period_str'] = filtered['period_str'].apply(normalize_period)
         filtered = filtered.sort_values('period_str')
 
-        # [추가] 중요 컬럼에 대해 명시적 숫자형 변환 (에러 방지)
-        numeric_targets = ['export_value', 'export_weight', 'unit_price', 'exchange_rate', 'gdp_level', 'gdp_growth', 'cpi']
-        for col in numeric_targets:
-            if col in filtered.columns:
-                filtered[col] = pd.to_numeric(filtered[col], errors='coerce').fillna(0)
-        
-        # [Fix] gdp_growth 컬럼이 없을 경우 gdp_level 기반으로 계산 시도 (Fallback)
-        if 'gdp_growth' not in filtered.columns and 'gdp_level' in filtered.columns:
-            # gdp_level이 0이 아닌 값들에 대해 pct_change 계산
-            # (주의: 데이터가 정렬되어 있어야 함 - 위에서 sort_values 완료됨)
-            filtered['gdp_growth'] = filtered['gdp_level'].pct_change().fillna(0) * 100
-            print("⚠️ [Analyze] gdp_growth derived from gdp_level", flush=True)
-
     # ---------------------------------------------------------
     # Chart 1: Trend Stack (수출액 + 환율 증감률 + GDP 증감률)
     # ---------------------------------------------------------
@@ -784,7 +771,7 @@ async def analyze(country: str = Query(...), item: str = Query(...)):
     titles = [f"📊 {country_name} {item} 수출액 추이", f"💱 {country_name} 환율 증감률 (%)"]
     if 'gdp_level' in filtered.columns:
         rows = 3
-        titles.append(f"📈 {country_name} GDP 성장률 (%)")
+        titles.append(f"📈 {country_name} GDP 증감률 (MoM %)")
         
     import plotly.express as px
     import plotly.graph_objects as go
@@ -868,31 +855,27 @@ async def analyze(country: str = Query(...), item: str = Query(...)):
     except:
         pass
     
-    # Row 3: GDP 성장률 (단순 시계열 시각화)
-    # Row 3: GDP 성장률 (단순 시계열 시각화)
+    # Row 3: GDP 증감률 수정
     if rows == 3:
-        try:
-            # [Fix] gdp_growth 컬럼 존재 여부 및 데이터 유효성 재확인
-            if 'gdp_growth' in filtered.columns:
-                 # 해당 국가의 전체 GDP 성장률 데이터 가져오기 (중복 제거 및 정렬)
-                # filtered는 이미 period_str로 정렬되어 있음
-                gdp_full = filtered[['period_str', 'gdp_growth']].copy()
-                gdp_full = gdp_full.drop_duplicates('period_str').sort_values('period_str')
+        # [수정] 품목 필터링과 무관하게 해당 국가의 전체 GDP 시계열 확보 (2025년 끊김 방지)
+        # filtered 데이터에는 이미 gdp_level이 있으나, 해당 품목이 특정 월에 없을 수도 있음.
+        # on-demand 모드에서는 filtered가 이미 DB에서 쿼리된 결과이므로, 별도로 GDP 전체 데이터를 쿼리하지 않으면
+        # 누락된 기간이 있을 수 있음. 하지만 SQL에서 period_str 순으로 가져왔으므로 기본적으로는 연속적일 것임.
+        # 만약 전체 기간 GDP가 필요하다면 별도 쿼리가 필요하나, 여기서는 filtered 내의 정보로 우선 처리.
+        # (개선: 필요시 별도 쿼리)
+        
+        gdp_series = filtered['gdp_level'].replace(to_replace=0, method='ffill')
+        
+        # 선형 보간 (Linear Interpolation)
+        gdp_interpolated = gdp_series.interpolate(method='linear', limit_direction='both')
 
-                # 단순 라인 차트 추가
-                fig_stack.add_trace(go.Scatter(
-                    x=gdp_full['period_str'], 
-                    y=gdp_full['gdp_growth'], 
-                    name="GDP 성장률",
-                    mode='lines+markers',  # 데이터 포인트 확인을 위해 마커 추가
-                    line=dict(color='#10b981', width=2),
-                    hovertemplate='%{x}<br>GDP 성장률: %{y:.2f}%<extra></extra>'
-                ), row=3, col=1)
-            else:
-                 print("⚠️ [Analyze] gdp_growth column missing in filtered data", flush=True)
-        except Exception as e:
-            print(f"❌ [Analyze] Error generating GDP chart: {e}", flush=True)
-            # 차트 생성 실패시에도 전체 500 에러를 방지하고, 해당 트레이스만 건너뜀
+        fig_stack.add_trace(go.Scatter(
+            x=filtered['period_str'], 
+            y=gdp_interpolated, 
+            name="GDP",
+            line=dict(color='#10b981', width=2, dash='dot'),
+            hovertemplate='%{x}<br>GDP: %{y:,.0f}<extra></extra>'
+        ), row=3, col=1)
 
     fig_stack.update_layout(
         height=600 if rows == 3 else 450, 
