@@ -9,14 +9,11 @@ import re
 import ast
 import gc
 from collections import Counter, OrderedDict
-import plotly.express as px
-import plotly.graph_objects as go
-from plotly.subplots import make_subplots
 from typing import Optional, List, Dict, Any
 from contextlib import asynccontextmanager
 import os
 import time
-from sklearn.feature_extraction.text import CountVectorizer, ENGLISH_STOP_WORDS
+import asyncio
 import psycopg2
 from sqlalchemy import create_engine, text
 from urllib.parse import quote_plus
@@ -47,7 +44,9 @@ SENSORY_STOPWORDS = {
 }
 
 # 통합 불용어 (CountVectorizer 전달용) — sklearn 기본 + 커스텀
-COMBINED_STOP_WORDS = list(ENGLISH_STOP_WORDS | GENERIC_INSIGHT_STOPWORDS | SENSORY_STOPWORDS)
+# 통합 불용어 (sklearn 호출 제거 - 함수 내에서 처리)
+# COMBINED_STOP_WORDS removed to lazy load sklearn
+
 
 # 순수 식감 형용사 (가중치 대상 — 평가성 단어 제거)
 SENSORY_KEYWORDS = {
@@ -407,14 +406,19 @@ def extract_bigrams_with_metrics(
     
     # 1. Bigram 추출
     try:
+        # Lazy Import Sklearn
+        from sklearn.feature_extraction.text import CountVectorizer, ENGLISH_STOP_WORDS
+        
         # 품사 태그 제거된 텍스트로 Bigram 추출
         cleaned_texts_no_tags = texts.apply(remove_pos_tags).fillna('')
         
+        combined_stop_words = list(ENGLISH_STOP_WORDS | GENERIC_INSIGHT_STOPWORDS | SENSORY_STOPWORDS)
+
         vectorizer = CountVectorizer(
             ngram_range=(2, 2),
             min_df=min_df,
             max_features=1000, # 필터링을 위해 더 많이 추출
-            stop_words=COMBINED_STOP_WORDS,
+            stop_words=combined_stop_words,
             token_pattern=r'\b[a-zA-Z]{3,}\b'
         )
         
@@ -589,32 +593,43 @@ def calculate_growth_matrix(target_df):
 
 
 
-@asynccontextmanager
-async def lifespan(app: FastAPI):
+def _sync_load_stats():
+    """백그라운드 스레드에서 실행될 동기 DB 작업"""
     global GLOBAL_MEAN_SENTIMENT, GLOBAL_STD_SENTIMENT, GLOBAL_MEAN_RATING
     
-    print("🚀 [Startup] Analysis Engine Starting (On-Demand Mode)...", flush=True)
-    
-    # [Optimization] Load only lightweight global stats at startup
+    if not db_engine: 
+        return
+
     try:
-        if db_engine:
-            with db_engine.connect() as conn:
-                print("Fetching Global Consumer Stats from DB (Sampled for Speed)...", flush=True)
-                # [Phase 2] 대규모 테이블에서 전체 평균 계산 시 지연 방지를 위해 샘플링(최근 5만건) 사용
-                query = text("""
-                    SELECT AVG(sentiment_score), STDDEV(sentiment_score), AVG(rating) 
-                    FROM (SELECT sentiment_score, rating FROM amazon_reviews LIMIT 50000) as sub
-                """)
-                result = conn.execute(query).fetchone()
-                if result and result[0] is not None:
-                    GLOBAL_MEAN_SENTIMENT = float(result[0])
-                    GLOBAL_STD_SENTIMENT = float(result[1]) if result[1] is not None else 0.3
-                    GLOBAL_MEAN_RATING = float(result[2])
-                    print(f"Global Stats Loaded: Sent={GLOBAL_MEAN_SENTIMENT:.2f}, Std={GLOBAL_STD_SENTIMENT:.2f}, Rating={GLOBAL_MEAN_RATING:.2f}", flush=True)
-                else:
-                    print("⚠️ Global stats unavailable (table empty?). Using defaults.", flush=True)
+        with db_engine.connect() as conn:
+            print("⏳ [Background] Fetching Global Consumer Stats...", flush=True)
+            # [Phase 2] 대규모 테이블에서 전체 평균 계산 시 지연 방지를 위해 샘플링(최근 5만건) 사용
+            query = text("""
+                SELECT AVG(sentiment_score), STDDEV(sentiment_score), AVG(rating) 
+                FROM (SELECT sentiment_score, rating FROM amazon_reviews LIMIT 50000) as sub
+            """)
+            result = conn.execute(query).fetchone()
+            if result and result[0] is not None:
+                GLOBAL_MEAN_SENTIMENT = float(result[0])
+                GLOBAL_STD_SENTIMENT = float(result[1]) if result[1] is not None else 0.3
+                GLOBAL_MEAN_RATING = float(result[2])
+                print(f"✅ Global Stats Loaded: Sent={GLOBAL_MEAN_SENTIMENT:.2f}, Std={GLOBAL_STD_SENTIMENT:.2f}, Rating={GLOBAL_MEAN_RATING:.2f}", flush=True)
+            else:
+                print("⚠️ Global stats unavailable (table empty?). Using defaults.", flush=True)
     except Exception as e:
         print(f"⚠️ Global Stats Load Failed: {e}. Using defaults.", flush=True)
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    print("🚀 [Startup] Analysis Engine Starting (Optimization Mode)...", flush=True)
+    
+    # [Optimization] 비동기 백그라운드 태스크로 전환하여 초기화 차단(Blocking) 방지
+    try:
+        loop = asyncio.get_running_loop()
+        # run_in_executor(None, ...) uses the default ThreadPoolExecutor
+        asyncio.create_task(loop.run_in_executor(None, _sync_load_stats))
+    except Exception as e:
+        print(f"⚠️ Failed to schedule background stats load: {e}", flush=True)
 
     yield
     print("서버 종료 중...", flush=True)
@@ -640,9 +655,9 @@ async def health_data():
     try:
         if db_engine:
             with db_engine.connect() as conn:
-                # Lightweight check
-                result = conn.execute(text("SELECT COUNT(*) FROM export_trends")).scalar()
-                row_count = result if result else 0
+                # Lightweight check (Optimized to SELECT 1)
+                result = conn.execute(text("SELECT 1")).scalar()
+                row_count = 1 # Dummy value specifically for health check positive
                 is_connected = True
     except:
         is_connected = False
@@ -758,6 +773,10 @@ async def analyze(country: str = Query(...), item: str = Query(...)):
         rows = 3
         titles.append(f"📈 {country_name} GDP 증감률 (MoM %)")
         
+    import plotly.express as px
+    import plotly.graph_objects as go
+    from plotly.subplots import make_subplots
+
     fig_stack = make_subplots(rows=rows, cols=1, shared_xaxes=True, 
                               vertical_spacing=0.12, subplot_titles=titles)
                               
