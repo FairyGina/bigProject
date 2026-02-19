@@ -769,6 +769,13 @@ async def analyze(country: str = Query(...), item: str = Query(...)):
         for col in numeric_targets:
             if col in filtered.columns:
                 filtered[col] = pd.to_numeric(filtered[col], errors='coerce').fillna(0)
+        
+        # [Fix] gdp_growth 컬럼이 없을 경우 gdp_level 기반으로 계산 시도 (Fallback)
+        if 'gdp_growth' not in filtered.columns and 'gdp_level' in filtered.columns:
+            # gdp_level이 0이 아닌 값들에 대해 pct_change 계산
+            # (주의: 데이터가 정렬되어 있어야 함 - 위에서 sort_values 완료됨)
+            filtered['gdp_growth'] = filtered['gdp_level'].pct_change().fillna(0) * 100
+            print("⚠️ [Analyze] gdp_growth derived from gdp_level", flush=True)
 
     # ---------------------------------------------------------
     # Chart 1: Trend Stack (수출액 + 환율 증감률 + GDP 증감률)
