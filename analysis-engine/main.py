@@ -1186,6 +1186,7 @@ def generate_business_insights(df):
     """
     검색된 데이터(df)를 기반으로 비즈니스 의사결정용 심화 차트 4종을 생성합니다.
     """
+    import plotly.express as px
     charts = {}
 
     # [차트 1] 평점 vs 실제 감성 점수 비교 (Review Reliability)
@@ -1372,6 +1373,11 @@ def get_cache(key):
 
 @app.get("/analyze/consumer")
 async def analyze_consumer(item_id: str = Query(None, description="ASIN"), item_name: str = Query(None, description="제품명/키워드")):
+    
+    # Lazy Import for Performance
+    import plotly.express as px
+    import plotly.graph_objects as go
+    from sklearn.feature_extraction.text import CountVectorizer, ENGLISH_STOP_WORDS
 
     # 0. LRU 캐시 조회
     cache_key = f"{item_id}_{item_name}"
@@ -2180,6 +2186,8 @@ async def dashboard():
     """
     if not db_engine:
         return {"has_data": False, "error": "DB Engine Not Initialized"}
+
+    import plotly.express as px
 
     try:
         with db_engine.connect() as conn:
