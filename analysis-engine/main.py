@@ -862,21 +862,30 @@ async def analyze(country: str = Query(...), item: str = Query(...)):
         pass
     
     # Row 3: GDP 성장률 (단순 시계열 시각화)
+    # Row 3: GDP 성장률 (단순 시계열 시각화)
     if rows == 3:
-        # 해당 국가의 전체 GDP 성장률 데이터 가져오기 (중복 제거 및 정렬)
-        # filtered는 이미 period_str로 정렬되어 있음
-        gdp_full = filtered[['period_str', 'gdp_growth']].copy()
-        gdp_full = gdp_full.drop_duplicates('period_str').sort_values('period_str')
+        try:
+            # [Fix] gdp_growth 컬럼 존재 여부 및 데이터 유효성 재확인
+            if 'gdp_growth' in filtered.columns:
+                 # 해당 국가의 전체 GDP 성장률 데이터 가져오기 (중복 제거 및 정렬)
+                # filtered는 이미 period_str로 정렬되어 있음
+                gdp_full = filtered[['period_str', 'gdp_growth']].copy()
+                gdp_full = gdp_full.drop_duplicates('period_str').sort_values('period_str')
 
-        # 단순 라인 차트 추가
-        fig_stack.add_trace(go.Scatter(
-            x=gdp_full['period_str'], 
-            y=gdp_full['gdp_growth'], 
-            name="GDP 성장률",
-            mode='lines+markers',  # 데이터 포인트 확인을 위해 마커 추가
-            line=dict(color='#10b981', width=2),
-            hovertemplate='%{x}<br>GDP 성장률: %{y:.2f}%<extra></extra>'
-        ), row=3, col=1)
+                # 단순 라인 차트 추가
+                fig_stack.add_trace(go.Scatter(
+                    x=gdp_full['period_str'], 
+                    y=gdp_full['gdp_growth'], 
+                    name="GDP 성장률",
+                    mode='lines+markers',  # 데이터 포인트 확인을 위해 마커 추가
+                    line=dict(color='#10b981', width=2),
+                    hovertemplate='%{x}<br>GDP 성장률: %{y:.2f}%<extra></extra>'
+                ), row=3, col=1)
+            else:
+                 print("⚠️ [Analyze] gdp_growth column missing in filtered data", flush=True)
+        except Exception as e:
+            print(f"❌ [Analyze] Error generating GDP chart: {e}", flush=True)
+            # 차트 생성 실패시에도 전체 500 에러를 방지하고, 해당 트레이스만 건너뜀
 
     fig_stack.update_layout(
         height=600 if rows == 3 else 450, 
