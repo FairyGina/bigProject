@@ -31,8 +31,6 @@ public class PersonaService {
 
         String response = openAiClient.chatCompletion(body);
 
-        // System.out.println("파싱이 이상하다 뭐지..." + response);
-
         return parseMultiCountryResult(response);
     }
 

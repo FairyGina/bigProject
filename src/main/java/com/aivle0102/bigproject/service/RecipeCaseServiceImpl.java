@@ -37,10 +37,6 @@ public class RecipeCaseServiceImpl implements RecipeCaseService {
 
     @Override
     public RecipeCaseResponse findCases(RecipeCaseRequest request) {
-        // System.out.println("========== EXPORT RISK DEBUG ==========");
-        // System.out.println("[RAW REQUEST RECIPE] = " + request.getRecipe());
-        // System.out.println("[RECIPE ID] = " + request.getRecipeId());
-
         List<SearchRow> searchRows = getSearchRows();
         Map<String, InfoRow> infoByCaseId = getInfoByCaseId();
 
@@ -64,9 +60,6 @@ public class RecipeCaseServiceImpl implements RecipeCaseService {
                 if (info == null)
                     continue;
 
-                // System.out.println("[MATCH - PRODUCT] product="
-                // + parsed.productName + " / keyword=" + row.ingredientKeyword
-                // + " / caseId=" + info.caseId);
                 addCase(productCases, toSave, request.getRecipeId(), info, row.ingredientKeyword);
             }
         }
@@ -87,9 +80,6 @@ public class RecipeCaseServiceImpl implements RecipeCaseService {
                 if (info == null)
                     continue;
 
-                // System.out.println("[MATCH - INGREDIENT] ingredient="
-                // + ingredient + " / keyword=" + row.ingredientKeyword
-                // + " / caseId=" + info.caseId);
                 addCase(cases, toSave, request.getRecipeId(), info, row.ingredientKeyword);
             }
 
@@ -98,10 +88,6 @@ public class RecipeCaseServiceImpl implements RecipeCaseService {
                     .cases(cases)
                     .build());
         }
-
-        // if (!toSave.isEmpty()) {
-        // recipeNonconformingCaseRepository.saveAll(toSave);
-        // }
 
         return RecipeCaseResponse.builder()
                 .productCases(ProductCases.builder()
@@ -163,9 +149,6 @@ public class RecipeCaseServiceImpl implements RecipeCaseService {
 
         // 🔥 재료 정제 유틸 사용
         List<String> ingredients = RecipeIngredientExtractor.extractIngredients(right);
-
-        // System.out.println("[EXPORT RISK] product = " + product);
-        // System.out.println("[EXPORT RISK] ingredients = " + ingredients);
 
         return new ParsedRecipe(product, ingredients);
     }

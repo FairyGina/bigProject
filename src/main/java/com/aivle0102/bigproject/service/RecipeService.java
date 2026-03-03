@@ -866,8 +866,6 @@ public class RecipeService {
         if (evalReport != null) {
             reportMap.put("evaluationResults", readEvaluationResults(evalReport));
         }
-        // System.out.println("🔥 [EXPORT] recipeId = " + recipe.getId());
-        // System.out.println("🔥 [EXPORT] ingredients = " + ingredientNames);
 
         RecipeCaseRequest req = new RecipeCaseRequest();
         req.setRecipeId(recipe.getId());

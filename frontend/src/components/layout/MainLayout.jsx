@@ -26,14 +26,11 @@ const MainLayout = ({ children }) => {
             try {
                 // 1. Chatbot 컨테이너 Warm-up (no-cors: CORS 에러 무시, 단순 wake-up 목적)
                 fetch(chatbotBaseUrl, { mode: 'no-cors' }).catch(() => { });
-                console.log('[Warm-up] Chatbot 컨테이너 wake-up 요청 전송');
 
                 // 2. Analysis Engine 컨테이너 Warm-up (백엔드 프록시 경유)
                 axiosInstance.get('/analysis/items').catch(() => { });
-                console.log('[Warm-up] Analysis Engine 컨테이너 wake-up 요청 전송');
             } catch (e) {
                 // Warm-up 실패는 무시 — 사용자 경험에 영향 없음
-                console.log('[Warm-up] 컨테이너 warm-up 중 오류 (무시):', e);
             }
         };
 

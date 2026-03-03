@@ -159,12 +159,10 @@ const RecipeAnalysis = () => {
             // 환경 변수에 키가 없으면 백엔드에서 가져오기 시도
             if (!key) {
                 try {
-                    console.log('[MAP] Attempting to fetch Google Maps API key from backend...');
                     const res = await axiosInstance.get('/evaluation/maps-key');
                     if (res.data?.apiKey) {
                         key = res.data.apiKey;
                         setMapsApiKey(key);
-                        console.log('[MAP] Google Maps API key fetched from backend successfully.');
                     }
                 } catch (err) {
                     console.error('[MAP] Failed to fetch Google Maps API key from backend:', err);
@@ -172,7 +170,6 @@ const RecipeAnalysis = () => {
             }
 
             if (!key) {
-                console.error('[MAP] Google Maps API key is missing (both VITE_ env and backend).');
                 setMapError('Google Maps API 키가 없습니다.');
                 return;
             }
@@ -272,11 +269,6 @@ const RecipeAnalysis = () => {
         setIngredientCases(nextIngredientCases);
     }, [recipe]);
 
-    useEffect(() => {
-        console.log('[EXPORT] exportRisks', recipe?.report?.exportRisks);
-        console.log('[EXPORT] productCases', productCases.length, productCases);
-        console.log('[EXPORT] ingredientCases', ingredientCases.length, ingredientCases);
-    }, [recipe, productCases, ingredientCases]);
 
     useEffect(() => {
         const fetchInfluencers = async () => {

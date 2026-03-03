@@ -39,8 +39,6 @@ const FinalEvaluationPage = () => {
         if (!result) {
             return;
         }
-        const payload = typeof result?.content === 'string' ? result.content : result;
-        console.log('[FinalEvaluation] 보고서 내용 미리보기:', String(payload).slice(0, 4000));
     }, [result]);
 
     useEffect(() => {
